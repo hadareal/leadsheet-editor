@@ -379,9 +379,8 @@
     .topbar, .toolbar, #toast, #backdrop, #sheet{ display:none !important; }
     .chart-scroll{ overflow:visible !important; padding:0; height:auto !important; }
     .chart-card{ border:none; }
-    .beat-hint, .add-bar, .empty-hint{ display:none !important; }
+    .add-bar, .empty-hint{ display:none !important; }
   }
-  body.exporting .beat-hint,
   body.exporting .add-bar,
   body.exporting .empty-hint{
     display:none !important;
@@ -803,8 +802,6 @@ function renderBarEl(item){
       c.innerHTML = chordInnerHtml(chord);
       slot.appendChild(c);
       slot.addEventListener('pointerdown', (e)=>slotPointerDown(e, item, beatIdx, div));
-    } else if(item.chords.length < MAX_CHORDS_PER_BAR){
-      slot.innerHTML = '<span class="beat-hint" style="color:#dedad0;font-size:11px;font-family:Helvetica,Arial,sans-serif;">+</span>';
     }
     slot.onclick=(e)=>{
       e.stopPropagation();
