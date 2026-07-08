@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lead Sheet Editor</title>
+<style>
+  :root{
+    --header-bg:#1c1c1e;
+    --header-fg:#f2f2f4;
+    --header-sub:#9a9a9e;
+    --accent:#4da3ff;
+    --paper:#efece4;
+    --card:#ffffff;
+    --card-border:#d8d4c8;
+    --ink:#1c1c1c;
+    --ink-soft:#6b6a66;
+    --pen:#25409e;
+    --danger:#c0453f;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:Georgia,'Times New Roman',serif;
+    background:#d9d5c8;
+    display:flex;
+    justify-content:center;
+    overflow:hidden;
+  }
+  #app{
+    width:100%;
+    max-width:430px;
+    height:100vh;
+    height:100dvh;
+    background:var(--paper);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    box-shadow:0 0 24px rgba(0,0,0,.25);
+  }
+
+  /* ===== Header ===== */
+  .topbar{
+    background:var(--header-bg);
+    color:var(--header-fg);
+    flex:0 0 auto;
+    padding:8px 12px 10px;
+    font-family:Helvetica,Arial,sans-serif;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .topbar .back{color:var(--accent);font-size:15px;flex:0 0 auto;cursor:pointer;}
+  .topbar .titlewrap{flex:1 1 auto;text-align:center;min-width:0;cursor:pointer;}
+  .topbar .title{font-size:15px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .topbar .sub{font-size:10.5px;color:var(--header-sub);margin-top:1px;}
+  .topbar .icon{color:var(--accent);font-size:16px;flex:0 0 auto;padding:2px 4px;cursor:pointer;}
+
+  /* ===== Chart scroll area ===== */
+  .chart-scroll{
+    flex:1 1 auto;
+    overflow-y:auto;
+    overflow-x:hidden;
+    padding:14px 12px 90px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .chart-card{
+    background:var(--card);
+    border:1.5px solid var(--card-border);
+    border-radius:10px;
+    padding:16px 10px 18px;
+    position:relative;
+  }
+  .sheet-title{
+    text-align:center;
+    font-size:19px;
+    font-weight:bold;
+    color:var(--ink);
+    margin-bottom:12px;
+    cursor:pointer;
+    letter-spacing:.2px;
+  }
+  #chartInner{ position:relative; }
+  #inkCanvas{
+    position:absolute;
+    top:0; left:0;
+    pointer-events:none;
+    touch-action:none;
+  }
+  .chart-scroll.draw-mode #inkCanvas,
+  .chart-scroll.erase-mode #inkCanvas{
+    pointer-events:auto;
+  }
+
+  .write-lane{ height:36px; }
+
+  .label-row{
+    display:flex;
+    align-items:flex-end;
+    min-height:20px;
+  }
+  .label-row .ts-spacer{ flex:0 0 24px; }
+  .label-row .bar-spacer{ flex:0 0 96px; }
+  .label-slot{
+    flex:0 0 auto;
+    min-width:14px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+  }
+  .sec-badge{
+    background:var(--ink);
+    color:#fff;
+    font-family:Helvetica,Arial,sans-serif;
+    font-weight:bold;
+    font-size:11px;
+    padding:1px 6px;
+    border-radius:2px;
+    margin-bottom:2px;
+    white-space:nowrap;
+  }
+
+  .bar-row{
+    display:flex;
+    align-items:stretch;
+    margin-bottom:8px;
+  }
+
+  .time-sig{
+    flex:0 0 24px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    line-height:.95;
+    cursor:pointer;
+    margin-right:2px;
+  }
+  .time-sig .num,.time-sig .den{
+    font-size:17px;
+    font-weight:bold;
+    color:var(--ink);
+    font-family:Georgia,serif;
+  }
+
+  .bar{
+    flex:0 0 96px;
+    min-height:58px;
+    margin:2px 0;
+    padding:6px 8px 4px;
+    display:flex;
+    align-items:stretch;
+    cursor:pointer;
+    position:relative;
+  }
+  .bar .slot{
+    flex:1 1 0;
+    display:flex;
+    align-items:center;
+    min-width:0;
+  }
+  .bar .chord{
+    font-size:22px;
+    color:var(--ink);
+    line-height:1;
+    white-space:nowrap;
+  }
+  .bar .chord .suf{
+    font-size:13px;
+    vertical-align:top;
+    position:relative;
+    top:1px;
+    margin-left:1px;
+  }
+  .bar .chord .acc{
+    font-size:.72em;
+    margin-left:-2px;
+    position:relative;
+    top:-1px;
+  }
+  .bar .empty-hint{
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:11px;
+    color:#c7c3b7;
+    margin:0 auto;
+  }
+  .bar .bar-glyph{
+    font-size:26px;
+    font-weight:bold;
+    color:var(--ink);
+    margin:0 auto;
+  }
+
+  .bar .add-chord{
+    position:absolute;
+    right:3px; bottom:2px;
+    width:16px;height:16px;
+    border-radius:50%;
+    background:#eef1f6;
+    border:1px solid #c7d3e6;
+    color:#3a6fc4;
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:11px;
+    display:flex;align-items:center;justify-content:center;
+    line-height:1;
+    pointer-events:none;
+  }
+
+  .add-bar{
+    flex:0 0 46px;
+    min-height:58px;
+    margin:2px 2px;
+    border:1.5px dashed #c7c3b7;
+    border-radius:4px;
+    display:flex;align-items:center;justify-content:center;
+    color:#a8a49a;
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:20px;
+    cursor:pointer;
+  }
+
+  /* ===== Border lines (tappable barlines) ===== */
+  .border-line{
+    flex:0 0 auto;
+    min-width:14px;
+    display:flex;
+    align-items:stretch;
+    justify-content:center;
+    gap:2px;
+    cursor:pointer;
+    margin:2px 0;
+  }
+  .border-line .ln-thin{ width:2px; background:var(--ink); align-self:stretch; }
+  .border-line .ln-thick{ width:4px; background:var(--ink); align-self:stretch; }
+  .border-line .dots{ display:flex; flex-direction:column; justify-content:center; gap:2px; }
+  .border-line .dots span{ width:4px;height:4px;border-radius:50%;background:var(--ink);display:block; }
+
+  /* ===== Toolbar ===== */
+  .toolbar{
+    flex:0 0 auto;
+    background:var(--header-bg);
+    display:flex;
+    gap:6px;
+    padding:8px 10px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .tbtn{
+    flex:0 0 auto;
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:12.5px;
+    color:#d7d7db;
+    background:#2c2c2e;
+    border:1px solid #3a3a3c;
+    padding:9px 13px;
+    border-radius:20px;
+    white-space:nowrap;
+    cursor:pointer;
+  }
+  .tbtn.active{ background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:bold; }
+  .tbtn.action{ background:#232326; color:#a9c8ff; }
+
+  /* ===== Toast ===== */
+  #toast{
+    position:absolute;
+    top:60px; left:50%;
+    transform:translateX(-50%);
+    background:rgba(28,28,30,.92);
+    color:#fff;
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:12.5px;
+    padding:9px 14px;
+    border-radius:20px;
+    display:none;
+    z-index:40;
+    max-width:85%;
+    text-align:center;
+  }
+  #toast.show{display:block;}
+
+  /* ===== Bottom sheet ===== */
+  #backdrop{
+    position:absolute; inset:0;
+    background:rgba(0,0,0,.35);
+    opacity:0; pointer-events:none;
+    transition:opacity .18s ease;
+    z-index:50;
+  }
+  #backdrop.open{opacity:1;pointer-events:auto;}
+  #sheet{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    background:#fff;
+    border-radius:16px 16px 0 0;
+    padding:14px 16px 22px;
+    transform:translateY(100%);
+    transition:transform .22s ease;
+    z-index:51;
+    font-family:Helvetica,Arial,sans-serif;
+    max-height:75%;
+    overflow-y:auto;
+  }
+  #sheet.open{transform:translateY(0);}
+  .sheet-header{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:12px;
+  }
+  .sheet-header span{font-size:15px;font-weight:bold;color:#1c1c1c;}
+  .sheet-header button{
+    background:none;border:none;font-size:16px;color:#8a867d;cursor:pointer;padding:4px 6px;
+  }
+  .sheet-subhead{
+    font-size:11.5px;color:#8a867d;font-weight:bold;text-transform:uppercase;
+    letter-spacing:.3px;margin:16px 0 8px;
+  }
+  .root-grid,.quality-grid,.symbol-grid,.timesig-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+  }
+  .root-grid button,.quality-grid button,.symbol-grid button,.timesig-grid button{
+    padding:12px 4px;
+    border-radius:8px;
+    border:1px solid #ddd8ca;
+    background:#faf9f5;
+    font-family:Georgia,serif;
+    font-size:16px;
+    color:#1c1c1c;
+    cursor:pointer;
+  }
+  .quality-grid button{font-family:Helvetica,Arial,sans-serif;font-size:12.5px;}
+  .symbol-grid{grid-template-columns:repeat(1,1fr);}
+  .symbol-grid button{font-family:Helvetica,Arial,sans-serif;font-size:14px;padding:14px 6px;text-align:left;}
+  .wholebar-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+  .icon-btn{display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;}
+  .timesig-grid button{font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:bold;}
+  .sheet-actions{margin-top:14px;display:flex;gap:8px;}
+  .sheet-actions button{
+    flex:1;
+    padding:11px;
+    border-radius:8px;
+    border:none;
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .title-edit input{
+    width:100%;padding:10px;font-size:15px;border:1px solid #ddd8ca;border-radius:8px;font-family:Helvetica,Arial,sans-serif;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="back">‹ Back</div>
+    <div class="titlewrap" onclick="openTitleEdit()">
+      <div class="title" id="titleText">Not Your Woman</div>
+      <div class="sub" id="subText">4/4 · G minor</div>
+    </div>
+    <div class="icon" onclick="toggleMode('draw')">✎</div>
+    <div class="icon" onclick="showToast('Export coming soon')">⤴</div>
+  </div>
+
+  <div class="chart-scroll" id="chartScroll">
+    <div class="chart-card">
+      <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">Not Your Woman</div>
+      <div id="chartInner">
+        <canvas id="inkCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div class="toolbar">
+    <button class="tbtn active" id="modeChords" onclick="toggleMode('chords')">Edit</button>
+    <button class="tbtn" id="modeDraw" onclick="toggleMode('draw')">Draw</button>
+    <button class="tbtn" id="modeErase" onclick="toggleMode('erase')">Erase</button>
+    <button class="tbtn action" onclick="clearInk()">Clear Ink</button>
+  </div>
+
+  <div id="backdrop" onclick="closeSheet()"></div>
+  <div id="sheet"></div>
+</div>
+
+<script>
+/* ============ Data ============ */
+const ROOTS = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const QUALITIES = [
+  {id:'maj',  label:'Major',  suffix:'',     sup:false},
+  {id:'m',    label:'Minor',  suffix:'−',    sup:false},
+  {id:'7',    label:'7',      suffix:'7',    sup:true},
+  {id:'maj7', label:'Maj7',   suffix:'Δ7',   sup:true},
+  {id:'m7',   label:'Min7',   suffix:'−7',   sup:true},
+  {id:'dim',  label:'Dim',    suffix:'°',    sup:true},
+  {id:'sus4', label:'Sus4',   suffix:'sus4', sup:true},
+  {id:'add9', label:'Add9',   suffix:'add9', sup:true},
+  {id:'m7b5', label:'Min7♭5',suffix:'ø7',   sup:true},
+  {id:'aug',  label:'Aug',    suffix:'+',    sup:true},
+];
+const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
+const SECTION_LETTERS = ['A','B','C','D','E','F','G','H'];
+let idCounter = 1;
+const genId = () => 'id' + (idCounter++);
+
+function bar(chords){ return {type:'bar', id:genId(), kind:'chords', chords: chords||[]}; }
+
+// song.items is a flat list of bars.
+// song.borders[i] = {type, label} is the border BEFORE items[i];
+// song.borders[items.length] is the trailing (final) border.
+let song = {
+  title:'Not Your Woman',
+  key:'G minor',
+  timeSig:{num:4, den:4},
+  items:[
+    bar([{root:'G', quality:'m'}]),
+    bar([{root:'F', quality:'m'}]),
+    bar([{root:'Eb', quality:'maj'}]),
+    bar([{root:'D', quality:'maj'}]),
+    bar([{root:'D', quality:'maj'}]),
+    bar([{root:'Bb', quality:'maj'}]),
+  ],
+  borders:[
+    {type:'normal', label:null},
+    {type:'normal', label:null},
+    {type:'normal', label:null},
+    {type:'repeatStart', label:null},
+    {type:'repeatEnd', label:null},
+    {type:'normal', label:null},
+    {type:'end', label:null},
+  ]
+};
+
+/* ============ Helpers ============ */
+function rootHtml(r){
+  if(r.length===2 && r[1]==='b') return r[0]+'<span class="acc">♭</span>';
+  return r;
+}
+function qualityById(id){ return QUALITIES.find(q=>q.id===id) || QUALITIES[0]; }
+function wholeRestSvg(w){
+  w = w||22;
+  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="4" x2="22" y2="4" stroke="#1c1c1c" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#1c1c1c"/></svg>`;
+}
+function halfRestSvg(w){
+  w = w||22;
+  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="10" x2="22" y2="10" stroke="#1c1c1c" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#1c1c1c"/></svg>`;
+}
+function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
+function updateHeader(){
+  document.getElementById('subText').textContent = `${song.timeSig.num}/${song.timeSig.den} · ${song.key}`;
+}
+
+/* ============ Mode state ============ */
+let mode = 'chords'; // chords | draw | erase
+
+function toggleMode(m){
+  mode = (mode===m) ? 'chords' : m;
+  document.getElementById('modeChords').classList.toggle('active', mode==='chords');
+  document.getElementById('modeDraw').classList.toggle('active', mode==='draw');
+  document.getElementById('modeErase').classList.toggle('active', mode==='erase');
+  const scroll = document.getElementById('chartScroll');
+  scroll.classList.toggle('draw-mode', mode==='draw');
+  scroll.classList.toggle('erase-mode', mode==='erase');
+}
+
+/* ============ Toast ============ */
+let toastTimer=null;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ============ Title edit ============ */
+function openTitleEdit(){
+  showSheet(`
+    <div class="sheet-header"><span>Song title</span><button onclick="closeSheet()">✕</button></div>
+    <div class="title-edit"><input id="titleInput" value="${song.title.replace(/"/g,'&quot;')}"></div>
+    <div class="sheet-actions"><button onclick="saveTitle()" style="background:#4da3ff;color:#fff;">Save</button></div>
+  `);
+}
+function saveTitle(){
+  const v = document.getElementById('titleInput').value.trim();
+  if(v){
+    song.title=v;
+    document.getElementById('titleText').textContent=v;
+    document.getElementById('sheetTitleText').textContent=v;
+  }
+  closeSheet();
+}
+
+/* ============ Time signature ============ */
+function openTimeSigEdit(){
+  showSheet(`
+    <div class="sheet-header"><span>Time signature</span><button onclick="closeSheet()">✕</button></div>
+    <div class="timesig-grid">
+      ${TIME_SIGS.map(([n,d])=>`<button onclick="setTimeSig(${n},${d})">${n}/${d}</button>`).join('')}
+    </div>
+  `);
+}
+function setTimeSig(n,d){
+  song.timeSig = {num:n, den:d};
+  updateHeader();
+  closeSheet();
+  render();
+}
+
+/* ============ Rendering ============ */
+function chunkRows(items, barsPerRow){
+  barsPerRow = barsPerRow || 3;
+  const rows=[];
+  for(let i=0;i<items.length;i+=barsPerRow){
+    rows.push(items.slice(i, i+barsPerRow));
+  }
+  if(rows.length===0) rows.push([]);
+  return rows;
+}
+
+function chordInnerHtml(chord){
+  const q = qualityById(chord.quality);
+  const root = rootHtml(chord.root);
+  if(!q.suffix) return root;
+  const cls = q.sup ? 'suf' : '';
+  return `${root}<span class="${cls}">${q.suffix}</span>`;
+}
+
+function renderBarEl(item){
+  const div = document.createElement('div');
+  div.className='bar';
+  div.dataset.id=item.id;
+
+  if(item.kind==='repeat'){
+    div.innerHTML = '<span class="bar-glyph">%</span>';
+    div.onclick=()=>handleBarTap(item, 0);
+    return div;
+  }
+  if(item.kind==='rest'){
+    div.innerHTML = `<span style="margin:0 auto;">${wholeRestSvg()}</span>`;
+    div.onclick=()=>handleBarTap(item, 0);
+    return div;
+  }
+
+  if(item.chords.length===0){
+    div.innerHTML = '<span class="empty-hint">tap</span>';
+    div.onclick=()=>handleBarTap(item, 0);
+    return div;
+  }
+
+  for(let i=0;i<2;i++){
+    const slot = document.createElement('div');
+    slot.className='slot';
+    const chord = item.chords[i];
+    if(chord && chord.rest){
+      slot.innerHTML = halfRestSvg(18);
+    } else if(chord){
+      const c = document.createElement('span');
+      c.className='chord';
+      c.innerHTML = chordInnerHtml(chord);
+      slot.appendChild(c);
+    }
+    slot.onclick=(e)=>{ e.stopPropagation(); handleBarTap(item, i); };
+    div.appendChild(slot);
+  }
+  if(item.chords.length===1){
+    const plus=document.createElement('div');
+    plus.className='add-chord';
+    plus.textContent='+';
+    div.appendChild(plus);
+  }
+  return div;
+}
+
+function renderBorderEl(border, idx){
+  const div = document.createElement('div');
+  div.className='border-line';
+  div.onclick=()=>openBorderEdit(idx);
+  const type = border.type;
+  if(type==='repeatStart'){
+    div.innerHTML = `<div class="ln-thick"></div><div class="ln-thin"></div><div class="dots"><span></span><span></span></div>`;
+  } else if(type==='repeatEnd'){
+    div.innerHTML = `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div>`;
+  } else if(type==='end'){
+    div.innerHTML = `<div class="ln-thin"></div><div class="ln-thin"></div>`;
+  } else {
+    div.innerHTML = `<div class="ln-thin"></div>`;
+  }
+  return div;
+}
+
+function renderLabelSlot(idx, allow){
+  const div = document.createElement('div');
+  div.className='label-slot';
+  const b = song.borders[idx];
+  if(allow && b && b.label){
+    div.innerHTML = `<span class="sec-badge">${b.label}</span>`;
+  }
+  return div;
+}
+
+function renderTimeSigEl(){
+  const div = document.createElement('div');
+  div.className='time-sig';
+  div.innerHTML = `<div class="num">${song.timeSig.num}</div><div class="den">${song.timeSig.den}</div>`;
+  div.onclick=(e)=>{ e.stopPropagation(); openTimeSigEdit(); };
+  return div;
+}
+
+function makeAddBarBtn(){
+  const addBtn = document.createElement('div');
+  addBtn.className='add-bar';
+  addBtn.textContent='+';
+  addBtn.onclick=()=>{
+    const lastIdx = song.items.length;
+    const wasEnd = song.borders[lastIdx].type === 'end';
+    if(wasEnd) song.borders[lastIdx].type = 'normal';
+    song.items.push(bar([]));
+    song.borders.push({type: wasEnd ? 'end' : 'normal', label:null});
+    render();
+  };
+  return addBtn;
+}
+
+function render(){
+  const inner = document.getElementById('chartInner');
+  inner.querySelectorAll('.song-block').forEach(e=>e.remove());
+  const canvas = document.getElementById('inkCanvas');
+
+  const rows = chunkRows(song.items, 3);
+  const songBlock = document.createElement('div');
+  songBlock.className='song-block';
+
+  let lastRowBarRow = null;
+  let globalIdx = 0;
+
+  rows.forEach((row, rIdx)=>{
+    const lane = document.createElement('div');
+    lane.className='write-lane';
+    songBlock.appendChild(lane);
+
+    const rowStart = globalIdx;
+    const isLastRow = (rIdx === rows.length-1);
+    let needsLabelRow = false;
+    for(let k=rowStart;k<rowStart+row.length;k++){
+      if(song.borders[k] && song.borders[k].label){ needsLabelRow=true; break; }
+    }
+    if(!needsLabelRow && isLastRow && song.borders[rowStart+row.length] && song.borders[rowStart+row.length].label){
+      needsLabelRow = true;
+    }
+    if(needsLabelRow){
+      const labelRow = document.createElement('div');
+      labelRow.className='label-row';
+      if(rIdx===0){
+        const tsSpacer=document.createElement('div');
+        tsSpacer.className='ts-spacer';
+        labelRow.appendChild(tsSpacer);
+      }
+      let li = rowStart;
+      row.forEach(()=>{
+        labelRow.appendChild(renderLabelSlot(li, true));
+        li++;
+        const barSpacer=document.createElement('div');
+        barSpacer.className='bar-spacer';
+        labelRow.appendChild(barSpacer);
+      });
+      labelRow.appendChild(renderLabelSlot(li, isLastRow));
+      songBlock.appendChild(labelRow);
+    }
+
+    const barRow = document.createElement('div');
+    barRow.className='bar-row';
+    if(rIdx===0){ barRow.appendChild(renderTimeSigEl()); }
+
+    row.forEach(item=>{
+      barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx));
+      barRow.appendChild(renderBarEl(item));
+      globalIdx++;
+    });
+    barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx));
+
+    songBlock.appendChild(barRow);
+    lastRowBarRow = barRow;
+  });
+
+  const lastRow = rows[rows.length-1];
+  if(lastRow.length < 3){
+    lastRowBarRow.appendChild(makeAddBarBtn());
+  } else {
+    const extraRow = document.createElement('div');
+    extraRow.className='bar-row';
+    extraRow.appendChild(makeAddBarBtn());
+    songBlock.appendChild(extraRow);
+  }
+
+  inner.appendChild(songBlock);
+  inner.appendChild(canvas);
+  requestAnimationFrame(resizeCanvasPreserving);
+}
+
+/* ============ Bar content (chord / % / rest) ============ */
+function setBarKind(barId, kind){
+  const b = findBarById(barId);
+  if(!b) return closeSheet();
+  b.kind=kind; b.chords=[];
+  closeSheet();
+  render();
+}
+function setHalfRest(barId, chordIdx){
+  const b = findBarById(barId);
+  if(!b) return closeSheet();
+  b.kind='chords';
+  b.chords[chordIdx] = {rest:true};
+  closeSheet();
+  render();
+}
+function duplicateBar(barId){
+  const idx = song.items.findIndex(it=>it.id===barId);
+  if(idx<0) return;
+  const original = song.items[idx];
+  const copy = bar(original.chords.map(c=>({...c})));
+  copy.kind = original.kind;
+  song.items.splice(idx+1, 0, copy);
+  song.borders.splice(idx+1, 0, {type:'normal', label:null});
+  closeSheet();
+  render();
+}
+function deleteBar(barId){
+  const idx = song.items.findIndex(it=>it.id===barId);
+  if(idx<0) return;
+  const removed = song.borders[idx+1];
+  const kept = song.borders[idx];
+  if(kept.type==='normal' && removed.type!=='normal') kept.type = removed.type;
+  if(!kept.label && removed.label) kept.label = removed.label;
+  song.items.splice(idx,1);
+  song.borders.splice(idx+1,1);
+  closeSheet();
+  render();
+}
+
+/* ============ Chord picker ============ */
+let pickerTarget = null;
+let pickerRoot = null;
+let pickerWholeBarOptions = false;
+
+function handleBarTap(item, chordIdx){
+  if(mode!=='chords') return;
+  if(item.kind!=='chords' || item.chords.length===0){
+    pickerTarget = {barId:item.id, chordIdx:0};
+    pickerRoot = null;
+    pickerWholeBarOptions = true;
+    openStep1();
+    return;
+  }
+  pickerTarget = {barId:item.id, chordIdx};
+  pickerWholeBarOptions = false;
+  const existing = item.chords[chordIdx];
+  if(existing && !existing.rest){
+    pickerRoot = existing.root;
+    openStep2();
+  } else {
+    pickerRoot = null;
+    openStep1();
+  }
+}
+
+function openStep1(){
+  const wholeBarBlock = pickerWholeBarOptions ? `
+    <div class="sheet-subhead">Or</div>
+    <div class="wholebar-grid">
+      <button class="icon-btn" onclick="setBarKind('${pickerTarget.barId}','repeat')">%</button>
+      <button class="icon-btn" onclick="setBarKind('${pickerTarget.barId}','rest')">${wholeRestSvg(26)}</button>
+    </div>
+  ` : '';
+  showSheet(`
+    <div class="sheet-header"><span>Choose root</span><button onclick="closeSheet()">✕</button></div>
+    <div class="root-grid">
+      ${ROOTS.map(r=>`<button onclick="pickRoot('${r}')">${rootHtml(r)}</button>`).join('')}
+      <button class="icon-btn" onclick="setHalfRest('${pickerTarget.barId}',${pickerTarget.chordIdx})">${halfRestSvg(20)}</button>
+    </div>
+    ${wholeBarBlock}
+    <div class="sheet-actions">
+      <button style="background:#f0eee7;color:#6b6a66;" onclick="clearChordSlot()">Clear</button>
+      <button style="background:#eef1f6;color:#3a6fc4;" onclick="duplicateBar('${pickerTarget.barId}')">Duplicate Bar</button>
+      <button style="background:#fbeceb;color:#c0453f;" onclick="deleteBar('${pickerTarget.barId}')">Delete Bar</button>
+    </div>
+  `);
+}
+function pickRoot(r){ pickerRoot=r; openStep2(); }
+
+function openStep2(){
+  showSheet(`
+    <div class="sheet-header">
+      <button onclick="openStep1()">‹</button>
+      <span>${rootHtml(pickerRoot)} — quality</span>
+      <button onclick="closeSheet()">✕</button>
+    </div>
+    <div class="quality-grid">
+      ${QUALITIES.map(q=>`<button onclick="pickQuality('${q.id}')">${q.label}</button>`).join('')}
+    </div>
+    <div class="sheet-actions">
+      <button style="background:#f0eee7;color:#6b6a66;" onclick="clearChordSlot()">Clear</button>
+      <button style="background:#eef1f6;color:#3a6fc4;" onclick="duplicateBar('${pickerTarget.barId}')">Duplicate Bar</button>
+      <button style="background:#fbeceb;color:#c0453f;" onclick="deleteBar('${pickerTarget.barId}')">Delete Bar</button>
+    </div>
+  `);
+}
+function pickQuality(qid){
+  const b = findBarById(pickerTarget.barId);
+  if(!b) return closeSheet();
+  b.kind = 'chords';
+  b.chords[pickerTarget.chordIdx] = {root:pickerRoot, quality:qid};
+  closeSheet();
+  render();
+}
+function clearChordSlot(){
+  const b = findBarById(pickerTarget.barId);
+  if(b && pickerTarget.chordIdx < b.chords.length){
+    b.chords.splice(pickerTarget.chordIdx, 1);
+  }
+  closeSheet();
+  render();
+}
+
+/* ============ Border editing (type + optional section label) ============ */
+function openBorderEdit(idx){
+  if(mode!=='chords') return;
+  showSheet(`
+    <div class="sheet-header"><span>Bar line</span><button onclick="closeSheet()">✕</button></div>
+    <div class="symbol-grid">
+      <button onclick="setBorderType(${idx},'normal')">Clear |</button>
+      <button onclick="setBorderType(${idx},'repeatStart')">Repeat Start &nbsp; ||:</button>
+      <button onclick="setBorderType(${idx},'repeatEnd')">Repeat End &nbsp; :||</button>
+      <button onclick="setBorderType(${idx},'end')">End &nbsp; ||</button>
+    </div>
+    <div class="sheet-subhead">Section label</div>
+    <div class="root-grid" style="grid-template-columns:repeat(5,1fr);">
+      ${SECTION_LETTERS.map(l=>`<button onclick="setLabel(${idx},'${l}')">${l}</button>`).join('')}
+      <button onclick="setLabel(${idx},null)">None</button>
+    </div>
+  `);
+}
+function setBorderType(idx, type){
+  song.borders[idx].type = type;
+  closeSheet();
+  render();
+}
+function setLabel(idx, label){
+  song.borders[idx].label = label;
+  closeSheet();
+  render();
+}
+
+/* ============ Sheet plumbing ============ */
+function showSheet(html){
+  document.getElementById('sheet').innerHTML = html;
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('backdrop').classList.add('open');
+}
+function closeSheet(){
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('open');
+}
+
+/* ============ Ink canvas ============ */
+let drawing=false;
+let currentStroke=[];
+const PEN_COLOR = '#25409e';
+
+function resizeCanvasPreserving(){
+  const canvas = document.getElementById('inkCanvas');
+  const inner = document.getElementById('chartInner');
+  const newW = inner.scrollWidth;
+  const newH = inner.scrollHeight;
+  const prevW = parseFloat(canvas.dataset.cssW||0);
+  const prevH = parseFloat(canvas.dataset.cssH||0);
+  if(newW===prevW && newH===prevH) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  let snapshot = null;
+  if(canvas.width>0 && canvas.height>0){
+    snapshot = document.createElement('canvas');
+    snapshot.width = canvas.width;
+    snapshot.height = canvas.height;
+    snapshot.getContext('2d').drawImage(canvas,0,0);
+  }
+
+  canvas.style.width = newW+'px';
+  canvas.style.height = newH+'px';
+  canvas.width = Math.round(newW*dpr);
+  canvas.height = Math.round(newH*dpr);
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+
+  if(snapshot){
+    ctx.drawImage(snapshot, 0,0, snapshot.width, snapshot.height, 0,0, prevW||newW, prevH||newH);
+  }
+
+  canvas.dataset.cssW = newW;
+  canvas.dataset.cssH = newH;
+}
+
+function getCanvasPoint(e){
+  const canvas = document.getElementById('inkCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  return {x:cx, y:cy};
+}
+
+function startDraw(e){
+  if(mode==='chords') return;
+  drawing=true;
+  currentStroke=[getCanvasPoint(e)];
+  e.preventDefault();
+}
+function moveDraw(e){
+  if(!drawing) return;
+  const pt = getCanvasPoint(e);
+  currentStroke.push(pt);
+  const canvas = document.getElementById('inkCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  if(mode==='erase'){
+    ctx.globalCompositeOperation='destination-out';
+    ctx.shadowBlur=0;
+    ctx.lineWidth=20;
+  } else {
+    ctx.globalCompositeOperation='source-over';
+    ctx.lineWidth=2.6;
+    ctx.strokeStyle=PEN_COLOR;
+    ctx.shadowColor=PEN_COLOR;
+    ctx.shadowBlur=0.6;
+  }
+
+  const n = currentStroke.length;
+  if(n < 3){
+    const p0 = currentStroke[0];
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(pt.x, pt.y);
+    ctx.stroke();
+  } else {
+    const p0 = currentStroke[n-3];
+    const p1 = currentStroke[n-2];
+    const p2 = currentStroke[n-1];
+    const mid1 = {x:(p0.x+p1.x)/2, y:(p0.y+p1.y)/2};
+    const mid2 = {x:(p1.x+p2.x)/2, y:(p1.y+p2.y)/2};
+    ctx.beginPath();
+    ctx.moveTo(mid1.x, mid1.y);
+    ctx.quadraticCurveTo(p1.x, p1.y, mid2.x, mid2.y);
+    ctx.stroke();
+  }
+  e.preventDefault();
+}
+function endDraw(){ drawing=false; currentStroke=[]; }
+
+function clearInk(){
+  const canvas = document.getElementById('inkCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width, canvas.height);
+  ctx.restore();
+  const dpr = window.devicePixelRatio||1;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+
+/* ============ Init ============ */
+window.addEventListener('resize', ()=>requestAnimationFrame(resizeCanvasPreserving));
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const canvas = document.getElementById('inkCanvas');
+  canvas.addEventListener('pointerdown', startDraw);
+  canvas.addEventListener('pointermove', moveDraw);
+  window.addEventListener('pointerup', endDraw);
+  canvas.addEventListener('touchstart', startDraw, {passive:false});
+  canvas.addEventListener('touchmove', moveDraw, {passive:false});
+  window.addEventListener('touchend', endDraw);
+  updateHeader();
+  render();
+});
+</script>
+</body>
+</html>
