@@ -69,15 +69,15 @@
     background:var(--card);
     border:1.5px solid var(--card-border);
     border-radius:10px;
-    padding:16px 10px 18px;
+    padding:14px 8px 16px;
     position:relative;
   }
   .sheet-title{
     text-align:center;
-    font-size:19px;
+    font-size:18px;
     font-weight:bold;
     color:var(--ink);
-    margin-bottom:12px;
+    margin-bottom:10px;
     cursor:pointer;
     letter-spacing:.2px;
   }
@@ -93,18 +93,18 @@
     pointer-events:auto;
   }
 
-  .write-lane{ height:36px; }
+  .write-lane{ height:26px; }
 
   .label-row{
     display:flex;
     align-items:flex-end;
-    min-height:20px;
+    min-height:15px;
   }
-  .label-row .ts-spacer{ flex:0 0 24px; }
-  .label-row .bar-spacer{ flex:0 0 96px; }
+  .label-row .ts-spacer{ flex:0 0 20px; }
+  .label-row .bar-spacer{ flex:0 0 66px; }
   .label-slot{
     flex:0 0 auto;
-    min-width:14px;
+    min-width:11px;
     display:flex;
     align-items:flex-end;
     justify-content:center;
@@ -114,8 +114,8 @@
     color:#fff;
     font-family:Helvetica,Arial,sans-serif;
     font-weight:bold;
-    font-size:11px;
-    padding:1px 6px;
+    font-size:10px;
+    padding:1px 5px;
     border-radius:2px;
     margin-bottom:2px;
     white-space:nowrap;
@@ -124,50 +124,53 @@
   .bar-row{
     display:flex;
     align-items:stretch;
-    margin-bottom:8px;
+    margin-bottom:5px;
   }
 
   .time-sig{
-    flex:0 0 24px;
+    flex:0 0 20px;
     display:flex;
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    line-height:.95;
+    line-height:.9;
     cursor:pointer;
-    margin-right:2px;
+    margin-right:1px;
   }
   .time-sig .num,.time-sig .den{
-    font-size:17px;
+    font-size:14px;
     font-weight:bold;
     color:var(--ink);
     font-family:Georgia,serif;
   }
 
   .bar{
-    flex:0 0 96px;
-    min-height:58px;
+    flex:0 0 66px;
+    min-height:46px;
     margin:2px 0;
-    padding:6px 8px 4px;
-    display:flex;
+    padding:4px 3px 2px;
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
     align-items:stretch;
     cursor:pointer;
     position:relative;
   }
   .bar .slot{
-    flex:1 1 0;
     display:flex;
     align-items:center;
+    justify-content:flex-start;
     min-width:0;
+    min-height:38px;
   }
   .bar .chord{
-    font-size:22px;
+    font-size:17px;
     color:var(--ink);
     line-height:1;
     white-space:nowrap;
   }
+  .bar .chord.dense{ font-size:12.5px; }
   .bar .chord .suf{
-    font-size:13px;
+    font-size:.62em;
     vertical-align:top;
     position:relative;
     top:1px;
@@ -180,50 +183,51 @@
     top:-1px;
   }
   .bar .empty-hint{
+    grid-column:1/-1;
     font-family:Helvetica,Arial,sans-serif;
-    font-size:11px;
+    font-size:10px;
     color:#c7c3b7;
     margin:0 auto;
   }
   .bar .bar-glyph{
-    font-size:26px;
+    grid-column:1/-1;
+    font-size:22px;
     font-weight:bold;
     color:var(--ink);
     margin:0 auto;
   }
-
   .bar .add-chord{
     position:absolute;
-    right:3px; bottom:2px;
-    width:16px;height:16px;
+    right:2px; bottom:1px;
+    width:13px;height:13px;
     border-radius:50%;
     background:#eef1f6;
     border:1px solid #c7d3e6;
     color:#3a6fc4;
     font-family:Helvetica,Arial,sans-serif;
-    font-size:11px;
+    font-size:9px;
     display:flex;align-items:center;justify-content:center;
     line-height:1;
     pointer-events:none;
   }
 
   .add-bar{
-    flex:0 0 46px;
-    min-height:58px;
+    flex:0 0 40px;
+    min-height:46px;
     margin:2px 2px;
     border:1.5px dashed #c7c3b7;
     border-radius:4px;
     display:flex;align-items:center;justify-content:center;
     color:#a8a49a;
     font-family:Helvetica,Arial,sans-serif;
-    font-size:20px;
+    font-size:18px;
     cursor:pointer;
   }
 
   /* ===== Border lines (tappable barlines) ===== */
   .border-line{
     flex:0 0 auto;
-    min-width:14px;
+    min-width:11px;
     display:flex;
     align-items:stretch;
     justify-content:center;
@@ -231,10 +235,10 @@
     cursor:pointer;
     margin:2px 0;
   }
-  .border-line .ln-thin{ width:2px; background:var(--ink); align-self:stretch; }
-  .border-line .ln-thick{ width:4px; background:var(--ink); align-self:stretch; }
+  .border-line .ln-thin{ width:1.6px; background:var(--ink); align-self:stretch; }
+  .border-line .ln-thick{ width:3.5px; background:var(--ink); align-self:stretch; }
   .border-line .dots{ display:flex; flex-direction:column; justify-content:center; gap:2px; }
-  .border-line .dots span{ width:4px;height:4px;border-radius:50%;background:var(--ink);display:block; }
+  .border-line .dots span{ width:3.5px;height:3.5px;border-radius:50%;background:var(--ink);display:block; }
 
   /* ===== Toolbar ===== */
   .toolbar{
@@ -260,6 +264,7 @@
   }
   .tbtn.active{ background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:bold; }
   .tbtn.action{ background:#232326; color:#a9c8ff; }
+  .tbtn.warn{ background:#2c2020; color:#ff9d97; }
 
   /* ===== Toast ===== */
   #toast{
@@ -314,6 +319,9 @@
     font-size:11.5px;color:#8a867d;font-weight:bold;text-transform:uppercase;
     letter-spacing:.3px;margin:16px 0 8px;
   }
+  .sheet-body-text{
+    font-size:13px;color:#6b6a66;margin-bottom:14px;line-height:1.4;
+  }
   .root-grid,.quality-grid,.symbol-grid,.timesig-grid{
     display:grid;
     grid-template-columns:repeat(4,1fr);
@@ -356,8 +364,8 @@
   <div class="topbar">
     <div class="back">‹ Back</div>
     <div class="titlewrap" onclick="openTitleEdit()">
-      <div class="title" id="titleText">Not Your Woman</div>
-      <div class="sub" id="subText">4/4 · G minor</div>
+      <div class="title" id="titleText">Untitled Song</div>
+      <div class="sub" id="subText">4/4</div>
     </div>
     <div class="icon" onclick="toggleMode('draw')">✎</div>
     <div class="icon" onclick="showToast('Export coming soon')">⤴</div>
@@ -365,7 +373,7 @@
 
   <div class="chart-scroll" id="chartScroll">
     <div class="chart-card">
-      <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">Not Your Woman</div>
+      <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">Untitled Song</div>
       <div id="chartInner">
         <canvas id="inkCanvas"></canvas>
       </div>
@@ -378,7 +386,9 @@
     <button class="tbtn active" id="modeChords" onclick="toggleMode('chords')">Edit</button>
     <button class="tbtn" id="modeDraw" onclick="toggleMode('draw')">Draw</button>
     <button class="tbtn" id="modeErase" onclick="toggleMode('erase')">Erase</button>
+    <button class="tbtn action" onclick="undo()">Undo</button>
     <button class="tbtn action" onclick="clearInk()">Clear Ink</button>
+    <button class="tbtn warn" onclick="confirmClearPage()">Clear Page</button>
   </div>
 
   <div id="backdrop" onclick="closeSheet()"></div>
@@ -402,36 +412,97 @@ const QUALITIES = [
 ];
 const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
 const SECTION_LETTERS = ['A','B','C','D','E','F','G','H'];
+const MAX_CHORDS_PER_BAR = 4;
+const BARS_PER_ROW = 4;
+
 let idCounter = 1;
 const genId = () => 'id' + (idCounter++);
 
 function bar(chords){ return {type:'bar', id:genId(), kind:'chords', chords: chords||[]}; }
 
+function blankSong(){
+  return {
+    title:'Untitled Song',
+    key:'',
+    timeSig:{num:4, den:4},
+    items:[ bar([]) ],
+    borders:[ {type:'normal', label:null}, {type:'end', label:null} ]
+  };
+}
+
 // song.items is a flat list of bars.
 // song.borders[i] = {type, label} is the border BEFORE items[i];
 // song.borders[items.length] is the trailing (final) border.
-let song = {
-  title:'Not Your Woman',
-  key:'G minor',
-  timeSig:{num:4, den:4},
-  items:[
-    bar([{root:'G', quality:'m'}]),
-    bar([{root:'F', quality:'m'}]),
-    bar([{root:'Eb', quality:'maj'}]),
-    bar([{root:'D', quality:'maj'}]),
-    bar([{root:'D', quality:'maj'}]),
-    bar([{root:'Bb', quality:'maj'}]),
-  ],
-  borders:[
-    {type:'normal', label:null},
-    {type:'normal', label:null},
-    {type:'normal', label:null},
-    {type:'repeatStart', label:null},
-    {type:'repeatEnd', label:null},
-    {type:'normal', label:null},
-    {type:'end', label:null},
-  ]
-};
+let song = blankSong();
+
+/* ============ Undo stack ============ */
+let undoStack = [];
+function snapshotSongStr(){ return JSON.stringify(song); }
+function pushSongUndo(){
+  undoStack.push({type:'song', data:snapshotSongStr()});
+  if(undoStack.length>60) undoStack.shift();
+}
+function pushInkUndo(){
+  const canvas = document.getElementById('inkCanvas');
+  if(canvas.width>0 && canvas.height>0){
+    undoStack.push({type:'ink', data:canvas.toDataURL(), w:canvas.width, h:canvas.height});
+    if(undoStack.length>60) undoStack.shift();
+  }
+}
+function pushFullUndo(){
+  const canvas = document.getElementById('inkCanvas');
+  undoStack.push({
+    type:'full',
+    songData: snapshotSongStr(),
+    inkData: canvas.width>0 ? canvas.toDataURL() : null,
+    w:canvas.width, h:canvas.height
+  });
+  if(undoStack.length>60) undoStack.shift();
+}
+function restoreInkFromDataUrl(dataUrl, w, h){
+  const canvas = document.getElementById('inkCanvas');
+  const ctx = canvas.getContext('2d');
+  if(!dataUrl){
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.restore();
+    const dpr=window.devicePixelRatio||1;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return;
+  }
+  const img = new Image();
+  img.onload = ()=>{
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(img,0,0,w,h,0,0,canvas.width,canvas.height);
+    ctx.restore();
+    const dpr=window.devicePixelRatio||1;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  };
+  img.src = dataUrl;
+}
+function undo(){
+  const entry = undoStack.pop();
+  if(!entry){ showToast('Nothing to undo'); return; }
+  if(entry.type==='song'){
+    song = JSON.parse(entry.data);
+    updateHeader();
+    document.getElementById('titleText').textContent = song.title;
+    document.getElementById('sheetTitleText').textContent = song.title;
+    render();
+  } else if(entry.type==='ink'){
+    restoreInkFromDataUrl(entry.data, entry.w, entry.h);
+  } else if(entry.type==='full'){
+    song = JSON.parse(entry.songData);
+    updateHeader();
+    document.getElementById('titleText').textContent = song.title;
+    document.getElementById('sheetTitleText').textContent = song.title;
+    render();
+    requestAnimationFrame(()=>restoreInkFromDataUrl(entry.inkData, entry.w, entry.h));
+  }
+}
 
 /* ============ Helpers ============ */
 function rootHtml(r){
@@ -449,7 +520,8 @@ function halfRestSvg(w){
 }
 function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
 function updateHeader(){
-  document.getElementById('subText').textContent = `${song.timeSig.num}/${song.timeSig.den} · ${song.key}`;
+  const sub = song.key ? `${song.timeSig.num}/${song.timeSig.den} · ${song.key}` : `${song.timeSig.num}/${song.timeSig.den}`;
+  document.getElementById('subText').textContent = sub;
 }
 
 /* ============ Mode state ============ */
@@ -486,6 +558,7 @@ function openTitleEdit(){
 function saveTitle(){
   const v = document.getElementById('titleInput').value.trim();
   if(v){
+    pushSongUndo();
     song.title=v;
     document.getElementById('titleText').textContent=v;
     document.getElementById('sheetTitleText').textContent=v;
@@ -503,15 +576,38 @@ function openTimeSigEdit(){
   `);
 }
 function setTimeSig(n,d){
+  pushSongUndo();
   song.timeSig = {num:n, den:d};
   updateHeader();
   closeSheet();
   render();
 }
 
+/* ============ Clear page ============ */
+function confirmClearPage(){
+  showSheet(`
+    <div class="sheet-header"><span>Clear page?</span><button onclick="closeSheet()">✕</button></div>
+    <div class="sheet-body-text">This removes all bars, chords, and drawings. You can undo it right after.</div>
+    <div class="sheet-actions">
+      <button style="background:#f0eee7;color:#6b6a66;" onclick="closeSheet()">Cancel</button>
+      <button style="background:#fbeceb;color:#c0453f;" onclick="clearPage()">Clear Page</button>
+    </div>
+  `);
+}
+function clearPage(){
+  pushFullUndo();
+  song = blankSong();
+  updateHeader();
+  document.getElementById('titleText').textContent = song.title;
+  document.getElementById('sheetTitleText').textContent = song.title;
+  clearInkRaw();
+  closeSheet();
+  render();
+}
+
 /* ============ Rendering ============ */
 function chunkRows(items, barsPerRow){
-  barsPerRow = barsPerRow || 3;
+  barsPerRow = barsPerRow || BARS_PER_ROW;
   const rows=[];
   for(let i=0;i<items.length;i+=barsPerRow){
     rows.push(items.slice(i, i+barsPerRow));
@@ -539,7 +635,7 @@ function renderBarEl(item){
     return div;
   }
   if(item.kind==='rest'){
-    div.innerHTML = `<span style="margin:0 auto;">${wholeRestSvg()}</span>`;
+    div.innerHTML = `<span class="bar-glyph" style="font-size:0;">${wholeRestSvg()}</span>`;
     div.onclick=()=>handleBarTap(item, 0);
     return div;
   }
@@ -550,22 +646,27 @@ function renderBarEl(item){
     return div;
   }
 
-  for(let i=0;i<2;i++){
+  const denseCls = item.chords.length>=3 ? ' dense' : '';
+  const slotCount = Math.min(item.chords.length+1, MAX_CHORDS_PER_BAR);
+  if(item.chords.length < MAX_CHORDS_PER_BAR){
+    div.onclick = () => { handleBarTap(item, item.chords.length); };
+  }
+  for(let i=0;i<slotCount;i++){
     const slot = document.createElement('div');
     slot.className='slot';
     const chord = item.chords[i];
     if(chord && chord.rest){
-      slot.innerHTML = halfRestSvg(18);
+      slot.innerHTML = halfRestSvg(14);
     } else if(chord){
       const c = document.createElement('span');
-      c.className='chord';
+      c.className='chord'+denseCls;
       c.innerHTML = chordInnerHtml(chord);
       slot.appendChild(c);
     }
     slot.onclick=(e)=>{ e.stopPropagation(); handleBarTap(item, i); };
     div.appendChild(slot);
   }
-  if(item.chords.length===1){
+  if(item.chords.length>0 && item.chords.length<MAX_CHORDS_PER_BAR){
     const plus=document.createElement('div');
     plus.className='add-chord';
     plus.textContent='+';
@@ -614,6 +715,7 @@ function makeAddBarBtn(){
   addBtn.className='add-bar';
   addBtn.textContent='+';
   addBtn.onclick=()=>{
+    pushSongUndo();
     const lastIdx = song.items.length;
     const wasEnd = song.borders[lastIdx].type === 'end';
     if(wasEnd) song.borders[lastIdx].type = 'normal';
@@ -629,7 +731,7 @@ function render(){
   inner.querySelectorAll('.song-block').forEach(e=>e.remove());
   const canvas = document.getElementById('inkCanvas');
 
-  const rows = chunkRows(song.items, 3);
+  const rows = chunkRows(song.items, BARS_PER_ROW);
   const songBlock = document.createElement('div');
   songBlock.className='song-block';
 
@@ -686,7 +788,7 @@ function render(){
   });
 
   const lastRow = rows[rows.length-1];
-  if(lastRow.length < 3){
+  if(lastRow.length < BARS_PER_ROW){
     lastRowBarRow.appendChild(makeAddBarBtn());
   } else {
     const extraRow = document.createElement('div');
@@ -700,8 +802,9 @@ function render(){
   requestAnimationFrame(resizeCanvasPreserving);
 }
 
-/* ============ Bar content (chord / % / rest) ============ */
+/* ============ Bar content (chord / % / rest / half-rest) ============ */
 function setBarKind(barId, kind){
+  pushSongUndo();
   const b = findBarById(barId);
   if(!b) return closeSheet();
   b.kind=kind; b.chords=[];
@@ -709,6 +812,7 @@ function setBarKind(barId, kind){
   render();
 }
 function setHalfRest(barId, chordIdx){
+  pushSongUndo();
   const b = findBarById(barId);
   if(!b) return closeSheet();
   b.kind='chords';
@@ -717,6 +821,7 @@ function setHalfRest(barId, chordIdx){
   render();
 }
 function duplicateBar(barId){
+  pushSongUndo();
   const idx = song.items.findIndex(it=>it.id===barId);
   if(idx<0) return;
   const original = song.items[idx];
@@ -728,8 +833,15 @@ function duplicateBar(barId){
   render();
 }
 function deleteBar(barId){
+  pushSongUndo();
   const idx = song.items.findIndex(it=>it.id===barId);
   if(idx<0) return;
+  if(song.items.length===1){
+    song.items[0] = bar([]);
+    closeSheet();
+    render();
+    return;
+  }
   const removed = song.borders[idx+1];
   const kept = song.borders[idx];
   if(kept.type==='normal' && removed.type!=='normal') kept.type = removed.type;
@@ -808,6 +920,7 @@ function openStep2(){
   `);
 }
 function pickQuality(qid){
+  pushSongUndo();
   const b = findBarById(pickerTarget.barId);
   if(!b) return closeSheet();
   b.kind = 'chords';
@@ -816,6 +929,7 @@ function pickQuality(qid){
   render();
 }
 function clearChordSlot(){
+  pushSongUndo();
   const b = findBarById(pickerTarget.barId);
   if(b && pickerTarget.chordIdx < b.chords.length){
     b.chords.splice(pickerTarget.chordIdx, 1);
@@ -843,11 +957,13 @@ function openBorderEdit(idx){
   `);
 }
 function setBorderType(idx, type){
+  pushSongUndo();
   song.borders[idx].type = type;
   closeSheet();
   render();
 }
 function setLabel(idx, label){
+  pushSongUndo();
   song.borders[idx].label = label;
   closeSheet();
   render();
@@ -913,6 +1029,7 @@ function getCanvasPoint(e){
 
 function startDraw(e){
   if(mode==='chords') return;
+  pushInkUndo();
   drawing=true;
   currentStroke=[getCanvasPoint(e)];
   e.preventDefault();
@@ -958,7 +1075,7 @@ function moveDraw(e){
 }
 function endDraw(){ drawing=false; currentStroke=[]; }
 
-function clearInk(){
+function clearInkRaw(){
   const canvas = document.getElementById('inkCanvas');
   const ctx = canvas.getContext('2d');
   ctx.save();
@@ -967,6 +1084,10 @@ function clearInk(){
   ctx.restore();
   const dpr = window.devicePixelRatio||1;
   ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function clearInk(){
+  pushInkUndo();
+  clearInkRaw();
 }
 
 /* ============ Init ============ */
@@ -980,6 +1101,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   canvas.addEventListener('touchstart', startDraw, {passive:false});
   canvas.addEventListener('touchmove', moveDraw, {passive:false});
   window.addEventListener('touchend', endDraw);
+  document.getElementById('titleText').textContent = song.title;
+  document.getElementById('sheetTitleText').textContent = song.title;
   updateHeader();
   render();
 });
