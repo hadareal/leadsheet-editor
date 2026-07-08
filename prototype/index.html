@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Lead Sheet Editor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
     --header-bg:#1c1c1e;
@@ -62,14 +63,14 @@
     flex:1 1 auto;
     overflow-y:auto;
     overflow-x:hidden;
-    padding:14px 12px 90px;
+    padding:10px 6px 90px;
     -webkit-overflow-scrolling:touch;
   }
   .chart-card{
     background:var(--card);
-    border:1.5px solid var(--card-border);
-    border-radius:10px;
-    padding:14px 8px 16px;
+    border:none;
+    border-radius:6px;
+    padding:12px 4px 14px;
     position:relative;
   }
   .sheet-title{
@@ -101,7 +102,7 @@
     min-height:15px;
   }
   .label-row .ts-spacer{ flex:0 0 20px; }
-  .label-row .bar-spacer{ flex:0 0 66px; }
+  .label-row .bar-spacer{ flex:0 0 74px; }
   .label-slot{
     flex:0 0 auto;
     min-width:11px;
@@ -145,7 +146,7 @@
   }
 
   .bar{
-    flex:0 0 66px;
+    flex:0 0 74px;
     min-height:46px;
     margin:2px 0;
     padding:4px 3px 2px;
@@ -161,6 +162,21 @@
     justify-content:flex-start;
     min-width:0;
     min-height:38px;
+    touch-action:pan-y;
+  }
+  .bar .slot.drop-target{
+    background:#eaf1ff;
+    border-radius:4px;
+    outline:2px dashed #4da3ff;
+    outline-offset:-2px;
+  }
+  .bar .slot.drag-source{
+    opacity:.35;
+  }
+  .chart-scroll.dragging-chord,
+  .chart-scroll.dragging-chord *{
+    user-select:none;
+    -webkit-user-select:none;
   }
   .bar .chord{
     font-size:17px;
@@ -356,6 +372,20 @@
   .title-edit input{
     width:100%;padding:10px;font-size:15px;border:1px solid #ddd8ca;border-radius:8px;font-family:Helvetica,Arial,sans-serif;
   }
+
+  @media print{
+    html, body{ height:auto !important; overflow:visible !important; background:#fff; }
+    #app{ box-shadow:none; max-width:none; height:auto !important; overflow:visible !important; }
+    .topbar, .toolbar, #toast, #backdrop, #sheet{ display:none !important; }
+    .chart-scroll{ overflow:visible !important; padding:0; height:auto !important; }
+    .chart-card{ border:none; }
+    .beat-hint, .add-bar, .empty-hint{ display:none !important; }
+  }
+  body.exporting .beat-hint,
+  body.exporting .add-bar,
+  body.exporting .empty-hint{
+    display:none !important;
+  }
 </style>
 </head>
 <body>
@@ -364,16 +394,16 @@
   <div class="topbar">
     <div class="back">‹ Back</div>
     <div class="titlewrap" onclick="openTitleEdit()">
-      <div class="title" id="titleText">Untitled Song</div>
+      <div class="title" id="titleText">My Song</div>
       <div class="sub" id="subText">4/4</div>
     </div>
     <div class="icon" onclick="toggleMode('draw')">✎</div>
-    <div class="icon" onclick="showToast('Export coming soon')">⤴</div>
+    <div class="icon" onclick="openExportSheet()">⤴</div>
   </div>
 
   <div class="chart-scroll" id="chartScroll">
     <div class="chart-card">
-      <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">Untitled Song</div>
+      <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">My Song</div>
       <div id="chartInner">
         <canvas id="inkCanvas"></canvas>
       </div>
@@ -391,6 +421,7 @@
     <button class="tbtn warn" onclick="confirmClearPage()">Clear Page</button>
   </div>
 
+  <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;" onchange="handleImportFile(event)">
   <div id="backdrop" onclick="closeSheet()"></div>
   <div id="sheet"></div>
 </div>
@@ -420,9 +451,31 @@ const genId = () => 'id' + (idCounter++);
 
 function bar(chords){ return {type:'bar', id:genId(), kind:'chords', chords: chords||[]}; }
 
+// Default beat layout (0-indexed, 4 beats per bar) for a given chord count.
+// 1 chord: |X   |   2 chords: |X X |   3 chords: |XXX |   4 chords: |XXXX|
+function defaultBeats(n){
+  if(n<=0) return [];
+  if(n===1) return [0];
+  if(n===2) return [0,2];
+  if(n===3) return [0,1,2];
+  return [0,1,2,3];
+}
+function reflowBeats(b){
+  const positions = defaultBeats(b.chords.length);
+  const sorted = b.chords.slice().sort((x,y)=>x.beat-y.beat);
+  sorted.forEach((c,i)=>{ c.beat = positions[i]; });
+}
+function addChordWithReflow(b, newChordPartial){
+  const positions = defaultBeats(b.chords.length + 1);
+  const sorted = b.chords.slice().sort((x,y)=>x.beat-y.beat);
+  sorted.forEach((c,i)=>{ c.beat = positions[i]; });
+  newChordPartial.beat = positions[positions.length-1];
+  b.chords.push(newChordPartial);
+}
+
 function blankSong(){
   return {
-    title:'Untitled Song',
+    title:'My Song',
     key:'',
     timeSig:{num:4, den:4},
     items:[ bar([]) ],
@@ -566,6 +619,96 @@ function saveTitle(){
   closeSheet();
 }
 
+/* ============ Export / Import ============ */
+function slugify(name){
+  return (name||'lead-sheet').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'lead-sheet';
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+function openExportSheet(){
+  showSheet(`
+    <div class="sheet-header"><span>Export</span><button onclick="closeSheet()">✕</button></div>
+    <div class="symbol-grid">
+      <button onclick="exportPNG()">Save as Image (PNG)</button>
+      <button onclick="exportPDF()">Save as PDF</button>
+      <button onclick="exportJSON()">Export Chart Data (.json)</button>
+      <button onclick="triggerImportJSON()">Import Chart Data (.json)</button>
+    </div>
+    <div class="sheet-body-text" style="margin-top:14px;">PNG and PDF save exactly what's on the chart, including your handwriting. The .json file is this chart's raw data — export it to back it up or send it to someone else using this app, then use Import to load it back in.</div>
+  `);
+}
+function exportPNG(){
+  if(typeof html2canvas === 'undefined'){
+    showToast('Image export needs an internet connection');
+    return;
+  }
+  closeSheet();
+  showToast('Preparing image…');
+  document.body.classList.add('exporting');
+  const card = document.querySelector('.chart-card');
+  requestAnimationFrame(()=>{
+    html2canvas(card, {backgroundColor:'#ffffff', scale:2}).then(canvas=>{
+      canvas.toBlob(blob=>{
+        downloadBlob(blob, slugify(song.title)+'.png');
+      });
+    }).catch(()=>{
+      showToast('Image export failed');
+    }).finally(()=>{
+      document.body.classList.remove('exporting');
+    });
+  });
+}
+function exportPDF(){
+  closeSheet();
+  window.print();
+}
+function exportJSON(){
+  const data = JSON.stringify(song, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  downloadBlob(blob, slugify(song.title)+'.json');
+  closeSheet();
+}
+function triggerImportJSON(){
+  document.getElementById('importFileInput').click();
+}
+function handleImportFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      if(!parsed || !Array.isArray(parsed.items) || !Array.isArray(parsed.borders)){
+        showToast('That file does not look like a chart export');
+        return;
+      }
+      pushSongUndo();
+      song = parsed;
+      if(!song.timeSig) song.timeSig = {num:4, den:4};
+      if(typeof song.key !== 'string') song.key = '';
+      if(typeof song.title !== 'string') song.title = 'My Song';
+      document.getElementById('titleText').textContent = song.title;
+      document.getElementById('sheetTitleText').textContent = song.title;
+      updateHeader();
+      closeSheet();
+      render();
+      showToast('Chart imported');
+    } catch(err){
+      showToast('Could not read that file');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
 /* ============ Time signature ============ */
 function openTimeSigEdit(){
   showSheet(`
@@ -647,30 +790,28 @@ function renderBarEl(item){
   }
 
   const denseCls = item.chords.length>=3 ? ' dense' : '';
-  const slotCount = Math.min(item.chords.length+1, MAX_CHORDS_PER_BAR);
-  if(item.chords.length < MAX_CHORDS_PER_BAR){
-    div.onclick = () => { handleBarTap(item, item.chords.length); };
-  }
-  for(let i=0;i<slotCount;i++){
+  for(let beatIdx=0; beatIdx<4; beatIdx++){
     const slot = document.createElement('div');
     slot.className='slot';
-    const chord = item.chords[i];
+    const chord = item.chords.find(c=>c.beat===beatIdx);
     if(chord && chord.rest){
       slot.innerHTML = halfRestSvg(14);
+      slot.addEventListener('pointerdown', (e)=>slotPointerDown(e, item, beatIdx, div));
     } else if(chord){
       const c = document.createElement('span');
       c.className='chord'+denseCls;
       c.innerHTML = chordInnerHtml(chord);
       slot.appendChild(c);
+      slot.addEventListener('pointerdown', (e)=>slotPointerDown(e, item, beatIdx, div));
+    } else if(item.chords.length < MAX_CHORDS_PER_BAR){
+      slot.innerHTML = '<span class="beat-hint" style="color:#dedad0;font-size:11px;font-family:Helvetica,Arial,sans-serif;">+</span>';
     }
-    slot.onclick=(e)=>{ e.stopPropagation(); handleBarTap(item, i); };
+    slot.onclick=(e)=>{
+      e.stopPropagation();
+      if(suppressNextClick){ suppressNextClick=false; return; }
+      handleBarTap(item, beatIdx);
+    };
     div.appendChild(slot);
-  }
-  if(item.chords.length>0 && item.chords.length<MAX_CHORDS_PER_BAR){
-    const plus=document.createElement('div');
-    plus.className='add-chord';
-    plus.textContent='+';
-    div.appendChild(plus);
   }
   return div;
 }
@@ -811,12 +952,17 @@ function setBarKind(barId, kind){
   closeSheet();
   render();
 }
-function setHalfRest(barId, chordIdx){
+function setHalfRest(barId){
   pushSongUndo();
   const b = findBarById(barId);
   if(!b) return closeSheet();
   b.kind='chords';
-  b.chords[chordIdx] = {rest:true};
+  if(pickerTarget.mode==='edit'){
+    const c = b.chords.find(c=>c.beat===pickerTarget.beat);
+    if(c){ c.rest=true; delete c.root; delete c.quality; }
+  } else {
+    addChordWithReflow(b, {rest:true});
+  }
   closeSheet();
   render();
 }
@@ -857,22 +1003,23 @@ let pickerTarget = null;
 let pickerRoot = null;
 let pickerWholeBarOptions = false;
 
-function handleBarTap(item, chordIdx){
+function handleBarTap(item, beatIdx){
   if(mode!=='chords') return;
   if(item.kind!=='chords' || item.chords.length===0){
-    pickerTarget = {barId:item.id, chordIdx:0};
+    pickerTarget = {barId:item.id, mode:'add'};
     pickerRoot = null;
     pickerWholeBarOptions = true;
     openStep1();
     return;
   }
-  pickerTarget = {barId:item.id, chordIdx};
   pickerWholeBarOptions = false;
-  const existing = item.chords[chordIdx];
-  if(existing && !existing.rest){
-    pickerRoot = existing.root;
-    openStep2();
+  const existing = item.chords.find(c=>c.beat===beatIdx);
+  if(existing){
+    pickerTarget = {barId:item.id, mode:'edit', beat:beatIdx};
+    if(existing.rest){ pickerRoot=null; openStep1(); }
+    else { pickerRoot = existing.root; openStep2(); }
   } else {
+    pickerTarget = {barId:item.id, mode:'add'};
     pickerRoot = null;
     openStep1();
   }
@@ -890,7 +1037,7 @@ function openStep1(){
     <div class="sheet-header"><span>Choose root</span><button onclick="closeSheet()">✕</button></div>
     <div class="root-grid">
       ${ROOTS.map(r=>`<button onclick="pickRoot('${r}')">${rootHtml(r)}</button>`).join('')}
-      <button class="icon-btn" onclick="setHalfRest('${pickerTarget.barId}',${pickerTarget.chordIdx})">${halfRestSvg(20)}</button>
+      <button class="icon-btn" onclick="setHalfRest('${pickerTarget.barId}')">${halfRestSvg(20)}</button>
     </div>
     ${wholeBarBlock}
     <div class="sheet-actions">
@@ -924,15 +1071,25 @@ function pickQuality(qid){
   const b = findBarById(pickerTarget.barId);
   if(!b) return closeSheet();
   b.kind = 'chords';
-  b.chords[pickerTarget.chordIdx] = {root:pickerRoot, quality:qid};
+  if(pickerTarget.mode==='edit'){
+    const c = b.chords.find(c=>c.beat===pickerTarget.beat);
+    if(c){ c.root=pickerRoot; c.quality=qid; delete c.rest; }
+  } else {
+    addChordWithReflow(b, {root:pickerRoot, quality:qid});
+  }
   closeSheet();
   render();
 }
 function clearChordSlot(){
+  if(pickerTarget.mode!=='edit'){ closeSheet(); return; }
   pushSongUndo();
   const b = findBarById(pickerTarget.barId);
-  if(b && pickerTarget.chordIdx < b.chords.length){
-    b.chords.splice(pickerTarget.chordIdx, 1);
+  if(b){
+    const idx = b.chords.findIndex(c=>c.beat===pickerTarget.beat);
+    if(idx>=0){
+      b.chords.splice(idx,1);
+      reflowBeats(b);
+    }
   }
   closeSheet();
   render();
@@ -978,6 +1135,97 @@ function showSheet(html){
 function closeSheet(){
   document.getElementById('sheet').classList.remove('open');
   document.getElementById('backdrop').classList.remove('open');
+}
+
+/* ============ Chord drag & drop (reposition within a bar) ============ */
+let chordDrag = null;
+let suppressNextClick = false;
+
+function beatFromClientX(clientX, rect){
+  let rel = (clientX - rect.left) / rect.width;
+  rel = Math.max(0, Math.min(0.999, rel));
+  return Math.floor(rel*4);
+}
+function clearBeatHighlight(){
+  document.querySelectorAll('.slot.drop-target').forEach(el=>el.classList.remove('drop-target'));
+  document.querySelectorAll('.slot.drag-source').forEach(el=>el.classList.remove('drag-source'));
+}
+function highlightBeatTarget(targetBeat){
+  clearBeatHighlight();
+  const slots = chordDrag.barEl.querySelectorAll('.slot');
+  if(slots[targetBeat]) slots[targetBeat].classList.add('drop-target');
+  if(slots[chordDrag.fromBeat]) slots[chordDrag.fromBeat].classList.add('drag-source');
+}
+
+function slotPointerDown(e, item, beatIdx, barEl){
+  if(mode!=='chords') return;
+  const rect = barEl.getBoundingClientRect();
+  chordDrag = {
+    barId:item.id,
+    fromBeat:beatIdx,
+    targetBeat:beatIdx,
+    startX:e.clientX,
+    startY:e.clientY,
+    dragging:false,
+    rect,
+    barEl
+  };
+  window.addEventListener('pointermove', onChordDragMove);
+  window.addEventListener('pointerup', onChordDragEnd);
+}
+
+function onChordDragMove(e){
+  if(!chordDrag) return;
+  const dx = e.clientX - chordDrag.startX;
+  const dy = e.clientY - chordDrag.startY;
+
+  if(!chordDrag.dragging){
+    if(Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)){
+      // predominantly vertical — this is a page scroll, not a chord drag. Bail out.
+      window.removeEventListener('pointermove', onChordDragMove);
+      window.removeEventListener('pointerup', onChordDragEnd);
+      chordDrag = null;
+      return;
+    }
+    if(Math.abs(dx) < 6) return;
+    chordDrag.dragging = true;
+    pushSongUndo();
+    document.getElementById('chartScroll').classList.add('dragging-chord');
+    highlightBeatTarget(chordDrag.targetBeat);
+  }
+
+  e.preventDefault();
+  const beat = beatFromClientX(e.clientX, chordDrag.rect);
+  if(beat !== chordDrag.targetBeat){
+    chordDrag.targetBeat = beat;
+    highlightBeatTarget(beat);
+  }
+}
+
+function onChordDragEnd(){
+  window.removeEventListener('pointermove', onChordDragMove);
+  window.removeEventListener('pointerup', onChordDragEnd);
+  document.getElementById('chartScroll').classList.remove('dragging-chord');
+  clearBeatHighlight();
+  if(!chordDrag){ return; }
+
+  if(chordDrag.dragging){
+    const b = findBarById(chordDrag.barId);
+    const from = chordDrag.fromBeat;
+    const to = chordDrag.targetBeat;
+    if(b && from !== to){
+      const moving = b.chords.find(c=>c.beat===from);
+      const occupying = b.chords.find(c=>c.beat===to);
+      if(moving){
+        moving.beat = to;
+        if(occupying){ occupying.beat = from; }
+      }
+    }
+    render();
+    suppressNextClick = true;
+    setTimeout(()=>{ suppressNextClick=false; }, 60);
+  }
+  chordDrag = null;
 }
 
 /* ============ Ink canvas ============ */
