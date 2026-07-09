@@ -28,7 +28,7 @@
     --ink-soft:#6b6a66;
     --pen:#25409e;
     --danger:#c0453f;
-    --chord-font: 'Lora', Georgia, 'Times New Roman', serif;
+    --chord-font: 'Petaluma Script', 'Lora', cursive;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
@@ -434,8 +434,8 @@
   <div class="topbar">
     <div class="back">‹ Back</div>
     <div class="titlewrap" onclick="openTitleEdit()">
-      <div class="title" id="titleText">My Song</div>
-      <div class="sub" id="subText">4/4</div>
+      <div class="title" id="titleText">Autumn Leaves</div>
+      <div class="sub" id="subText">4/4 · G minor</div>
     </div>
     <div class="icon" onclick="toggleMode('draw')">✎</div>
     <div class="icon" onclick="openExportSheet()">⤴</div>
@@ -443,7 +443,7 @@
 
   <div class="chart-scroll" id="chartScroll">
     <div class="chart-card">
-      <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">My Song</div>
+      <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">Autumn Leaves</div>
       <div class="sheet-composer" id="sheetComposerText" onclick="openTitleEdit()" style="display:none;"></div>
       <div id="chartInner">
         <canvas id="inkCanvas"></canvas>
@@ -532,10 +532,60 @@ function blankSong(){
   };
 }
 
+function defaultDemoSong(){
+  const c1 = (r,q)=>({root:r, quality:q});
+  const items = [
+    bar([c1('C','m7')]),                              // 1
+    bar([c1('F','7')]),                                // 2
+    bar([c1('Bb','maj7')]),                            // 3
+    bar([c1('Eb','maj7')]),                             // 4
+    bar([c1('A','m7b5')]),                             // 5
+    bar([c1('D','7')]),                                // 6
+    bar([c1('G','m')]),                                // 7
+    (()=>{ const b=bar([]); b.kind='repeat'; return b; })(), // 8 (%)
+    bar([c1('A','m7b5')]),                             // 9
+    bar([c1('D','7')]),                                // 10
+    bar([c1('G','m')]),                                // 11
+    (()=>{ const b=bar([]); b.kind='repeat'; return b; })(), // 12 (%)
+    bar([c1('C','m7')]),                               // 13
+    bar([c1('F','7')]),                                // 14
+    bar([c1('Bb','maj7')]),                            // 15
+    bar([c1('Eb','maj7')]),                            // 16
+    bar([c1('A','m7b5')]),                             // 17
+    bar([c1('D','7')]),                                // 18
+    bar([{root:'G',quality:'m7',beat:0},{root:'Gb',quality:'m7',beat:2}]), // 19
+    bar([{root:'F',quality:'m7',beat:0},{root:'E',quality:'7',beat:2}]),   // 20
+    bar([c1('A','m7b5')]),                             // 21
+    bar([c1('D','7')]),                                // 22
+    bar([c1('G','m')]),                                // 23
+    (()=>{ const b=bar([]); b.kind='repeat'; return b; })(), // 24 (%)
+  ];
+  // give single-chord bars an explicit beat 0 (addChordWithReflow isn't used here; set directly)
+  items.forEach(it=>{
+    if(it.kind==='chords' && it.chords.length===1 && it.chords[0].beat===undefined){
+      it.chords[0].beat = 0;
+    }
+  });
+  const borders = items.map(()=>({type:'normal', label:null}));
+  borders.push({type:'normal', label:null}); // trailing, will be set to 'end' below
+  borders[0].label = 'A';
+  borders[8].label = 'B';
+  borders[16].label = 'C';
+  borders[borders.length-1].type = 'end';
+  return {
+    title:'Autumn Leaves',
+    composer:'Joseph Kosma',
+    key:'G minor',
+    timeSig:{num:4, den:4},
+    items,
+    borders
+  };
+}
+
 // song.items is a flat list of bars.
 // song.borders[i] = {type, label} is the border BEFORE items[i];
 // song.borders[items.length] is the trailing (final) border.
-let song = blankSong();
+let song = defaultDemoSong();
 
 /* ============ Undo stack ============ */
 let undoStack = [];
@@ -790,7 +840,7 @@ function setTimeSig(n,d){
 }
 
 /* ============ Font picker ============ */
-let currentFontId = 'lora';
+let currentFontId = 'petaluma';
 function openFontPicker(){
   showSheet(`
     <div class="sheet-header"><span>Chord font</span><button onclick="closeSheet()">✕</button></div>
