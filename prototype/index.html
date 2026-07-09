@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Lead Sheet Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  @font-face{
+    font-family:'Petaluma Script';
+    src: url('https://raw.githubusercontent.com/steinbergmedia/petaluma/master/redist/otf/PetalumaScript.otf') format('opentype');
+    font-display: swap;
+  }
+</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
@@ -18,12 +28,13 @@
     --ink-soft:#6b6a66;
     --pen:#25409e;
     --danger:#c0453f;
+    --chord-font: 'Lora', Georgia, 'Times New Roman', serif;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
   body{
     margin:0;
-    font-family:Georgia,'Times New Roman',serif;
+    font-family:var(--chord-font);
     background:#d9d5c8;
     display:flex;
     justify-content:center;
@@ -62,25 +73,33 @@
   .chart-scroll{
     flex:1 1 auto;
     overflow-y:auto;
-    overflow-x:hidden;
-    padding:10px 6px 90px;
+    overflow-x:auto;
+    padding:8px 2px 90px 0;
     -webkit-overflow-scrolling:touch;
   }
   .chart-card{
     background:var(--card);
     border:none;
     border-radius:6px;
-    padding:12px 4px 14px;
+    padding:10px 1px 12px 0;
     position:relative;
   }
   .sheet-title{
     text-align:center;
-    font-size:18px;
+    font-size:20px;
     font-weight:bold;
     color:var(--ink);
-    margin-bottom:10px;
+    margin-bottom:2px;
     cursor:pointer;
     letter-spacing:.2px;
+  }
+  .sheet-composer{
+    text-align:center;
+    font-size:12px;
+    font-style:italic;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+    cursor:pointer;
   }
   #chartInner{ position:relative; }
   #inkCanvas{
@@ -101,11 +120,11 @@
     align-items:flex-end;
     min-height:15px;
   }
-  .label-row .ts-spacer{ flex:0 0 20px; }
-  .label-row .bar-spacer{ flex:0 0 74px; }
+  .label-row .ts-spacer{ flex:0 0 11px; }
+  .label-row .bar-spacer{ flex:0 0 90px; }
   .label-slot{
     flex:0 0 auto;
-    min-width:11px;
+    min-width:13px;
     display:flex;
     align-items:flex-end;
     justify-content:center;
@@ -129,27 +148,32 @@
   }
 
   .time-sig{
-    flex:0 0 20px;
+    flex:0 0 11px;
     display:flex;
     flex-direction:column;
-    align-items:center;
+    align-items:flex-end;
     justify-content:center;
-    line-height:.9;
+    line-height:.85;
     cursor:pointer;
-    margin-right:1px;
+    margin-right:0;
+    padding-right:0.5px;
+    overflow:visible;
   }
   .time-sig .num,.time-sig .den{
-    font-size:14px;
+    font-size:19px;
     font-weight:bold;
     color:var(--ink);
-    font-family:Georgia,serif;
+    font-family:var(--chord-font);
+    display:inline-block;
+    transform:scaleX(0.5);
+    transform-origin:right center;
   }
 
   .bar{
-    flex:0 0 74px;
-    min-height:46px;
+    flex:0 0 90px;
+    min-height:56px;
     margin:2px 0;
-    padding:4px 3px 2px;
+    padding:5px 4px 3px;
     display:grid;
     grid-template-columns:repeat(4,1fr);
     align-items:stretch;
@@ -164,7 +188,7 @@
     align-items:center;
     justify-content:flex-start;
     min-width:0;
-    min-height:38px;
+    min-height:46px;
     touch-action:pan-y;
     user-select:none;
     -webkit-user-select:none;
@@ -185,7 +209,7 @@
     -webkit-user-select:none;
   }
   .bar .chord{
-    font-size:17px;
+    font-size:21px;
     color:var(--ink);
     line-height:1;
     white-space:nowrap;
@@ -193,7 +217,12 @@
     -webkit-user-select:none;
     -webkit-touch-callout:none;
   }
-  .bar .chord.dense{ font-size:12.5px; }
+  .bar .chord.dense{
+    font-size:18px;
+    display:inline-block;
+    transform:scaleX(0.7);
+    transform-origin:left center;
+  }
   .bar .chord .suf{
     font-size:.62em;
     vertical-align:top;
@@ -203,9 +232,12 @@
   }
   .bar .chord .acc{
     font-size:.72em;
-    margin-left:-2px;
+    margin-left:-1px;
     position:relative;
     top:-1px;
+  }
+  .bar .chord.dense .acc{
+    margin-left:1px;
   }
   .bar .empty-hint{
     grid-column:1/-1;
@@ -237,22 +269,22 @@
   }
 
   .add-bar{
-    flex:0 0 40px;
-    min-height:46px;
+    flex:0 0 48px;
+    min-height:56px;
     margin:2px 2px;
     border:1.5px dashed #c7c3b7;
     border-radius:4px;
     display:flex;align-items:center;justify-content:center;
     color:#a8a49a;
     font-family:Helvetica,Arial,sans-serif;
-    font-size:18px;
+    font-size:20px;
     cursor:pointer;
   }
 
   /* ===== Border lines (tappable barlines) ===== */
   .border-line{
     flex:0 0 auto;
-    min-width:11px;
+    min-width:13px;
     display:flex;
     align-items:stretch;
     justify-content:center;
@@ -357,7 +389,7 @@
     border-radius:8px;
     border:1px solid #ddd8ca;
     background:#faf9f5;
-    font-family:Georgia,serif;
+    font-family:var(--chord-font);
     font-size:16px;
     color:#1c1c1c;
     cursor:pointer;
@@ -412,6 +444,7 @@
   <div class="chart-scroll" id="chartScroll">
     <div class="chart-card">
       <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">My Song</div>
+      <div class="sheet-composer" id="sheetComposerText" onclick="openTitleEdit()" style="display:none;"></div>
       <div id="chartInner">
         <canvas id="inkCanvas"></canvas>
       </div>
@@ -426,6 +459,7 @@
     <button class="tbtn" id="modeErase" onclick="toggleMode('erase')">Erase</button>
     <button class="tbtn action" onclick="undo()">Undo</button>
     <button class="tbtn action" onclick="clearInk()">Clear Ink</button>
+    <button class="tbtn action" onclick="openFontPicker()">Font</button>
     <button class="tbtn warn" onclick="confirmClearPage()">Clear Page</button>
   </div>
 
@@ -451,7 +485,13 @@ const QUALITIES = [
 ];
 const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
 const SECTION_LETTERS = ['A','B','C','D','E','F','G','H'];
+const NAMED_SECTIONS = ['Verse','Pre-Chorus','Chorus','Interlude','Solo'];
 const MAX_CHORDS_PER_BAR = 4;
+const FONT_OPTIONS = [
+  {id:'lora', label:'Classic', sample:'Db7', family:"'Lora', Georgia, 'Times New Roman', serif"},
+  {id:'petaluma', label:'Copyist', sample:'Db7', family:"'Petaluma Script', 'Lora', cursive"},
+  {id:'caveat', label:'Handwritten', sample:'Db7', family:"'Caveat', 'Lora', cursive"},
+];
 const BARS_PER_ROW = 4;
 
 let idCounter = 1;
@@ -484,6 +524,7 @@ function addChordWithReflow(b, newChordPartial){
 function blankSong(){
   return {
     title:'My Song',
+    composer:'',
     key:'',
     timeSig:{num:4, den:4},
     items:[ bar([]) ],
@@ -550,16 +591,14 @@ function undo(){
   if(entry.type==='song'){
     song = JSON.parse(entry.data);
     updateHeader();
-    document.getElementById('titleText').textContent = song.title;
-    document.getElementById('sheetTitleText').textContent = song.title;
+    syncTitleDisplay();
     render();
   } else if(entry.type==='ink'){
     restoreInkFromDataUrl(entry.data, entry.w, entry.h);
   } else if(entry.type==='full'){
     song = JSON.parse(entry.songData);
     updateHeader();
-    document.getElementById('titleText').textContent = song.title;
-    document.getElementById('sheetTitleText').textContent = song.title;
+    syncTitleDisplay();
     render();
     requestAnimationFrame(()=>restoreInkFromDataUrl(entry.inkData, entry.w, entry.h));
   }
@@ -583,6 +622,18 @@ function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
 function updateHeader(){
   const sub = song.key ? `${song.timeSig.num}/${song.timeSig.den} · ${song.key}` : `${song.timeSig.num}/${song.timeSig.den}`;
   document.getElementById('subText').textContent = sub;
+}
+function syncTitleDisplay(){
+  document.getElementById('titleText').textContent = song.title;
+  document.getElementById('sheetTitleText').textContent = song.title;
+  const cEl = document.getElementById('sheetComposerText');
+  if(song.composer){
+    cEl.textContent = song.composer;
+    cEl.style.display='block';
+  } else {
+    cEl.textContent='';
+    cEl.style.display='none';
+  }
 }
 
 /* ============ Mode state ============ */
@@ -611,18 +662,22 @@ function showToast(msg){
 /* ============ Title edit ============ */
 function openTitleEdit(){
   showSheet(`
-    <div class="sheet-header"><span>Song title</span><button onclick="closeSheet()">✕</button></div>
-    <div class="title-edit"><input id="titleInput" value="${song.title.replace(/"/g,'&quot;')}"></div>
+    <div class="sheet-header"><span>Song info</span><button onclick="closeSheet()">✕</button></div>
+    <div class="sheet-subhead" style="margin-top:0;">Title</div>
+    <div class="title-edit"><input id="titleInput" placeholder="Song title" value="${song.title.replace(/"/g,'&quot;')}"></div>
+    <div class="sheet-subhead">Composer</div>
+    <div class="title-edit"><input id="composerInput" placeholder="Optional" value="${(song.composer||'').replace(/"/g,'&quot;')}"></div>
     <div class="sheet-actions"><button onclick="saveTitle()" style="background:#4da3ff;color:#fff;">Save</button></div>
   `);
 }
 function saveTitle(){
   const v = document.getElementById('titleInput').value.trim();
+  const c = document.getElementById('composerInput').value.trim();
   if(v){
     pushSongUndo();
     song.title=v;
-    document.getElementById('titleText').textContent=v;
-    document.getElementById('sheetTitleText').textContent=v;
+    song.composer=c;
+    syncTitleDisplay();
   }
   closeSheet();
 }
@@ -703,8 +758,8 @@ function handleImportFile(e){
       if(!song.timeSig) song.timeSig = {num:4, den:4};
       if(typeof song.key !== 'string') song.key = '';
       if(typeof song.title !== 'string') song.title = 'My Song';
-      document.getElementById('titleText').textContent = song.title;
-      document.getElementById('sheetTitleText').textContent = song.title;
+      if(typeof song.composer !== 'string') song.composer = '';
+      syncTitleDisplay();
       updateHeader();
       closeSheet();
       render();
@@ -734,6 +789,30 @@ function setTimeSig(n,d){
   render();
 }
 
+/* ============ Font picker ============ */
+let currentFontId = 'lora';
+function openFontPicker(){
+  showSheet(`
+    <div class="sheet-header"><span>Chord font</span><button onclick="closeSheet()">✕</button></div>
+    <div class="symbol-grid">
+      ${FONT_OPTIONS.map(f=>`
+        <button style="display:flex;align-items:center;justify-content:space-between;${f.id===currentFontId?'border-color:#4da3ff;background:#eef5ff;':''}" onclick="setChordFont('${f.id}')">
+          <span>${f.label}${f.id===currentFontId ? ' ✓' : ''}</span>
+          <span style="font-family:${f.family};font-size:20px;">${f.sample}</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="sheet-body-text" style="margin-top:14px;">Copyist and Handwritten need an internet connection the first time they load. Rest/rhythm symbols are drawn shapes and won't change with the font.</div>
+  `);
+}
+function setChordFont(id){
+  const f = FONT_OPTIONS.find(x=>x.id===id);
+  if(!f) return;
+  currentFontId = id;
+  document.documentElement.style.setProperty('--chord-font', f.family);
+  closeSheet();
+}
+
 /* ============ Clear page ============ */
 function confirmClearPage(){
   showSheet(`
@@ -749,8 +828,7 @@ function clearPage(){
   pushFullUndo();
   song = blankSong();
   updateHeader();
-  document.getElementById('titleText').textContent = song.title;
-  document.getElementById('sheetTitleText').textContent = song.title;
+  syncTitleDisplay();
   clearInkRaw();
   closeSheet();
   render();
@@ -797,7 +875,7 @@ function renderBarEl(item){
     return div;
   }
 
-  const denseCls = item.chords.length>=3 ? ' dense' : '';
+  const denseCls = item.chords.length>=4 ? ' dense' : '';
   for(let beatIdx=0; beatIdx<4; beatIdx++){
     const slot = document.createElement('div');
     slot.className='slot';
@@ -849,11 +927,13 @@ function renderLabelSlot(idx, allow){
   return div;
 }
 
-function renderTimeSigEl(){
+function renderTimeSigEl(showDigits){
   const div = document.createElement('div');
   div.className='time-sig';
-  div.innerHTML = `<div class="num">${song.timeSig.num}</div><div class="den">${song.timeSig.den}</div>`;
-  div.onclick=(e)=>{ e.stopPropagation(); openTimeSigEdit(); };
+  if(showDigits){
+    div.innerHTML = `<div class="num">${song.timeSig.num}</div><div class="den">${song.timeSig.den}</div>`;
+    div.onclick=(e)=>{ e.stopPropagation(); openTimeSigEdit(); };
+  }
   return div;
 }
 
@@ -902,11 +982,9 @@ function render(){
     if(needsLabelRow){
       const labelRow = document.createElement('div');
       labelRow.className='label-row';
-      if(rIdx===0){
-        const tsSpacer=document.createElement('div');
-        tsSpacer.className='ts-spacer';
-        labelRow.appendChild(tsSpacer);
-      }
+      const tsSpacer=document.createElement('div');
+      tsSpacer.className='ts-spacer';
+      labelRow.appendChild(tsSpacer);
       let li = rowStart;
       row.forEach(()=>{
         labelRow.appendChild(renderLabelSlot(li, true));
@@ -921,7 +999,7 @@ function render(){
 
     const barRow = document.createElement('div');
     barRow.className='bar-row';
-    if(rIdx===0){ barRow.appendChild(renderTimeSigEl()); }
+    barRow.appendChild(renderTimeSigEl(rIdx===0));
 
     row.forEach(item=>{
       barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx));
@@ -1117,7 +1195,22 @@ function openBorderEdit(idx){
       ${SECTION_LETTERS.map(l=>`<button onclick="setLabel(${idx},'${l}')">${l}</button>`).join('')}
       <button onclick="setLabel(${idx},null)">None</button>
     </div>
+    <div class="symbol-grid" style="margin-top:8px;">
+      ${NAMED_SECTIONS.map(n=>`<button onclick="setLabel(${idx},'${n}')">${n}</button>`).join('')}
+      <button onclick="openCustomLabelEdit(${idx})">Custom…</button>
+    </div>
   `);
+}
+function openCustomLabelEdit(idx){
+  showSheet(`
+    <div class="sheet-header"><span>Custom label</span><button onclick="closeSheet()">✕</button></div>
+    <div class="title-edit"><input id="customLabelInput" placeholder="e.g. Bridge" maxlength="18"></div>
+    <div class="sheet-actions"><button onclick="saveCustomLabel(${idx})" style="background:#4da3ff;color:#fff;">Save</button></div>
+  `);
+}
+function saveCustomLabel(idx){
+  const v = document.getElementById('customLabelInput').value.trim();
+  if(v){ setLabel(idx, v); } else { closeSheet(); }
 }
 function setBorderType(idx, type){
   pushSongUndo();
@@ -1355,8 +1448,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   canvas.addEventListener('touchstart', startDraw, {passive:false});
   canvas.addEventListener('touchmove', moveDraw, {passive:false});
   window.addEventListener('touchend', endDraw);
-  document.getElementById('titleText').textContent = song.title;
-  document.getElementById('sheetTitleText').textContent = song.title;
+  syncTitleDisplay();
   updateHeader();
   render();
 });
