@@ -43,6 +43,7 @@
     --ui-font: 'Kalam', 'Caveat', cursive;
     --title-font: 'EB Garamond', 'Lora', Georgia, serif;
     --chord-font: 'Petaluma Script', 'EB Garamond', 'Lora', cursive;
+    --bar-w: 90px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
@@ -111,17 +112,28 @@
     min-height:0;
     overflow-y:auto;
     overflow-x:auto;
-    padding:14px 10px 90px 8px;
+    padding:14px 0 90px;
     -webkit-overflow-scrolling:touch;
     background:var(--shell-bg);
   }
   .chart-card{
-    background:var(--paper);
-    border:1px solid var(--card-border);
-    border-radius:8px;
+    background:#ffffff;
+    border:none;
+    border-radius:0;
     padding:16px 10px 16px 8px;
     position:relative;
-    box-shadow:0 1px 3px rgba(43,32,24,.06);
+    box-shadow:none;
+  }
+  @media (min-width:700px){
+    .chart-scroll{ padding:40px 24px 110px; }
+    .chart-card{
+      max-width:794px;
+      margin:0 auto;
+      padding:44px 40px;
+      border:1px solid var(--card-border);
+      border-radius:2px;
+      box-shadow:0 2px 16px rgba(43,32,24,.14);
+    }
   }
   .sheet-title{
     text-align:center;
@@ -170,7 +182,7 @@
     min-height:15px;
   }
   .label-row .ts-spacer{ flex:0 0 11px; }
-  .label-row .bar-spacer{ flex:0 0 90px; }
+  .label-row .bar-spacer{ flex:0 0 var(--bar-w); }
   .label-slot{
     flex:0 0 auto;
     min-width:13px;
@@ -198,6 +210,7 @@
 
   .time-sig{
     flex:0 0 11px;
+    min-width:0;
     display:flex;
     flex-direction:column;
     align-items:flex-end;
@@ -219,7 +232,8 @@
   }
 
   .bar{
-    flex:0 0 90px;
+    flex:0 1 var(--bar-w);
+    min-width:56px;
     min-height:56px;
     margin:2px 0;
     padding:5px 4px 3px;
@@ -638,7 +652,7 @@
     #app{ box-shadow:none; max-width:none; height:auto !important; overflow:visible !important; }
     .topbar, .toolbar, .sidebar, .info-panel, #toast, #backdrop, #sheet{ display:none !important; }
     .chart-scroll{ overflow:visible !important; padding:0; height:auto !important; }
-    .chart-card{ border:none; }
+    .chart-card{ border:none; box-shadow:none; max-width:none; margin:0; min-height:auto !important; }
     .add-bar, .empty-hint{ display:none !important; }
   }
   body.exporting .add-bar,
@@ -724,7 +738,7 @@ const FONT_OPTIONS = [
   {id:'petaluma', label:'Copyist', sample:'Db7', family:"'Petaluma Script', 'Lora', cursive"},
   {id:'caveat', label:'Handwritten', sample:'Db7', family:"'Caveat', 'Lora', cursive"},
 ];
-const BARS_PER_ROW = 4;
+let BARS_PER_ROW = 4;
 
 /* ============ Hand-drawn line icons ============ */
 const ICON_PATHS = {
@@ -1219,6 +1233,37 @@ function clearPage(){
   clearInkRaw();
   closeSheet();
   render();
+}
+
+/* ============ Responsive page & bar sizing ============ */
+// Reads the actual page (.chart-card) width and picks how many bars fit per
+// row (like text reflowing to the width of a page), then sizes the page
+// itself like a sheet of A4 paper (fixed proportions, grows taller for long charts).
+function applyResponsiveLayout(){
+  const card = document.querySelector('.chart-card');
+  if(!card) return;
+  const cs = getComputedStyle(card);
+  const contentW = card.clientWidth - parseFloat(cs.paddingLeft||0) - parseFloat(cs.paddingRight||0);
+  if(contentW <= 0) return;
+
+  card.style.minHeight = Math.round(card.clientWidth * Math.SQRT2) + 'px'; // A4 proportions (border-box)
+
+  const TS_W = 11.5, BORDER_W = 13, MIN_BAR = 72, MAX_BAR = 170, MIN_N = 2, MAX_N = 8;
+  const barWidthFor = n => (contentW - TS_W - (n+1)*BORDER_W) / n;
+  let n = 4;
+  if(barWidthFor(n) < MIN_BAR){
+    while(n > MIN_N && barWidthFor(n) < MIN_BAR) n--;
+  } else if(barWidthFor(n) > MAX_BAR){
+    while(n < MAX_N && barWidthFor(n) > MAX_BAR) n++;
+  }
+  n = Math.max(MIN_N, Math.min(MAX_N, n));
+  const bw = Math.round(Math.max(MIN_BAR, barWidthFor(n)));
+  document.documentElement.style.setProperty('--bar-w', bw+'px');
+
+  if(n !== BARS_PER_ROW){
+    BARS_PER_ROW = n;
+    render();
+  }
 }
 
 /* ============ Rendering ============ */
@@ -1836,7 +1881,10 @@ function showWelcome(){
 function showEditor(){
   document.getElementById('welcomeScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  requestAnimationFrame(resizeCanvasPreserving);
+  requestAnimationFrame(()=>{
+    applyResponsiveLayout();
+    resizeCanvasPreserving();
+  });
 }
 function continueAsGuest(){ showEditor(); }
 function attemptSignIn(){
@@ -1845,7 +1893,12 @@ function attemptSignIn(){
 }
 
 /* ============ Init ============ */
-window.addEventListener('resize', ()=>requestAnimationFrame(resizeCanvasPreserving));
+window.addEventListener('resize', ()=>requestAnimationFrame(()=>{
+  applyResponsiveLayout();
+  resizeCanvasPreserving();
+}));
+window.addEventListener('beforeprint', applyResponsiveLayout);
+window.addEventListener('afterprint', ()=>requestAnimationFrame(applyResponsiveLayout));
 
 document.addEventListener('DOMContentLoaded', ()=>{
   const canvas = document.getElementById('inkCanvas');
@@ -1866,6 +1919,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   syncTitleDisplay();
   updateHeader();
   render();
+  applyResponsiveLayout();
 });
 
 if('serviceWorker' in navigator){
