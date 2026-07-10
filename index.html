@@ -6,7 +6,7 @@
 <title>Lead Sheet Editor</title>
 
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1c1c1e">
+<meta name="theme-color" content="#f5f2e9">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Kalam:wght@400;700&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
 <style>
   @font-face{
     font-family:'Petaluma Script';
@@ -27,25 +27,29 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
-    --header-bg:#1c1c1e;
-    --header-fg:#f2f2f4;
-    --header-sub:#9a9a9e;
-    --accent:#4da3ff;
-    --paper:#efece4;
-    --card:#ffffff;
-    --card-border:#d8d4c8;
-    --ink:#1c1c1c;
-    --ink-soft:#6b6a66;
-    --pen:#25409e;
-    --danger:#c0453f;
-    --chord-font: 'Petaluma Script', 'Lora', cursive;
+    --shell-bg:#e5e1d4;
+    --header-bg:#fbfaf6;
+    --header-fg:#2b2018;
+    --header-sub:#8a8480;
+    --accent:#8a3b2c;
+    --paper:#fefdfa;
+    --card:#fefdfa;
+    --chrome:#ffffff;
+    --card-border:#e4e0d3;
+    --ink:#2b2018;
+    --ink-soft:#8a8480;
+    --pen:#8a3b2c;
+    --danger:#a6392c;
+    --ui-font: 'Kalam', 'Caveat', cursive;
+    --title-font: 'EB Garamond', 'Lora', Georgia, serif;
+    --chord-font: 'Petaluma Script', 'EB Garamond', 'Lora', cursive;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
   body{
     margin:0;
     font-family:var(--chord-font);
-    background:#d9d5c8;
+    background:var(--shell-bg);
     display:flex;
     justify-content:center;
     overflow:hidden;
@@ -59,7 +63,26 @@
     display:flex;
     flex-direction:column;
     position:relative;
-    box-shadow:0 0 24px rgba(0,0,0,.25);
+    box-shadow:0 0 24px rgba(0,0,0,.18);
+  }
+  #app.hidden{ display:none; }
+
+  .main-row{
+    flex:1 1 auto;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+
+  @media (min-width:700px){
+    body{ padding:0; }
+    #app{ max-width:none; box-shadow:none; }
+    .main-row{ flex-direction:row; }
+  }
+  @media (min-width:1100px){
+    #app{ max-width:1400px; margin:0 auto; box-shadow:0 0 40px rgba(0,0,0,.10); }
+    body{ padding:24px 0; }
+    #app{ height:calc(100vh - 48px); height:calc(100dvh - 48px); border-radius:10px; overflow:hidden; }
   }
 
   /* ===== Header ===== */
@@ -67,37 +90,45 @@
     background:var(--header-bg);
     color:var(--header-fg);
     flex:0 0 auto;
-    padding:8px 12px 10px;
-    font-family:Helvetica,Arial,sans-serif;
+    padding:10px 14px 11px;
+    font-family:var(--ui-font);
     display:flex;
     align-items:center;
     gap:8px;
+    border-bottom:1px solid var(--card-border);
   }
-  .topbar .back{color:var(--accent);font-size:15px;flex:0 0 auto;cursor:pointer;}
+  .topbar .back{color:var(--ink);font-size:15px;font-weight:700;flex:0 0 auto;cursor:pointer;display:flex;align-items:center;gap:2px;}
   .topbar .titlewrap{flex:1 1 auto;text-align:center;min-width:0;cursor:pointer;}
-  .topbar .title{font-size:15px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .topbar .sub{font-size:10.5px;color:var(--header-sub);margin-top:1px;}
-  .topbar .icon{color:var(--accent);font-size:16px;flex:0 0 auto;padding:2px 4px;cursor:pointer;}
+  .topbar .title{font-family:var(--title-font);font-style:italic;font-weight:700;font-size:18px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .topbar .sub{font-family:var(--ui-font);font-size:11px;color:var(--header-sub);margin-top:1px;}
+  .topbar .icon{color:var(--ink);flex:0 0 auto;padding:3px 5px;cursor:pointer;display:flex;align-items:center;}
+  .topbar .icon svg{width:19px;height:19px;}
 
   /* ===== Chart scroll area ===== */
   .chart-scroll{
     flex:1 1 auto;
+    min-width:0;
+    min-height:0;
     overflow-y:auto;
     overflow-x:auto;
-    padding:8px 2px 90px 0;
+    padding:14px 10px 90px 8px;
     -webkit-overflow-scrolling:touch;
+    background:var(--shell-bg);
   }
   .chart-card{
-    background:var(--card);
-    border:none;
-    border-radius:6px;
-    padding:10px 1px 12px 0;
+    background:var(--paper);
+    border:1px solid var(--card-border);
+    border-radius:8px;
+    padding:16px 10px 16px 8px;
     position:relative;
+    box-shadow:0 1px 3px rgba(43,32,24,.06);
   }
   .sheet-title{
     text-align:center;
-    font-size:20px;
-    font-weight:bold;
+    font-family:var(--title-font);
+    font-style:italic;
+    font-size:23px;
+    font-weight:700;
     color:var(--ink);
     margin-bottom:2px;
     cursor:pointer;
@@ -105,8 +136,8 @@
   }
   .sheet-composer{
     text-align:center;
-    font-size:12px;
-    font-style:italic;
+    font-family:var(--ui-font);
+    font-size:13px;
     color:var(--ink-soft);
     margin-bottom:10px;
     cursor:pointer;
@@ -123,7 +154,15 @@
     pointer-events:auto;
   }
 
-  .write-lane{ height:26px; }
+  .write-lane{ height:26px; display:flex; align-items:flex-end; }
+  .feel-label{
+    font-family:var(--ui-font);
+    font-style:italic;
+    font-size:12px;
+    color:var(--ink-soft);
+    padding-left:13px;
+    margin-bottom:1px;
+  }
 
   .label-row{
     display:flex;
@@ -170,7 +209,7 @@
     overflow:visible;
   }
   .time-sig .num,.time-sig .den{
-    font-size:19px;
+    font-size:23px;
     font-weight:bold;
     color:var(--ink);
     font-family:var(--chord-font);
@@ -205,9 +244,9 @@
     -webkit-touch-callout:none;
   }
   .bar .slot.drop-target{
-    background:#eaf1ff;
+    background:#f3e9e5;
     border-radius:4px;
-    outline:2px dashed #4da3ff;
+    outline:2px dashed var(--pen);
     outline-offset:-2px;
   }
   .bar .slot.drag-source{
@@ -307,40 +346,115 @@
   .border-line .dots{ display:flex; flex-direction:column; justify-content:center; gap:2px; }
   .border-line .dots span{ width:3.5px;height:3.5px;border-radius:50%;background:var(--ink);display:block; }
 
-  /* ===== Toolbar ===== */
+  /* ===== Toolbar (phone: bottom bar / tablet+: left sidebar) ===== */
   .toolbar{
     flex:0 0 auto;
     background:var(--header-bg);
+    border-top:1px solid var(--card-border);
     display:flex;
-    gap:6px;
-    padding:8px 10px;
+    gap:4px;
+    padding:8px 8px;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
   }
+  .sidebar{
+    display:none;
+    flex:0 0 auto;
+    width:84px;
+    background:var(--header-bg);
+    border-right:1px solid var(--card-border);
+    flex-direction:column;
+    gap:4px;
+    padding:14px 8px;
+    overflow-y:auto;
+  }
+  @media (min-width:700px){
+    .toolbar{ display:none; }
+    .sidebar{ display:flex; }
+  }
   .tbtn{
     flex:0 0 auto;
-    font-family:Helvetica,Arial,sans-serif;
-    font-size:12.5px;
-    color:#d7d7db;
-    background:#2c2c2e;
-    border:1px solid #3a3a3c;
-    padding:9px 13px;
-    border-radius:20px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    font-family:var(--ui-font);
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--ink);
+    background:var(--chrome);
+    border:1px solid var(--card-border);
+    padding:8px 12px 7px;
+    border-radius:12px;
     white-space:nowrap;
     cursor:pointer;
   }
-  .tbtn.active{ background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:bold; }
-  .tbtn.action{ background:#232326; color:#a9c8ff; }
-  .tbtn.warn{ background:#2c2020; color:#ff9d97; }
+  .sidebar .tbtn{ width:100%; padding:10px 6px 9px; }
+  .tbtn svg{ width:19px; height:19px; }
+  .tbtn:hover{ background:#f2efe6; }
+  .tbtn.active{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .tbtn.active:hover{ background:#3a2c20; }
+  .tbtn.warn{ color:var(--danger); }
+
+  /* ===== Desktop info panel ===== */
+  .info-panel{
+    display:none;
+    flex:0 0 auto;
+    width:220px;
+    background:var(--header-bg);
+    border-left:1px solid var(--card-border);
+    padding:18px 16px;
+    overflow-y:auto;
+    font-family:var(--ui-font);
+  }
+  @media (min-width:1100px){
+    .info-panel{ display:block; }
+  }
+  .info-panel h4{
+    margin:0 0 10px;
+    font-family:var(--ui-font);
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.6px;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .info-panel .info-row{ margin-bottom:16px; }
+  .info-panel .info-line{
+    font-size:14px;
+    color:var(--ink);
+    padding:3px 0;
+  }
+  .info-panel .section-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:5px 0;
+    font-size:13.5px;
+    color:var(--ink);
+  }
+  .info-panel .section-badge{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:Helvetica,Arial,sans-serif;
+    font-weight:bold;
+    font-size:10px;
+    padding:1px 6px;
+    border-radius:2px;
+    flex:0 0 auto;
+  }
+  .info-panel .section-range{ color:var(--ink-soft); }
 
   /* ===== Toast ===== */
   #toast{
     position:absolute;
     top:60px; left:50%;
     transform:translateX(-50%);
-    background:rgba(28,28,30,.92);
-    color:#fff;
-    font-family:Helvetica,Arial,sans-serif;
+    background:rgba(43,32,24,.94);
+    color:#fdfcf8;
+    font-family:var(--ui-font);
+    font-weight:700;
     font-size:12.5px;
     padding:9px 14px;
     border-radius:20px;
@@ -363,13 +477,13 @@
   #sheet{
     position:absolute;
     left:0; right:0; bottom:0;
-    background:#fff;
+    background:var(--chrome);
     border-radius:16px 16px 0 0;
     padding:14px 16px 22px;
     transform:translateY(100%);
     transition:transform .22s ease;
     z-index:51;
-    font-family:Helvetica,Arial,sans-serif;
+    font-family:var(--ui-font);
     max-height:75%;
     overflow-y:auto;
   }
@@ -378,16 +492,17 @@
     display:flex;align-items:center;justify-content:space-between;
     margin-bottom:12px;
   }
-  .sheet-header span{font-size:15px;font-weight:bold;color:#1c1c1c;}
+  .sheet-header span{font-family:var(--title-font);font-style:italic;font-size:17px;font-weight:700;color:var(--ink);}
   .sheet-header button{
-    background:none;border:none;font-size:16px;color:#8a867d;cursor:pointer;padding:4px 6px;
+    background:none;border:none;font-size:16px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;
   }
   .sheet-subhead{
-    font-size:11.5px;color:#8a867d;font-weight:bold;text-transform:uppercase;
+    font-family:var(--ui-font);
+    font-size:12px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;
     letter-spacing:.3px;margin:16px 0 8px;
   }
   .sheet-body-text{
-    font-size:13px;color:#6b6a66;margin-bottom:14px;line-height:1.4;
+    font-size:13px;color:var(--ink-soft);margin-bottom:14px;line-height:1.4;
   }
   .root-grid,.quality-grid,.symbol-grid,.timesig-grid{
     display:grid;
@@ -397,37 +512,131 @@
   .root-grid button,.quality-grid button,.symbol-grid button,.timesig-grid button{
     padding:12px 4px;
     border-radius:8px;
-    border:1px solid #ddd8ca;
-    background:#faf9f5;
+    border:1px solid var(--card-border);
+    background:var(--paper);
     font-family:var(--chord-font);
     font-size:16px;
-    color:#1c1c1c;
+    color:var(--ink);
     cursor:pointer;
   }
-  .quality-grid button{font-family:Helvetica,Arial,sans-serif;font-size:12.5px;}
+  .quality-grid button{font-family:var(--ui-font);font-size:12.5px;font-weight:700;}
   .symbol-grid{grid-template-columns:repeat(1,1fr);}
-  .symbol-grid button{font-family:Helvetica,Arial,sans-serif;font-size:14px;padding:14px 6px;text-align:left;}
+  .symbol-grid button{font-family:var(--ui-font);font-weight:700;font-size:14px;padding:14px 6px;text-align:left;}
   .wholebar-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   .icon-btn{display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;}
-  .timesig-grid button{font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:bold;}
+  .timesig-grid button{font-family:var(--ui-font);font-size:14px;font-weight:700;}
   .sheet-actions{margin-top:14px;display:flex;gap:8px;}
   .sheet-actions button{
     flex:1;
     padding:11px;
     border-radius:8px;
     border:none;
-    font-family:Helvetica,Arial,sans-serif;
+    font-family:var(--ui-font);
+    font-weight:700;
     font-size:13px;
     cursor:pointer;
   }
+  .sheet-actions button.primary{ background:var(--ink); color:var(--paper); }
+  .sheet-actions button.neutral{ background:#f0eee7; color:var(--ink-soft); }
+  .sheet-actions button.danger{ background:#f7e9e6; color:var(--danger); }
   .title-edit input{
-    width:100%;padding:10px;font-size:15px;border:1px solid #ddd8ca;border-radius:8px;font-family:Helvetica,Arial,sans-serif;
+    width:100%;padding:10px;font-size:15px;border:1px solid var(--card-border);border-radius:8px;font-family:var(--ui-font);color:var(--ink);
+  }
+
+  /* ===== Welcome screen ===== */
+  #welcomeScreen{
+    width:100%;
+    height:100vh;
+    height:100dvh;
+    background:var(--shell-bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  #welcomeScreen.hidden{ display:none; }
+  .welcome-card{
+    width:100%;
+    max-width:360px;
+    background:var(--chrome);
+    border-radius:16px;
+    padding:40px 30px 32px;
+    box-shadow:0 8px 32px rgba(43,32,24,.14);
+    text-align:center;
+  }
+  .welcome-card .app-glyph{ width:38px; height:38px; margin:0 auto 14px; color:var(--ink); }
+  .welcome-card h1{
+    font-family:var(--title-font);
+    font-style:italic;
+    font-weight:700;
+    font-size:26px;
+    color:var(--ink);
+    margin:0 0 28px;
+  }
+  .welcome-field{
+    text-align:left;
+    margin-bottom:20px;
+  }
+  .welcome-field input{
+    width:100%;
+    border:none;
+    border-bottom:1px solid var(--card-border);
+    background:transparent;
+    padding:6px 2px 8px;
+    font-family:var(--ui-font);
+    font-size:14.5px;
+    color:var(--ink);
+  }
+  .welcome-field input::placeholder{ color:var(--ink-soft); }
+  .welcome-field input:focus{ outline:none; border-bottom-color:var(--ink); }
+  .welcome-signin{
+    width:100%;
+    background:none;
+    border:none;
+    font-family:var(--title-font);
+    font-weight:700;
+    font-size:15px;
+    color:var(--ink);
+    padding:10px 0 22px;
+    cursor:pointer;
+  }
+  .welcome-divider{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:20px;
+    color:var(--ink-soft);
+    font-family:var(--ui-font);
+    font-size:12px;
+    font-style:italic;
+  }
+  .welcome-divider .ln{ flex:1 1 auto; height:1px; background:var(--card-border); }
+  .welcome-guest{
+    width:100%;
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    border-radius:9px;
+    padding:14px;
+    font-family:var(--ui-font);
+    font-weight:700;
+    font-size:14.5px;
+    cursor:pointer;
+  }
+  .welcome-guest:hover{ background:#3a2c20; }
+  .welcome-msg{
+    margin-top:14px;
+    min-height:14px;
+    font-family:var(--ui-font);
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-style:italic;
   }
 
   @media print{
     html, body{ height:auto !important; overflow:visible !important; background:#fff; }
     #app{ box-shadow:none; max-width:none; height:auto !important; overflow:visible !important; }
-    .topbar, .toolbar, #toast, #backdrop, #sheet{ display:none !important; }
+    .topbar, .toolbar, .sidebar, .info-panel, #toast, #backdrop, #sheet{ display:none !important; }
     .chart-scroll{ overflow:visible !important; padding:0; height:auto !important; }
     .chart-card{ border:none; }
     .add-bar, .empty-hint{ display:none !important; }
@@ -439,39 +648,52 @@
 </style>
 </head>
 <body>
-<div id="app">
+
+<div id="welcomeScreen">
+  <div class="welcome-card">
+    <div class="app-glyph" id="welcomeGlyph"></div>
+    <h1>Lead Sheet Editor</h1>
+    <div class="welcome-field"><input type="email" id="welcomeEmail" placeholder="Email" autocomplete="email"></div>
+    <div class="welcome-field"><input type="password" id="welcomePassword" placeholder="Password" autocomplete="current-password"></div>
+    <button class="welcome-signin" onclick="attemptSignIn()">Sign In</button>
+    <div class="welcome-divider"><span class="ln"></span><span>or</span><span class="ln"></span></div>
+    <button class="welcome-guest" onclick="continueAsGuest()">Continue as Guest</button>
+    <div class="welcome-msg" id="welcomeMsg"></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
 
   <div class="topbar">
-    <div class="back">‹ Back</div>
+    <div class="back" onclick="showWelcome()" id="backIcon"></div>
     <div class="titlewrap" onclick="openTitleEdit()">
       <div class="title" id="titleText">Autumn Leaves</div>
       <div class="sub" id="subText">4/4 · G minor</div>
     </div>
-    <div class="icon" onclick="toggleMode('draw')">✎</div>
-    <div class="icon" onclick="openExportSheet()">⤴</div>
+    <div class="icon" onclick="toggleMode('draw')" id="topDrawIcon"></div>
+    <div class="icon" onclick="clearInk()" id="topClearIcon"></div>
+    <div class="icon" onclick="undo()" id="topUndoIcon"></div>
   </div>
 
-  <div class="chart-scroll" id="chartScroll">
-    <div class="chart-card">
-      <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">Autumn Leaves</div>
-      <div class="sheet-composer" id="sheetComposerText" onclick="openTitleEdit()" style="display:none;"></div>
-      <div id="chartInner">
-        <canvas id="inkCanvas"></canvas>
+  <div class="main-row">
+    <div class="sidebar" id="sidebarToolbar"></div>
+
+    <div class="chart-scroll" id="chartScroll">
+      <div class="chart-card">
+        <div class="sheet-title" id="sheetTitleText" onclick="openTitleEdit()">Autumn Leaves</div>
+        <div class="sheet-composer" id="sheetComposerText" onclick="openTitleEdit()" style="display:none;"></div>
+        <div id="chartInner">
+          <canvas id="inkCanvas"></canvas>
+        </div>
       </div>
     </div>
+
+    <div class="info-panel" id="infoPanel"></div>
   </div>
 
   <div id="toast"></div>
 
-  <div class="toolbar">
-    <button class="tbtn active" id="modeChords" onclick="toggleMode('chords')">Edit</button>
-    <button class="tbtn" id="modeDraw" onclick="toggleMode('draw')">Draw</button>
-    <button class="tbtn" id="modeErase" onclick="toggleMode('erase')">Erase</button>
-    <button class="tbtn action" onclick="undo()">Undo</button>
-    <button class="tbtn action" onclick="clearInk()">Clear Ink</button>
-    <button class="tbtn action" onclick="openFontPicker()">Font</button>
-    <button class="tbtn warn" onclick="confirmClearPage()">Clear Page</button>
-  </div>
+  <div class="toolbar" id="bottomToolbar"></div>
 
   <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;" onchange="handleImportFile(event)">
   <div id="backdrop" onclick="closeSheet()"></div>
@@ -503,6 +725,69 @@ const FONT_OPTIONS = [
   {id:'caveat', label:'Handwritten', sample:'Db7', family:"'Caveat', 'Lora', cursive"},
 ];
 const BARS_PER_ROW = 4;
+
+/* ============ Hand-drawn line icons ============ */
+const ICON_PATHS = {
+  cursor: '<path d="M5 3l6.5 16 2-6.3 6.3-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>',
+  pencil: '<path d="M4 20l0.8-4L14.5 6.3l3.2 3.2L8 19.2 4 20z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M13 7.8l3.2 3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  eraser: '<g transform="rotate(-35 12 12)"><rect x="6" y="8.5" width="12" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="6" y1="13" x2="18" y2="13" stroke="currentColor" stroke-width="1.6"/></g>',
+  undo: '<path d="M7.5 7.5L3.3 11.7l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.3 11.7h10.4a6.3 6.3 0 1 1 0 12.6h-1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  droplet: '<path d="M12 3.2s6.3 7.4 6.3 11.8a6.3 6.3 0 1 1-12.6 0C5.7 10.6 12 3.2 12 3.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
+  rhythm: '<ellipse cx="7" cy="18.2" rx="2.3" ry="1.7" fill="currentColor"/><ellipse cx="15.5" cy="15.6" rx="2.3" ry="1.7" fill="currentColor"/><line x1="9.2" y1="18.2" x2="9.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="17.7" y1="15.6" x2="17.7" y2="5.4" stroke="currentColor" stroke-width="1.4"/><path d="M9.2 5l8.5 0.4" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  page: '<path d="M6.5 3.5h7l4 4v13h-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
+  export: '<path d="M12 3.3v11.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7.8 7.5L12 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.3 15v3.7a2 2 0 0 0 2 2h11.4a2 2 0 0 0 2-2V15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  chevron: '<path d="M15.5 4.5l-8 7.5 8 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  staffPen: '<line x1="3" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.1"/><line x1="3" y1="11" x2="15" y2="11" stroke="currentColor" stroke-width="1.1"/><line x1="3" y1="14" x2="15" y2="14" stroke="currentColor" stroke-width="1.1"/><line x1="3" y1="17" x2="15" y2="17" stroke="currentColor" stroke-width="1.1"/><line x1="3" y1="20" x2="15" y2="20" stroke="currentColor" stroke-width="1.1"/><path d="M11 18.5L20.5 6.3a1.4 1.4 0 0 1 2.2 1.7L14 20.5l-3.3.8z" fill="currentColor"/><circle cx="9.5" cy="19.5" r="1" fill="currentColor"/>',
+};
+function svgIcon(name, size){
+  size = size || 19;
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}">${ICON_PATHS[name]||''}</svg>`;
+}
+
+/* ============ Toolbar (shared between bottom bar + sidebar) ============ */
+const TOOLBAR_BUTTONS = [
+  {mode:'chords', label:'Edit',       icon:'cursor'},
+  {mode:'draw',   label:'Draw',       icon:'pencil'},
+  {mode:'erase',  label:'Erase',      icon:'eraser'},
+  {action:'undo',       label:'Undo',       icon:'undo'},
+  {action:'clearInk',   label:'Clear Ink',  icon:'droplet'},
+  {action:'font',       label:'Font',       icon:null, text:'Aa'},
+  {action:'rhythm',     label:'Rhythm',     icon:'rhythm'},
+  {action:'clearPage',  label:'Clear Page', icon:'page', warn:true},
+  {action:'export',     label:'Export',     icon:'export'},
+];
+function toolbarButtonHtml(btn){
+  const dataAttr = btn.mode ? `data-tb-mode="${btn.mode}"` : `data-tb-action="${btn.action}"`;
+  const inner = btn.icon ? svgIcon(btn.icon) : `<span style="font-family:var(--title-font);font-style:italic;font-weight:700;font-size:16px;line-height:1;">${btn.text}</span>`;
+  const cls = 'tbtn' + (btn.warn ? ' warn' : '');
+  return `<button class="${cls}" ${dataAttr}>${inner}<span>${btn.label}</span></button>`;
+}
+function renderToolbars(){
+  const html = TOOLBAR_BUTTONS.map(toolbarButtonHtml).join('');
+  document.getElementById('bottomToolbar').innerHTML = html;
+  document.getElementById('sidebarToolbar').innerHTML = html;
+  [document.getElementById('bottomToolbar'), document.getElementById('sidebarToolbar')].forEach(container=>{
+    container.addEventListener('click', onToolbarClick);
+  });
+  syncModeButtons();
+}
+function onToolbarClick(e){
+  const btn = e.target.closest('.tbtn');
+  if(!btn) return;
+  if(btn.dataset.tbMode){ toggleMode(btn.dataset.tbMode); return; }
+  const action = btn.dataset.tbAction;
+  if(action==='undo') undo();
+  else if(action==='clearInk') clearInk();
+  else if(action==='font') openFontPicker();
+  else if(action==='rhythm') showToast('Rhythm — coming soon');
+  else if(action==='clearPage') confirmClearPage();
+  else if(action==='export') openExportSheet();
+}
+function syncModeButtons(){
+  document.querySelectorAll('.tbtn[data-tb-mode]').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.tbMode===mode);
+  });
+}
 
 let idCounter = 1;
 const genId = () => 'id' + (idCounter++);
@@ -536,6 +821,7 @@ function blankSong(){
     title:'My Song',
     composer:'',
     key:'',
+    feel:'',
     timeSig:{num:4, den:4},
     items:[ bar([]) ],
     borders:[ {type:'normal', label:null}, {type:'end', label:null} ]
@@ -586,6 +872,7 @@ function defaultDemoSong(){
     title:'Autumn Leaves',
     composer:'Joseph Kosma',
     key:'G minor',
+    feel:'Medium Swing',
     timeSig:{num:4, den:4},
     items,
     borders
@@ -672,11 +959,11 @@ function rootHtml(r){
 function qualityById(id){ return QUALITIES.find(q=>q.id===id) || QUALITIES[0]; }
 function wholeRestSvg(w){
   w = w||22;
-  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="4" x2="22" y2="4" stroke="#1c1c1c" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#1c1c1c"/></svg>`;
+  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="4" x2="22" y2="4" stroke="#2b2018" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#2b2018"/></svg>`;
 }
 function halfRestSvg(w){
   w = w||22;
-  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="10" x2="22" y2="10" stroke="#1c1c1c" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#1c1c1c"/></svg>`;
+  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="10" x2="22" y2="10" stroke="#2b2018" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#2b2018"/></svg>`;
 }
 function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
 function updateHeader(){
@@ -696,14 +983,48 @@ function syncTitleDisplay(){
   }
 }
 
+/* ============ Desktop info panel ============ */
+function computeSections(){
+  const sections=[];
+  for(let i=0;i<song.borders.length-1;i++){
+    const b = song.borders[i];
+    if(b && b.label){
+      let end = song.items.length;
+      for(let j=i+1;j<song.borders.length;j++){
+        if(song.borders[j] && song.borders[j].label){ end=j; break; }
+      }
+      sections.push({label:b.label, from:i+1, to:end});
+    }
+  }
+  return sections;
+}
+function renderInfoPanel(){
+  const panel = document.getElementById('infoPanel');
+  if(!panel) return;
+  const sections = computeSections();
+  const infoLines = [
+    song.title,
+    [song.timeSig.num+'/'+song.timeSig.den, song.key].filter(Boolean).join(' · '),
+    song.feel || ''
+  ].filter(Boolean);
+  panel.innerHTML = `
+    <div class="info-row">
+      <h4>Song Info</h4>
+      ${infoLines.map(l=>`<div class="info-line">${l}</div>`).join('')}
+    </div>
+    ${sections.length ? `<div class="info-row">
+      <h4>Sections</h4>
+      ${sections.map(s=>`<div class="section-item"><span class="section-badge">${s.label}</span><span class="section-range">bars ${s.from}-${s.to}</span></div>`).join('')}
+    </div>` : ''}
+  `;
+}
+
 /* ============ Mode state ============ */
 let mode = 'chords'; // chords | draw | erase
 
 function toggleMode(m){
   mode = (mode===m) ? 'chords' : m;
-  document.getElementById('modeChords').classList.toggle('active', mode==='chords');
-  document.getElementById('modeDraw').classList.toggle('active', mode==='draw');
-  document.getElementById('modeErase').classList.toggle('active', mode==='erase');
+  syncModeButtons();
   const scroll = document.getElementById('chartScroll');
   scroll.classList.toggle('draw-mode', mode==='draw');
   scroll.classList.toggle('erase-mode', mode==='erase');
@@ -727,17 +1048,22 @@ function openTitleEdit(){
     <div class="title-edit"><input id="titleInput" placeholder="Song title" value="${song.title.replace(/"/g,'&quot;')}"></div>
     <div class="sheet-subhead">Composer</div>
     <div class="title-edit"><input id="composerInput" placeholder="Optional" value="${(song.composer||'').replace(/"/g,'&quot;')}"></div>
-    <div class="sheet-actions"><button onclick="saveTitle()" style="background:#4da3ff;color:#fff;">Save</button></div>
+    <div class="sheet-subhead">Feel</div>
+    <div class="title-edit"><input id="feelInput" placeholder="e.g. Medium Swing" value="${(song.feel||'').replace(/"/g,'&quot;')}"></div>
+    <div class="sheet-actions"><button class="primary" onclick="saveTitle()">Save</button></div>
   `);
 }
 function saveTitle(){
   const v = document.getElementById('titleInput').value.trim();
   const c = document.getElementById('composerInput').value.trim();
+  const f = document.getElementById('feelInput').value.trim();
   if(v){
     pushSongUndo();
     song.title=v;
     song.composer=c;
+    song.feel=f;
     syncTitleDisplay();
+    renderInfoPanel();
   }
   closeSheet();
 }
@@ -819,6 +1145,7 @@ function handleImportFile(e){
       if(typeof song.key !== 'string') song.key = '';
       if(typeof song.title !== 'string') song.title = 'My Song';
       if(typeof song.composer !== 'string') song.composer = '';
+      if(typeof song.feel !== 'string') song.feel = '';
       syncTitleDisplay();
       updateHeader();
       closeSheet();
@@ -856,7 +1183,7 @@ function openFontPicker(){
     <div class="sheet-header"><span>Chord font</span><button onclick="closeSheet()">✕</button></div>
     <div class="symbol-grid">
       ${FONT_OPTIONS.map(f=>`
-        <button style="display:flex;align-items:center;justify-content:space-between;${f.id===currentFontId?'border-color:#4da3ff;background:#eef5ff;':''}" onclick="setChordFont('${f.id}')">
+        <button style="display:flex;align-items:center;justify-content:space-between;${f.id===currentFontId?'border-color:var(--ink);background:#f2efe6;':''}" onclick="setChordFont('${f.id}')">
           <span>${f.label}${f.id===currentFontId ? ' ✓' : ''}</span>
           <span style="font-family:${f.family};font-size:20px;">${f.sample}</span>
         </button>
@@ -879,8 +1206,8 @@ function confirmClearPage(){
     <div class="sheet-header"><span>Clear page?</span><button onclick="closeSheet()">✕</button></div>
     <div class="sheet-body-text">This removes all bars, chords, and drawings. You can undo it right after.</div>
     <div class="sheet-actions">
-      <button style="background:#f0eee7;color:#6b6a66;" onclick="closeSheet()">Cancel</button>
-      <button style="background:#fbeceb;color:#c0453f;" onclick="clearPage()">Clear Page</button>
+      <button class="neutral" onclick="closeSheet()">Cancel</button>
+      <button class="danger" onclick="clearPage()">Clear Page</button>
     </div>
   `);
 }
@@ -1028,6 +1355,9 @@ function render(){
   rows.forEach((row, rIdx)=>{
     const lane = document.createElement('div');
     lane.className='write-lane';
+    if(rIdx===0 && song.feel){
+      lane.innerHTML = `<span class="feel-label">${song.feel}</span>`;
+    }
     songBlock.appendChild(lane);
 
     const rowStart = globalIdx;
@@ -1085,6 +1415,7 @@ function render(){
   inner.appendChild(songBlock);
   inner.appendChild(canvas);
   requestAnimationFrame(resizeCanvasPreserving);
+  renderInfoPanel();
 }
 
 /* ============ Bar content (chord / % / rest / half-rest) ============ */
@@ -1185,9 +1516,9 @@ function openStep1(){
     </div>
     ${wholeBarBlock}
     <div class="sheet-actions">
-      <button style="background:#f0eee7;color:#6b6a66;" onclick="clearChordSlot()">Clear</button>
-      <button style="background:#eef1f6;color:#3a6fc4;" onclick="duplicateBar('${pickerTarget.barId}')">Duplicate Bar</button>
-      <button style="background:#fbeceb;color:#c0453f;" onclick="deleteBar('${pickerTarget.barId}')">Delete Bar</button>
+      <button class="neutral" onclick="clearChordSlot()">Clear</button>
+      <button class="neutral" onclick="duplicateBar('${pickerTarget.barId}')">Duplicate Bar</button>
+      <button class="danger" onclick="deleteBar('${pickerTarget.barId}')">Delete Bar</button>
     </div>
   `);
 }
@@ -1204,9 +1535,9 @@ function openStep2(){
       ${QUALITIES.map(q=>`<button onclick="pickQuality('${q.id}')">${q.label}</button>`).join('')}
     </div>
     <div class="sheet-actions">
-      <button style="background:#f0eee7;color:#6b6a66;" onclick="clearChordSlot()">Clear</button>
-      <button style="background:#eef1f6;color:#3a6fc4;" onclick="duplicateBar('${pickerTarget.barId}')">Duplicate Bar</button>
-      <button style="background:#fbeceb;color:#c0453f;" onclick="deleteBar('${pickerTarget.barId}')">Delete Bar</button>
+      <button class="neutral" onclick="clearChordSlot()">Clear</button>
+      <button class="neutral" onclick="duplicateBar('${pickerTarget.barId}')">Duplicate Bar</button>
+      <button class="danger" onclick="deleteBar('${pickerTarget.barId}')">Delete Bar</button>
     </div>
   `);
 }
@@ -1265,7 +1596,7 @@ function openCustomLabelEdit(idx){
   showSheet(`
     <div class="sheet-header"><span>Custom label</span><button onclick="closeSheet()">✕</button></div>
     <div class="title-edit"><input id="customLabelInput" placeholder="e.g. Bridge" maxlength="18"></div>
-    <div class="sheet-actions"><button onclick="saveCustomLabel(${idx})" style="background:#4da3ff;color:#fff;">Save</button></div>
+    <div class="sheet-actions"><button class="primary" onclick="saveCustomLabel(${idx})">Save</button></div>
   `);
 }
 function saveCustomLabel(idx){
@@ -1390,7 +1721,7 @@ function onChordDragEnd(){
 /* ============ Ink canvas ============ */
 let drawing=false;
 let currentStroke=[];
-const PEN_COLOR = '#25409e';
+const PEN_COLOR = '#8a3b2c';
 
 function resizeCanvasPreserving(){
   const canvas = document.getElementById('inkCanvas');
@@ -1497,6 +1828,22 @@ function clearInk(){
   clearInkRaw();
 }
 
+/* ============ Welcome screen ============ */
+function showWelcome(){
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('welcomeScreen').classList.remove('hidden');
+}
+function showEditor(){
+  document.getElementById('welcomeScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  requestAnimationFrame(resizeCanvasPreserving);
+}
+function continueAsGuest(){ showEditor(); }
+function attemptSignIn(){
+  const msg = document.getElementById('welcomeMsg');
+  msg.textContent = 'Accounts are coming soon — continue as guest for now.';
+}
+
 /* ============ Init ============ */
 window.addEventListener('resize', ()=>requestAnimationFrame(resizeCanvasPreserving));
 
@@ -1508,6 +1855,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   canvas.addEventListener('touchstart', startDraw, {passive:false});
   canvas.addEventListener('touchmove', moveDraw, {passive:false});
   window.addEventListener('touchend', endDraw);
+
+  document.getElementById('welcomeGlyph').innerHTML = svgIcon('staffPen', 38);
+  document.getElementById('backIcon').innerHTML = svgIcon('chevron', 15) + '<span>Back</span>';
+  document.getElementById('topDrawIcon').innerHTML = svgIcon('pencil');
+  document.getElementById('topClearIcon').innerHTML = svgIcon('droplet');
+  document.getElementById('topUndoIcon').innerHTML = svgIcon('undo');
+  renderToolbars();
+
   syncTitleDisplay();
   updateHeader();
   render();
