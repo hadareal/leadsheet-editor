@@ -24,7 +24,7 @@ const TOOLBAR_PRIMARY = [
 ];
 const TOOLBAR_OVERFLOW = [
   {action:'font',      label:'Font',       icon:null, text:'Aa'},
-  {action:'rhythm',    label:'Rhythm',     icon:'rhythm'},
+  {mode:'rhythm',      label:'Rhythm',     icon:'rhythm'},
   {action:'clearPage', label:'Clear Page', icon:'page', warn:true},
   {action:'export',    label:'Export',     icon:'export'},
 ];
@@ -52,7 +52,6 @@ function onToolbarClick(e){
   if(action==='annotate') openAnnotateSheet();
   else if(action==='more') openMoreSheet();
   else if(action==='font') openFontPicker();
-  else if(action==='rhythm') showToast('Rhythm — coming soon');
   else if(action==='clearPage') confirmClearPage();
   else if(action==='export') openExportSheet();
 }
@@ -84,15 +83,15 @@ function openMoreSheet(){
     <div class="sheet-header"><span>More</span><button onclick="closeSheet()">✕</button></div>
     <div class="symbol-grid">
       <button onclick="openFontPicker()">Font</button>
-      <button onclick="moreRhythm()">Rhythm</button>
+      <button onclick="chooseRhythmMode()">Rhythm${mode==='rhythm'?' ✓':''}</button>
       <button class="warn" onclick="confirmClearPage()">Clear Page</button>
       <button onclick="openExportSheet()">Export</button>
     </div>
   `);
 }
-function moreRhythm(){
+function chooseRhythmMode(){
+  toggleMode('rhythm');
   closeSheet();
-  showToast('Rhythm — coming soon');
 }
 
 /* ============ Undo stack ============ */
@@ -207,6 +206,7 @@ function toggleMode(m){
   const scroll = document.getElementById('chartScroll');
   scroll.classList.toggle('draw-mode', mode==='draw');
   scroll.classList.toggle('erase-mode', mode==='erase');
+  if(mode==='rhythm') showToast('Tap any bar to add a rhythm above it');
 }
 
 /* ============ Toast ============ */
@@ -420,6 +420,10 @@ let pickerRoot = null;
 let pickerWholeBarOptions = false;
 
 function handleBarTap(item, beatIdx){
+  if(mode==='rhythm'){
+    if(item.kind==='chords') openRhythmBuilder(item.id);
+    return;
+  }
   if(mode!=='chords') return;
   if(item.kind!=='chords' || item.chords.length===0){
     pickerTarget = {barId:item.id, mode:'add'};
@@ -509,6 +513,106 @@ function clearChordSlot(){
   }
   closeSheet();
   render();
+}
+
+/* ============ Rhythm builder ============ */
+let rhythmBuilding = null; // { barId, seq: [symKey,...] }
+
+function barLabelHtml(item){
+  if(item.kind!=='chords' || item.chords.length===0) return '';
+  return item.chords
+    .slice().sort((a,b)=>a.beat-b.beat)
+    .map(c=> c.rest ? '' : chordInnerHtml(c))
+    .filter(Boolean)
+    .join(' ');
+}
+
+function openRhythmBuilder(barId){
+  const b = findBarById(barId);
+  if(!b) return;
+  const units = barUnitsFor(song.timeSig);
+  if(units===null){
+    showToast(`Rhythm isn't available yet for ${song.timeSig.num}/${song.timeSig.den}`);
+    return;
+  }
+  rhythmBuilding = { barId, seq: (b.rhythm||[]).slice() };
+  renderRhythmSheet();
+}
+function closeRhythmSheet(){
+  rhythmBuilding = null;
+  closeSheet();
+  render();
+}
+function rhythmUnitsUsed(){
+  return rhythmBuilding.seq.reduce((s,k)=>s+SYMS[k].units, 0);
+}
+function rhythmPaletteHtml(units){
+  const used = rhythmUnitsUsed();
+  let html = '<span class="pt-head">Name</span><span class="pt-head">Value</span><span class="pt-head">Note</span><span class="pt-head">Rest</span>';
+  RHYTHM_ROWS.forEach(row=>{
+    const n = SYMS[row.note], r = SYMS[row.rest];
+    html += `<span class="pt-name">${n.name}</span>`;
+    html += `<span class="pt-value">${n.value}</span>`;
+    html += `<button type="button" class="pt-btn" ${used+n.units>units?'disabled':''} onclick="rhythmPick('${row.note}')">${iconSvg(row.note,32)}</button>`;
+    html += `<button type="button" class="pt-btn" ${used+r.units>units?'disabled':''} onclick="rhythmPick('${row.rest}')">${iconSvg(row.rest,32)}</button>`;
+  });
+  return html;
+}
+function rhythmSeqBoxHtml(units){
+  const groups = groupForBeaming(rhythmBuilding.seq);
+  let html = '';
+  let filled = 0;
+  groups.forEach(g=>{
+    html += `<div class="seq-cell filled" style="grid-column:span ${g.units}">${g.type==='beam'?beamGroupSvg(g.keys,24):iconSvg(g.key,24)}</div>`;
+    filled += g.units;
+  });
+  for(let u=filled; u<units; u++){
+    html += `<div class="seq-cell empty${(u+1)%4===0?' beat-end':''}"></div>`;
+  }
+  return html;
+}
+function renderRhythmSheet(){
+  const b = findBarById(rhythmBuilding.barId);
+  if(!b){ closeRhythmSheet(); return; }
+  const units = barUnitsFor(song.timeSig);
+  const used = rhythmUnitsUsed();
+  const label = barLabelHtml(b);
+  showSheet(`
+    <div class="sheet-header"><span>Bar rhythm${label?' · '+label:''}</span><button onclick="closeRhythmSheet()">✕</button></div>
+    <div class="seq-box" style="grid-template-columns:repeat(${units},1fr);">${rhythmSeqBoxHtml(units)}</div>
+    <div class="seq-caption">${remainingLabel(units-used)}</div>
+    <div class="palette-table">${rhythmPaletteHtml(units)}</div>
+    <div class="sheet-actions">
+      <button class="neutral" ${rhythmBuilding.seq.length===0?'disabled':''} onclick="rhythmUndo()">Undo</button>
+      <button class="neutral" ${rhythmBuilding.seq.length===0?'disabled':''} onclick="rhythmClear()">Clear</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="neutral" onclick="closeRhythmSheet()">Cancel</button>
+      ${b.rhythm ? '<button class="danger" onclick="rhythmRemove()">Remove</button>' : ''}
+      <button class="primary" ${used!==units?'disabled':''} onclick="rhythmSave()">Done</button>
+    </div>
+  `);
+  render();
+}
+function rhythmPick(key){
+  const units = barUnitsFor(song.timeSig);
+  if(rhythmUnitsUsed() + SYMS[key].units > units) return;
+  rhythmBuilding.seq.push(key);
+  renderRhythmSheet();
+}
+function rhythmUndo(){ rhythmBuilding.seq.pop(); renderRhythmSheet(); }
+function rhythmClear(){ rhythmBuilding.seq = []; renderRhythmSheet(); }
+function rhythmSave(){
+  pushSongUndo();
+  const b = findBarById(rhythmBuilding.barId);
+  if(b) b.rhythm = rhythmBuilding.seq.slice();
+  closeRhythmSheet();
+}
+function rhythmRemove(){
+  pushSongUndo();
+  const b = findBarById(rhythmBuilding.barId);
+  if(b) b.rhythm = null;
+  closeRhythmSheet();
 }
 
 /* ============ Border editing (type + optional section label) ============ */

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'leadsheet-v3';
+const CACHE_NAME = 'leadsheet-v4';
 const APP_SHELL = [
   './',
   './index.html',
