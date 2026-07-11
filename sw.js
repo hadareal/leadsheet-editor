@@ -1,7 +1,10 @@
-const CACHE_NAME = 'leadsheet-v2';
+const CACHE_NAME = 'leadsheet-v3';
 const APP_SHELL = [
   './',
   './index.html',
+  './style.css',
+  './chart.js',
+  './app.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
