@@ -21,18 +21,21 @@ function svgIcon(name, size){
 const TOOLBAR_PRIMARY = [
   {mode:'chords',     label:'Edit',       icon:'cursor'},
   {action:'annotate', label:'Annotate',   icon:'pencil'},
+  {mode:'rhythm',     label:'Rhythm',     icon:'rhythm'},
 ];
 const TOOLBAR_OVERFLOW = [
   {action:'font',      label:'Font',       icon:null, text:'Aa'},
-  {mode:'rhythm',      label:'Rhythm',     icon:'rhythm'},
   {action:'clearPage', label:'Clear Page', icon:'page', warn:true},
   {action:'export',    label:'Export',     icon:'export'},
 ];
 const PHONE_TOOLBAR_BUTTONS   = [...TOOLBAR_PRIMARY, {action:'more', label:'More', icon:'more'}];
 const SIDEBAR_TOOLBAR_BUTTONS = [...TOOLBAR_PRIMARY, ...TOOLBAR_OVERFLOW];
+function iconOrAaHtml(icon, text, size){
+  return icon ? svgIcon(icon, size) : `<span class="sg-aa" style="font-size:${size?size-3:16}px;">${text}</span>`;
+}
 function toolbarButtonHtml(btn){
   const dataAttr = btn.mode ? `data-tb-mode="${btn.mode}"` : `data-tb-action="${btn.action}"`;
-  const inner = btn.icon ? svgIcon(btn.icon) : `<span style="font-family:var(--title-font);font-style:italic;font-weight:700;font-size:16px;line-height:1;">${btn.text}</span>`;
+  const inner = iconOrAaHtml(btn.icon, btn.text);
   const cls = 'tbtn' + (btn.warn ? ' warn' : '');
   return `<button class="${cls}" ${dataAttr}>${inner}<span>${btn.label}</span></button>`;
 }
@@ -67,9 +70,9 @@ function openAnnotateSheet(){
   showSheet(`
     <div class="sheet-header"><span>Annotate</span><button onclick="closeSheet()">✕</button></div>
     <div class="symbol-grid">
-      <button onclick="annotateChoose('draw')">Draw${mode==='draw'?' ✓':''}</button>
-      <button onclick="annotateChoose('erase')">Erase${mode==='erase'?' ✓':''}</button>
-      <button onclick="annotateChoose('clearInk')">Clear Ink</button>
+      <button class="icon-row" onclick="annotateChoose('draw')">${svgIcon('pencil',18)}<span>Draw${mode==='draw'?' ✓':''}</span></button>
+      <button class="icon-row" onclick="annotateChoose('erase')">${svgIcon('eraser',18)}<span>Erase${mode==='erase'?' ✓':''}</span></button>
+      <button class="icon-row" onclick="annotateChoose('clearInk')">${svgIcon('droplet',18)}<span>Clear Ink</span></button>
     </div>
   `);
 }
@@ -82,16 +85,11 @@ function openMoreSheet(){
   showSheet(`
     <div class="sheet-header"><span>More</span><button onclick="closeSheet()">✕</button></div>
     <div class="symbol-grid">
-      <button onclick="openFontPicker()">Font</button>
-      <button onclick="chooseRhythmMode()">Rhythm${mode==='rhythm'?' ✓':''}</button>
-      <button class="warn" onclick="confirmClearPage()">Clear Page</button>
-      <button onclick="openExportSheet()">Export</button>
+      <button class="icon-row" onclick="openFontPicker()">${iconOrAaHtml(null,'Aa',18)}<span>Font</span></button>
+      <button class="icon-row warn" onclick="confirmClearPage()">${svgIcon('page',18)}<span>Clear Page</span></button>
+      <button class="icon-row" onclick="openExportSheet()">${svgIcon('export',18)}<span>Export</span></button>
     </div>
   `);
-}
-function chooseRhythmMode(){
-  toggleMode('rhythm');
-  closeSheet();
 }
 
 /* ============ Undo stack ============ */
@@ -620,18 +618,18 @@ function openBorderEdit(idx){
   if(mode!=='chords') return;
   showSheet(`
     <div class="sheet-header"><span>Bar line</span><button onclick="closeSheet()">✕</button></div>
-    <div class="symbol-grid">
+    <div class="symbol-grid two-col">
       <button onclick="setBorderType(${idx},'normal')">Clear |</button>
-      <button onclick="setBorderType(${idx},'repeatStart')">Repeat Start &nbsp; ||:</button>
-      <button onclick="setBorderType(${idx},'repeatEnd')">Repeat End &nbsp; :||</button>
-      <button onclick="setBorderType(${idx},'end')">End &nbsp; ||</button>
+      <button onclick="setBorderType(${idx},'repeatStart')">Repeat Start ||:</button>
+      <button onclick="setBorderType(${idx},'repeatEnd')">Repeat End :||</button>
+      <button onclick="setBorderType(${idx},'end')">End ||</button>
     </div>
     <div class="sheet-subhead">Section label</div>
     <div class="root-grid" style="grid-template-columns:repeat(5,1fr);">
       ${SECTION_LETTERS.map(l=>`<button onclick="setLabel(${idx},'${l}')">${l}</button>`).join('')}
       <button onclick="setLabel(${idx},null)">None</button>
     </div>
-    <div class="symbol-grid" style="margin-top:8px;">
+    <div class="symbol-grid two-col" style="margin-top:8px;">
       ${NAMED_SECTIONS.map(n=>`<button onclick="setLabel(${idx},'${n}')">${n}</button>`).join('')}
       <button onclick="openCustomLabelEdit(${idx})">Custom…</button>
     </div>

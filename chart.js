@@ -474,7 +474,7 @@ function renderBorderEl(border, idx){
   } else if(type==='repeatEnd'){
     div.innerHTML = `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div>`;
   } else if(type==='end'){
-    div.innerHTML = `<div class="ln-thin"></div><div class="ln-thin"></div>`;
+    div.innerHTML = `<div class="ln-thin"></div><div class="ln-thick"></div>`;
   } else {
     div.innerHTML = `<div class="ln-thin"></div>`;
   }
