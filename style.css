@@ -169,6 +169,8 @@ body{
 .sec-badge{
   background:var(--ink);
   color:#fff;
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
   font-family:Helvetica,Arial,sans-serif;
   font-weight:bold;
   font-size:10px;
@@ -331,10 +333,10 @@ body{
   cursor:pointer;
   margin:2px 0;
 }
-.border-line .ln-thin{ width:1.6px; background:var(--ink); align-self:stretch; }
-.border-line .ln-thick{ width:3.5px; background:var(--ink); align-self:stretch; }
+.border-line .ln-thin{ border-left:1.6px solid var(--ink); align-self:stretch; }
+.border-line .ln-thick{ border-left:3.5px solid var(--ink); align-self:stretch; }
 .border-line .dots{ display:flex; flex-direction:column; justify-content:center; gap:2px; }
-.border-line .dots span{ width:3.5px;height:3.5px;border-radius:50%;background:var(--ink);display:block; }
+.border-line .dots span{ width:3.5px;height:3.5px;border-radius:50%;background:var(--ink);display:block;-webkit-print-color-adjust:exact;print-color-adjust:exact; }
 
 /* ===== Toolbar (phone: bottom bar / tablet+: left sidebar) ===== */
 .toolbar{
