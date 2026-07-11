@@ -68,8 +68,7 @@ function blankSong(){
     feel:'',
     timeSig:{num:4, den:4},
     items:[ bar([]) ],
-    borders:[ {type:'normal', label:null}, {type:'end', label:null} ],
-    textBoxes:[]
+    borders:[ {type:'normal', label:null}, {type:'end', label:null} ]
   };
 }
 
@@ -120,8 +119,7 @@ function defaultDemoSong(){
     feel:'Medium Swing',
     timeSig:{num:4, den:4},
     items,
-    borders,
-    textBoxes:[]
+    borders
   };
 }
 
@@ -558,7 +556,6 @@ function makeAddBarBtn(){
 function render(){
   const inner = document.getElementById('chartInner');
   inner.querySelectorAll('.song-block').forEach(e=>e.remove());
-  inner.querySelectorAll('.text-box-wrap').forEach(e=>e.remove());
   const canvas = document.getElementById('inkCanvas');
 
   const rows = chunkRows(song.items, BARS_PER_ROW);
@@ -632,48 +629,8 @@ function render(){
 
   inner.appendChild(songBlock);
   inner.appendChild(canvas);
-  renderTextBoxes(inner);
   requestAnimationFrame(resizeCanvasPreserving);
   renderInfoPanel();
-}
-
-// Text boxes are free-floating, like ink — positioned by percentage, not
-// tied to a bar. Appended after the canvas so they sit visually on top
-// of it and receive their own taps instead of the canvas swallowing them.
-function renderTextBoxes(inner){
-  (song.textBoxes||[]).forEach(tb=>{
-    const wrap = document.createElement('div');
-    wrap.className = 'text-box-wrap';
-    wrap.style.left = tb.x + '%';
-    wrap.style.top = tb.y + '%';
-
-    const toolbar = document.createElement('div');
-    toolbar.className = 'tb-toolbar';
-    const handle = document.createElement('span');
-    handle.className = 'tb-handle';
-    handle.textContent = '⠿';
-    handle.addEventListener('pointerdown', (e)=>textBoxHandlePointerDown(e, tb.id, wrap));
-    const del = document.createElement('span');
-    del.className = 'tb-delete';
-    del.textContent = '✕';
-    del.onclick = (e)=>{ e.stopPropagation(); deleteTextBoxDirect(tb.id); };
-    toolbar.appendChild(handle);
-    toolbar.appendChild(del);
-
-    const box = document.createElement('div');
-    box.className = 'text-box';
-    box.contentEditable = 'true';
-    box.dataset.id = tb.id;
-    box.textContent = tb.text;
-    box.addEventListener('focus', ()=>textBoxFocused(tb.id));
-    box.addEventListener('input', ()=>textBoxInput(tb.id, box));
-    box.addEventListener('blur', ()=>textBoxBlurred(tb.id, box));
-    box.addEventListener('click', e=>e.stopPropagation());
-
-    wrap.appendChild(toolbar);
-    wrap.appendChild(box);
-    inner.appendChild(wrap);
-  });
 }
 
 /* ============ Bar content (chord / % / rest / half-rest) ============ */

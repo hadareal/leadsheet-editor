@@ -138,66 +138,8 @@ body{
   touch-action:none;
 }
 .chart-scroll.draw-mode #inkCanvas,
-.chart-scroll.erase-mode #inkCanvas,
-.chart-scroll.textbox-mode #inkCanvas{
+.chart-scroll.erase-mode #inkCanvas{
   pointer-events:auto;
-}
-
-/* ===== Text boxes (freeform, like ink) =====
-   Edited directly in place (contenteditable), like a Docs/Slides text
-   box — typing shows up live with no separate sheet. The wrap itself is
-   always click-through; only its children re-enable pointer-events, and
-   only while in text mode, so boxes never block drawing/chords/rhythm
-   in other modes. */
-.text-box-wrap{
-  position:absolute;
-  pointer-events:none;
-  max-width:240px;
-}
-.chart-scroll.textbox-mode .text-box-wrap *{
-  pointer-events:auto;
-}
-.tb-toolbar{
-  display:none;
-  align-items:center;
-  gap:6px;
-  margin-bottom:2px;
-}
-.chart-scroll.textbox-mode .tb-toolbar{ display:flex; }
-.tb-handle, .tb-delete{
-  font-family:var(--ui-font);
-  font-size:11px;
-  line-height:1;
-  color:var(--ink-soft);
-  background:#eeeeee;
-  border-radius:4px;
-  padding:3px 6px;
-}
-.tb-handle{ cursor:grab; touch-action:none; }
-.tb-handle:active{ cursor:grabbing; }
-.tb-delete{ cursor:pointer; }
-.text-box{
-  min-width:70px;
-  min-height:1.4em;
-  padding:4px 8px;
-  font-family:var(--ui-font);
-  font-size:13px;
-  line-height:1.35;
-  color:var(--ink);
-  background:rgba(255,255,255,.9);
-  border:1px solid transparent;
-  border-radius:4px;
-  white-space:pre-wrap;
-  outline:none;
-}
-.chart-scroll.textbox-mode .text-box{
-  cursor:text;
-  border-color:var(--card-border);
-}
-.text-box:empty::before{
-  content:'Type…';
-  color:var(--ink-soft);
-  font-style:italic;
 }
 
 .write-lane{ height:26px; display:flex; align-items:flex-end; }
@@ -674,10 +616,9 @@ body{
 }
 .pt-btn:disabled{ opacity:.3; cursor:not-allowed; }
 .pt-btn:not(:disabled):active{ background:#eeeeee; }
-.title-edit input, .title-edit textarea{
+.title-edit input{
   width:100%;padding:10px;font-size:15px;border:1px solid var(--card-border);border-radius:8px;font-family:var(--ui-font);color:var(--ink);
 }
-.title-edit textarea{ resize:vertical; }
 
 /* ===== Welcome screen ===== */
 #welcomeScreen{

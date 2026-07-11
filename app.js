@@ -60,7 +60,7 @@ function syncModeButtons(){
     btn.classList.toggle('active', btn.dataset.tbMode===mode);
   });
   document.querySelectorAll('.tbtn[data-tb-action="annotate"]').forEach(btn=>{
-    btn.classList.toggle('active', mode==='draw' || mode==='erase' || mode==='textbox');
+    btn.classList.toggle('active', mode==='draw' || mode==='erase');
   });
 }
 function openAnnotateSheet(){
@@ -68,7 +68,6 @@ function openAnnotateSheet(){
     <div class="sheet-header"><span>Annotate</span><button onclick="closeSheet()">✕</button></div>
     <div class="symbol-grid">
       <button onclick="annotateChoose('draw')">Draw${mode==='draw'?' ✓':''}</button>
-      <button onclick="annotateChoose('textbox')">Text Box${mode==='textbox'?' ✓':''}</button>
       <button onclick="annotateChoose('erase')">Erase${mode==='erase'?' ✓':''}</button>
       <button onclick="annotateChoose('clearInk')">Clear Ink</button>
     </div>
@@ -207,9 +206,7 @@ function toggleMode(m){
   const scroll = document.getElementById('chartScroll');
   scroll.classList.toggle('draw-mode', mode==='draw');
   scroll.classList.toggle('erase-mode', mode==='erase');
-  scroll.classList.toggle('textbox-mode', mode==='textbox');
   if(mode==='rhythm') showToast('Tap any bar to add a rhythm above it');
-  if(mode==='textbox') showToast('Tap to add text · drag the ⠿ handle to move a note');
 }
 
 /* ============ Toast ============ */
@@ -338,7 +335,6 @@ function handleImportFile(e){
       pushSongUndo();
       song = parsed;
       if(!song.timeSig) song.timeSig = {num:4, den:4};
-      if(!Array.isArray(song.textBoxes)) song.textBoxes = [];
       if(typeof song.key !== 'string') song.key = '';
       if(typeof song.title !== 'string') song.title = 'My Song';
       if(typeof song.composer !== 'string') song.composer = '';
@@ -722,35 +718,9 @@ function getCanvasPoint(e){
   const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
   return {x:cx, y:cy};
 }
-// Text boxes are positioned as a percentage of the chart's current size
-// (not raw pixels) so they stay roughly in place as the page reflows —
-// the same tradeoff the ink canvas already makes on resize.
-function getCanvasPercentPoint(e){
-  const canvas = document.getElementById('inkCanvas');
-  const rect = canvas.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  return {
-    xPct: ((clientX - rect.left) / rect.width) * 100,
-    yPct: ((clientY - rect.top) / rect.height) * 100
-  };
-}
 
-function blurActiveTextBox(){
-  // preventDefault() below (needed to stop touch-scroll) also suppresses
-  // the browser's normal blur-on-tap-elsewhere, so an in-progress edit
-  // has to be closed out explicitly before starting a new action.
-  const active = document.activeElement;
-  if(active && active.classList && active.classList.contains('text-box')) active.blur();
-}
 function startDraw(e){
   if(mode==='chords') return;
-  if(mode==='textbox'){
-    e.preventDefault();
-    blurActiveTextBox();
-    placeTextBox(getCanvasPercentPoint(e));
-    return;
-  }
   pushInkUndo();
   drawing=true;
   currentStroke=[getCanvasPoint(e)];
@@ -810,75 +780,6 @@ function clearInkRaw(){
 function clearInk(){
   pushInkUndo();
   clearInkRaw();
-}
-
-/* ============ Text boxes (freeform overlay, like ink) ============
-   Edited in place, directly on the page — no sheet. Tapping empty space
-   creates a box and focuses it immediately so typing shows up live,
-   the same way a text box works in Docs/Slides. Rendering lives in
-   chart.js (renderTextBoxes); this section is the create/drag/delete
-   behavior behind it. */
-function placeTextBox(pt){
-  pushSongUndo();
-  const tb = { id:genId(), x:pt.xPct, y:pt.yPct, text:'' };
-  song.textBoxes.push(tb);
-  render();
-  requestAnimationFrame(()=>{
-    const el = document.querySelector('.text-box[data-id="'+tb.id+'"]');
-    if(el) el.focus();
-  });
-}
-function textBoxFocused(id){
-  // Only snapshot for undo when re-opening a box that already has saved
-  // text — the brand-new-box case is already covered by placeTextBox.
-  const tb = song.textBoxes.find(t=>t.id===id);
-  if(tb && tb.text) pushSongUndo();
-}
-function textBoxInput(id, el){
-  const tb = song.textBoxes.find(t=>t.id===id);
-  if(tb) tb.text = el.innerText;
-}
-function textBoxBlurred(id, el){
-  if(!el.innerText.trim()){
-    song.textBoxes = song.textBoxes.filter(t=>t.id!==id);
-    render();
-  }
-}
-function deleteTextBoxDirect(id){
-  pushSongUndo();
-  song.textBoxes = song.textBoxes.filter(t=>t.id!==id);
-  render();
-}
-
-/* ---- dragging a text box by its handle ---- */
-let textBoxDrag = null;
-function textBoxHandlePointerDown(e, id, wrapEl){
-  e.preventDefault();
-  e.stopPropagation();
-  blurActiveTextBox();
-  const rect = document.getElementById('inkCanvas').getBoundingClientRect();
-  textBoxDrag = { id, rect, wrapEl, moved:false, x:null, y:null };
-  window.addEventListener('pointermove', onTextBoxDragMove);
-  window.addEventListener('pointerup', onTextBoxDragEnd);
-}
-function onTextBoxDragMove(e){
-  if(!textBoxDrag) return;
-  if(!textBoxDrag.moved){ pushSongUndo(); textBoxDrag.moved = true; }
-  const xPct = ((e.clientX - textBoxDrag.rect.left) / textBoxDrag.rect.width) * 100;
-  const yPct = ((e.clientY - textBoxDrag.rect.top) / textBoxDrag.rect.height) * 100;
-  textBoxDrag.wrapEl.style.left = xPct + '%';
-  textBoxDrag.wrapEl.style.top = yPct + '%';
-  textBoxDrag.x = xPct;
-  textBoxDrag.y = yPct;
-}
-function onTextBoxDragEnd(){
-  window.removeEventListener('pointermove', onTextBoxDragMove);
-  window.removeEventListener('pointerup', onTextBoxDragEnd);
-  if(textBoxDrag && textBoxDrag.moved){
-    const tb = song.textBoxes.find(t=>t.id===textBoxDrag.id);
-    if(tb){ tb.x = textBoxDrag.x; tb.y = textBoxDrag.y; }
-  }
-  textBoxDrag = null;
 }
 
 /* ============ Welcome screen ============ */
