@@ -6,7 +6,7 @@
 <title>Lead Sheet Editor</title>
 
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#f5f2e9">
+<meta name="theme-color" content="#ffffff">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -24,25 +24,24 @@
     font-display: swap;
   }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
-    --shell-bg:#e5e1d4;
-    --header-bg:#fbfaf6;
-    --header-fg:#2b2018;
-    --header-sub:#8a8480;
-    --accent:#8a3b2c;
-    --paper:#fefdfa;
-    --card:#fefdfa;
+    --shell-bg:#f2f2f2;
+    --header-bg:#fafafa;
+    --header-fg:#000000;
+    --header-sub:#767676;
+    --accent:#000000;
+    --paper:#ffffff;
+    --card:#ffffff;
     --chrome:#ffffff;
-    --card-border:#e4e0d3;
-    --ink:#2b2018;
-    --ink-soft:#8a8480;
-    --pen:#8a3b2c;
-    --danger:#a6392c;
-    --ui-font: 'Kalam', 'Caveat', cursive;
-    --title-font: 'EB Garamond', 'Lora', Georgia, serif;
-    --chord-font: 'Petaluma Script', 'EB Garamond', 'Lora', cursive;
+    --card-border:#e0e0e0;
+    --ink:#000000;
+    --ink-soft:#767676;
+    --pen:#000000;
+    --danger:#000000;
+    --ui-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --title-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --chord-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     --bar-w: 90px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -100,7 +99,7 @@
   }
   .topbar .back{color:var(--ink);font-size:15px;font-weight:700;flex:0 0 auto;cursor:pointer;display:flex;align-items:center;gap:2px;}
   .topbar .titlewrap{flex:1 1 auto;text-align:center;min-width:0;cursor:pointer;}
-  .topbar .title{font-family:var(--title-font);font-style:italic;font-weight:700;font-size:18px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .topbar .title{font-family:var(--title-font);font-weight:700;font-size:18px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .topbar .sub{font-family:var(--ui-font);font-size:11px;color:var(--header-sub);margin-top:1px;}
   .topbar .icon{color:var(--ink);flex:0 0 auto;padding:3px 5px;cursor:pointer;display:flex;align-items:center;}
   .topbar .icon svg{width:19px;height:19px;}
@@ -132,13 +131,12 @@
       padding:44px 40px;
       border:1px solid var(--card-border);
       border-radius:2px;
-      box-shadow:0 2px 16px rgba(43,32,24,.14);
+      box-shadow:0 2px 16px rgba(0,0,0,.14);
     }
   }
   .sheet-title{
     text-align:center;
     font-family:var(--title-font);
-    font-style:italic;
     font-size:23px;
     font-weight:700;
     color:var(--ink);
@@ -258,7 +256,7 @@
     -webkit-touch-callout:none;
   }
   .bar .slot.drop-target{
-    background:#f3e9e5;
+    background:#eeeeee;
     border-radius:4px;
     outline:2px dashed var(--pen);
     outline-offset:-2px;
@@ -306,7 +304,7 @@
     grid-column:1/-1;
     font-family:Helvetica,Arial,sans-serif;
     font-size:10px;
-    color:#c7c3b7;
+    color:#c4c4c4;
     margin:0 auto;
   }
   .bar .bar-glyph{
@@ -321,9 +319,9 @@
     right:2px; bottom:1px;
     width:13px;height:13px;
     border-radius:50%;
-    background:#eef1f6;
-    border:1px solid #c7d3e6;
-    color:#3a6fc4;
+    background:#eeeeee;
+    border:1px solid #cccccc;
+    color:#333333;
     font-family:Helvetica,Arial,sans-serif;
     font-size:9px;
     display:flex;align-items:center;justify-content:center;
@@ -335,10 +333,10 @@
     flex:0 0 48px;
     min-height:56px;
     margin:2px 2px;
-    border:1.5px dashed #c7c3b7;
+    border:1.5px dashed #c4c4c4;
     border-radius:4px;
     display:flex;align-items:center;justify-content:center;
-    color:#a8a49a;
+    color:#a0a0a0;
     font-family:Helvetica,Arial,sans-serif;
     font-size:20px;
     cursor:pointer;
@@ -405,10 +403,11 @@
     cursor:pointer;
   }
   .sidebar .tbtn{ width:100%; padding:10px 6px 9px; }
+  .toolbar .tbtn{ flex:1 1 0; }
   .tbtn svg{ width:19px; height:19px; }
-  .tbtn:hover{ background:#f2efe6; }
+  .tbtn:hover{ background:#eeeeee; }
   .tbtn.active{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
-  .tbtn.active:hover{ background:#3a2c20; }
+  .tbtn.active:hover{ background:#222222; }
   .tbtn.warn{ color:var(--danger); }
 
   /* ===== Desktop info panel ===== */
@@ -465,7 +464,7 @@
     position:absolute;
     top:60px; left:50%;
     transform:translateX(-50%);
-    background:rgba(43,32,24,.94);
+    background:rgba(0,0,0,.88);
     color:#fdfcf8;
     font-family:var(--ui-font);
     font-weight:700;
@@ -506,7 +505,7 @@
     display:flex;align-items:center;justify-content:space-between;
     margin-bottom:12px;
   }
-  .sheet-header span{font-family:var(--title-font);font-style:italic;font-size:17px;font-weight:700;color:var(--ink);}
+  .sheet-header span{font-family:var(--title-font);font-size:17px;font-weight:700;color:var(--ink);}
   .sheet-header button{
     background:none;border:none;font-size:16px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;
   }
@@ -536,6 +535,7 @@
   .quality-grid button{font-family:var(--ui-font);font-size:12.5px;font-weight:700;}
   .symbol-grid{grid-template-columns:repeat(1,1fr);}
   .symbol-grid button{font-family:var(--ui-font);font-weight:700;font-size:14px;padding:14px 6px;text-align:left;}
+  .symbol-grid button.warn{ color:var(--danger); }
   .wholebar-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   .icon-btn{display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;}
   .timesig-grid button{font-family:var(--ui-font);font-size:14px;font-weight:700;}
@@ -551,8 +551,8 @@
     cursor:pointer;
   }
   .sheet-actions button.primary{ background:var(--ink); color:var(--paper); }
-  .sheet-actions button.neutral{ background:#f0eee7; color:var(--ink-soft); }
-  .sheet-actions button.danger{ background:#f7e9e6; color:var(--danger); }
+  .sheet-actions button.neutral{ background:#eeeeee; color:var(--ink-soft); }
+  .sheet-actions button.danger{ background:#eeeeee; color:var(--danger); }
   .title-edit input{
     width:100%;padding:10px;font-size:15px;border:1px solid var(--card-border);border-radius:8px;font-family:var(--ui-font);color:var(--ink);
   }
@@ -575,13 +575,12 @@
     background:var(--chrome);
     border-radius:16px;
     padding:40px 30px 32px;
-    box-shadow:0 8px 32px rgba(43,32,24,.14);
+    box-shadow:0 8px 32px rgba(0,0,0,.14);
     text-align:center;
   }
   .welcome-card .app-glyph{ width:38px; height:38px; margin:0 auto 14px; color:var(--ink); }
   .welcome-card h1{
     font-family:var(--title-font);
-    font-style:italic;
     font-weight:700;
     font-size:26px;
     color:var(--ink);
@@ -637,7 +636,7 @@
     font-size:14.5px;
     cursor:pointer;
   }
-  .welcome-guest:hover{ background:#3a2c20; }
+  .welcome-guest:hover{ background:#222222; }
   .welcome-msg{
     margin-top:14px;
     min-height:14px;
@@ -684,8 +683,6 @@
       <div class="title" id="titleText">Autumn Leaves</div>
       <div class="sub" id="subText">4/4 · G minor</div>
     </div>
-    <div class="icon" onclick="toggleMode('draw')" id="topDrawIcon"></div>
-    <div class="icon" onclick="clearInk()" id="topClearIcon"></div>
     <div class="icon" onclick="undo()" id="topUndoIcon"></div>
   </div>
 
@@ -734,9 +731,11 @@ const SECTION_LETTERS = ['A','B','C','D','E','F','G','H'];
 const NAMED_SECTIONS = ['Verse','Pre-Chorus','Chorus','Interlude','Solo'];
 const MAX_CHORDS_PER_BAR = 4;
 const FONT_OPTIONS = [
-  {id:'lora', label:'Classic', sample:'Db7', family:"'Lora', Georgia, 'Times New Roman', serif"},
-  {id:'petaluma', label:'Copyist', sample:'Db7', family:"'Petaluma Script', 'Lora', cursive"},
-  {id:'caveat', label:'Handwritten', sample:'Db7', family:"'Caveat', 'Lora', cursive"},
+  {id:'simple', label:'Simple', sample:'Db7', family:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"},
+  {id:'garamond', label:'Classic', sample:'Db7', family:"'EB Garamond', 'Lora', Georgia, serif"},
+  {id:'petaluma', label:'Copyist', sample:'Db7', family:"'Petaluma Script', 'EB Garamond', cursive"},
+  {id:'kalam', label:'Marker', sample:'Db7', family:"'Kalam', cursive"},
+  {id:'caveat', label:'Handwritten', sample:'Db7', family:"'Caveat', cursive"},
 ];
 let BARS_PER_ROW = 4;
 
@@ -752,6 +751,7 @@ const ICON_PATHS = {
   export: '<path d="M12 3.3v11.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7.8 7.5L12 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.3 15v3.7a2 2 0 0 0 2 2h11.4a2 2 0 0 0 2-2V15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
   chevron: '<path d="M15.5 4.5l-8 7.5 8 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   staffPen: '<line x1="3" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.1"/><line x1="3" y1="11" x2="15" y2="11" stroke="currentColor" stroke-width="1.1"/><line x1="3" y1="14" x2="15" y2="14" stroke="currentColor" stroke-width="1.1"/><line x1="3" y1="17" x2="15" y2="17" stroke="currentColor" stroke-width="1.1"/><line x1="3" y1="20" x2="15" y2="20" stroke="currentColor" stroke-width="1.1"/><path d="M11 18.5L20.5 6.3a1.4 1.4 0 0 1 2.2 1.7L14 20.5l-3.3.8z" fill="currentColor"/><circle cx="9.5" cy="19.5" r="1" fill="currentColor"/>',
+  more: '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
 };
 function svgIcon(name, size){
   size = size || 19;
@@ -759,17 +759,18 @@ function svgIcon(name, size){
 }
 
 /* ============ Toolbar (shared between bottom bar + sidebar) ============ */
-const TOOLBAR_BUTTONS = [
-  {mode:'chords', label:'Edit',       icon:'cursor'},
-  {mode:'draw',   label:'Draw',       icon:'pencil'},
-  {mode:'erase',  label:'Erase',      icon:'eraser'},
-  {action:'undo',       label:'Undo',       icon:'undo'},
-  {action:'clearInk',   label:'Clear Ink',  icon:'droplet'},
-  {action:'font',       label:'Font',       icon:null, text:'Aa'},
-  {action:'rhythm',     label:'Rhythm',     icon:'rhythm'},
-  {action:'clearPage',  label:'Clear Page', icon:'page', warn:true},
-  {action:'export',     label:'Export',     icon:'export'},
+const TOOLBAR_PRIMARY = [
+  {mode:'chords',     label:'Edit',       icon:'cursor'},
+  {action:'annotate', label:'Annotate',   icon:'pencil'},
 ];
+const TOOLBAR_OVERFLOW = [
+  {action:'font',      label:'Font',       icon:null, text:'Aa'},
+  {action:'rhythm',    label:'Rhythm',     icon:'rhythm'},
+  {action:'clearPage', label:'Clear Page', icon:'page', warn:true},
+  {action:'export',    label:'Export',     icon:'export'},
+];
+const PHONE_TOOLBAR_BUTTONS   = [...TOOLBAR_PRIMARY, {action:'more', label:'More', icon:'more'}];
+const SIDEBAR_TOOLBAR_BUTTONS = [...TOOLBAR_PRIMARY, ...TOOLBAR_OVERFLOW];
 function toolbarButtonHtml(btn){
   const dataAttr = btn.mode ? `data-tb-mode="${btn.mode}"` : `data-tb-action="${btn.action}"`;
   const inner = btn.icon ? svgIcon(btn.icon) : `<span style="font-family:var(--title-font);font-style:italic;font-weight:700;font-size:16px;line-height:1;">${btn.text}</span>`;
@@ -777,9 +778,8 @@ function toolbarButtonHtml(btn){
   return `<button class="${cls}" ${dataAttr}>${inner}<span>${btn.label}</span></button>`;
 }
 function renderToolbars(){
-  const html = TOOLBAR_BUTTONS.map(toolbarButtonHtml).join('');
-  document.getElementById('bottomToolbar').innerHTML = html;
-  document.getElementById('sidebarToolbar').innerHTML = html;
+  document.getElementById('bottomToolbar').innerHTML  = PHONE_TOOLBAR_BUTTONS.map(toolbarButtonHtml).join('');
+  document.getElementById('sidebarToolbar').innerHTML = SIDEBAR_TOOLBAR_BUTTONS.map(toolbarButtonHtml).join('');
   [document.getElementById('bottomToolbar'), document.getElementById('sidebarToolbar')].forEach(container=>{
     container.addEventListener('click', onToolbarClick);
   });
@@ -790,8 +790,8 @@ function onToolbarClick(e){
   if(!btn) return;
   if(btn.dataset.tbMode){ toggleMode(btn.dataset.tbMode); return; }
   const action = btn.dataset.tbAction;
-  if(action==='undo') undo();
-  else if(action==='clearInk') clearInk();
+  if(action==='annotate') openAnnotateSheet();
+  else if(action==='more') openMoreSheet();
   else if(action==='font') openFontPicker();
   else if(action==='rhythm') showToast('Rhythm — coming soon');
   else if(action==='clearPage') confirmClearPage();
@@ -801,6 +801,39 @@ function syncModeButtons(){
   document.querySelectorAll('.tbtn[data-tb-mode]').forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.tbMode===mode);
   });
+  document.querySelectorAll('.tbtn[data-tb-action="annotate"]').forEach(btn=>{
+    btn.classList.toggle('active', mode==='draw' || mode==='erase');
+  });
+}
+function openAnnotateSheet(){
+  showSheet(`
+    <div class="sheet-header"><span>Annotate</span><button onclick="closeSheet()">✕</button></div>
+    <div class="symbol-grid">
+      <button onclick="annotateChoose('draw')">Draw${mode==='draw'?' ✓':''}</button>
+      <button onclick="annotateChoose('erase')">Erase${mode==='erase'?' ✓':''}</button>
+      <button onclick="annotateChoose('clearInk')">Clear Ink</button>
+    </div>
+  `);
+}
+function annotateChoose(kind){
+  if(kind==='clearInk') clearInk();
+  else toggleMode(kind);
+  closeSheet();
+}
+function openMoreSheet(){
+  showSheet(`
+    <div class="sheet-header"><span>More</span><button onclick="closeSheet()">✕</button></div>
+    <div class="symbol-grid">
+      <button onclick="openFontPicker()">Font</button>
+      <button onclick="moreRhythm()">Rhythm</button>
+      <button class="warn" onclick="confirmClearPage()">Clear Page</button>
+      <button onclick="openExportSheet()">Export</button>
+    </div>
+  `);
+}
+function moreRhythm(){
+  closeSheet();
+  showToast('Rhythm — coming soon');
 }
 
 let idCounter = 1;
@@ -973,11 +1006,11 @@ function rootHtml(r){
 function qualityById(id){ return QUALITIES.find(q=>q.id===id) || QUALITIES[0]; }
 function wholeRestSvg(w){
   w = w||22;
-  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="4" x2="22" y2="4" stroke="#2b2018" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#2b2018"/></svg>`;
+  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="4" x2="22" y2="4" stroke="#000000" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#000000"/></svg>`;
 }
 function halfRestSvg(w){
   w = w||22;
-  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="10" x2="22" y2="10" stroke="#2b2018" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#2b2018"/></svg>`;
+  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="10" x2="22" y2="10" stroke="#000000" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#000000"/></svg>`;
 }
 function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
 function updateHeader(){
@@ -1108,25 +1141,39 @@ function openExportSheet(){
     <div class="sheet-body-text" style="margin-top:14px;">PNG and PDF save exactly what's on the chart, including your handwriting. The .json file is this chart's raw data — export it to back it up or send it to someone else using this app, then use Import to load it back in.</div>
   `);
 }
-function exportPNG(){
-  if(typeof html2canvas === 'undefined'){
-    showToast('Image export needs an internet connection');
-    return;
+let html2canvasLoadPromise = null;
+function loadHtml2Canvas(){
+  if(typeof html2canvas !== 'undefined') return Promise.resolve();
+  if(!html2canvasLoadPromise){
+    html2canvasLoadPromise = new Promise((resolve, reject)=>{
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      script.onload = resolve;
+      script.onerror = ()=>{ html2canvasLoadPromise = null; reject(); };
+      document.head.appendChild(script);
+    });
   }
+  return html2canvasLoadPromise;
+}
+function exportPNG(){
   closeSheet();
   showToast('Preparing image…');
-  document.body.classList.add('exporting');
-  const card = document.querySelector('.chart-card');
-  requestAnimationFrame(()=>{
-    html2canvas(card, {backgroundColor:'#ffffff', scale:2}).then(canvas=>{
-      canvas.toBlob(blob=>{
-        downloadBlob(blob, slugify(song.title)+'.png');
+  loadHtml2Canvas().then(()=>{
+    document.body.classList.add('exporting');
+    const card = document.querySelector('.chart-card');
+    requestAnimationFrame(()=>{
+      html2canvas(card, {backgroundColor:'#ffffff', scale:2}).then(canvas=>{
+        canvas.toBlob(blob=>{
+          downloadBlob(blob, slugify(song.title)+'.png');
+        });
+      }).catch(()=>{
+        showToast('Image export failed');
+      }).finally(()=>{
+        document.body.classList.remove('exporting');
       });
-    }).catch(()=>{
-      showToast('Image export failed');
-    }).finally(()=>{
-      document.body.classList.remove('exporting');
     });
+  }).catch(()=>{
+    showToast('Image export needs an internet connection');
   });
 }
 function exportPDF(){
@@ -1191,13 +1238,13 @@ function setTimeSig(n,d){
 }
 
 /* ============ Font picker ============ */
-let currentFontId = 'petaluma';
+let currentFontId = 'simple';
 function openFontPicker(){
   showSheet(`
     <div class="sheet-header"><span>Chord font</span><button onclick="closeSheet()">✕</button></div>
     <div class="symbol-grid">
       ${FONT_OPTIONS.map(f=>`
-        <button style="display:flex;align-items:center;justify-content:space-between;${f.id===currentFontId?'border-color:var(--ink);background:#f2efe6;':''}" onclick="setChordFont('${f.id}')">
+        <button style="display:flex;align-items:center;justify-content:space-between;${f.id===currentFontId?'border-color:var(--ink);background:#eeeeee;':''}" onclick="setChordFont('${f.id}')">
           <span>${f.label}${f.id===currentFontId ? ' ✓' : ''}</span>
           <span style="font-family:${f.family};font-size:20px;">${f.sample}</span>
         </button>
@@ -1911,8 +1958,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   document.getElementById('welcomeGlyph').innerHTML = svgIcon('staffPen', 38);
   document.getElementById('backIcon').innerHTML = svgIcon('chevron', 15) + '<span>Back</span>';
-  document.getElementById('topDrawIcon').innerHTML = svgIcon('pencil');
-  document.getElementById('topClearIcon').innerHTML = svgIcon('droplet');
   document.getElementById('topUndoIcon').innerHTML = svgIcon('undo');
   renderToolbars();
 
