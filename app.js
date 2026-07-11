@@ -50,6 +50,7 @@ function renderToolbars(){
 function onToolbarClick(e){
   const btn = e.target.closest('.tbtn');
   if(!btn) return;
+  hideOnboardTip();
   if(btn.dataset.tbMode){ toggleMode(btn.dataset.tbMode); return; }
   const action = btn.dataset.tbAction;
   if(action==='annotate') openAnnotateSheet();
@@ -215,6 +216,63 @@ function showToast(msg){
   t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ============ Onboarding tips (first-run guidance, shown once per device) ============ */
+const ONBOARD_FLAGS = { welcome:'lse_onb_welcome', firstBar:'lse_onb_firstbar', addAnother:'lse_onb_addanother', barLine:'lse_onb_barline' };
+const ONBOARD_ARROW_SVG = '<svg width="30" height="46" viewBox="0 0 30 46"><path d="M15 2c0 16 -2 26 2 34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M7 28l8 10 8-10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+let onboardTipTimer = null;
+
+function onboardSeen(key){
+  try{ return localStorage.getItem(ONBOARD_FLAGS[key])==='1'; } catch(e){ return true; }
+}
+function onboardMarkSeen(key){
+  try{ localStorage.setItem(ONBOARD_FLAGS[key], '1'); } catch(e){}
+}
+function isPhoneLayout(){
+  return getComputedStyle(document.getElementById('sidebarToolbar')).display === 'none';
+}
+function positionOnboardTip(){
+  const tip = document.getElementById('onboardTip');
+  const appRect = document.getElementById('app').getBoundingClientRect();
+  const barRect = document.querySelector('.topbar').getBoundingClientRect();
+  tip.style.top = (barRect.bottom - appRect.top + 10) + 'px';
+}
+function showArrowAtToolbarButton(action){
+  if(!isPhoneLayout()) return;
+  const btn = document.querySelector(`#bottomToolbar [data-tb-action="${action}"]`);
+  const arrow = document.getElementById('onboardArrow');
+  if(!btn) return;
+  const appRect = document.getElementById('app').getBoundingClientRect();
+  const btnRect = btn.getBoundingClientRect();
+  arrow.style.left = (btnRect.left - appRect.left + btnRect.width/2 - 15) + 'px';
+  arrow.style.top = (btnRect.top - appRect.top - 50) + 'px';
+  arrow.innerHTML = ONBOARD_ARROW_SVG;
+  arrow.classList.add('show');
+}
+function hideOnboardArrow(){
+  document.getElementById('onboardArrow').classList.remove('show');
+}
+function showOnboardTip(message, opts){
+  opts = opts || {};
+  const tip = document.getElementById('onboardTip');
+  tip.innerHTML = `<span>${message}</span><span class="onboard-close" onclick="hideOnboardTip()">✕</span>`;
+  positionOnboardTip();
+  tip.classList.add('show');
+  clearTimeout(onboardTipTimer);
+  onboardTipTimer = setTimeout(hideOnboardTip, opts.duration || 5500);
+  if(opts.arrowAction) requestAnimationFrame(()=>showArrowAtToolbarButton(opts.arrowAction));
+}
+function hideOnboardTip(){
+  document.getElementById('onboardTip').classList.remove('show');
+  hideOnboardArrow();
+  clearTimeout(onboardTipTimer);
+}
+function pulseBorderLine(idx){
+  const el = document.querySelector(`.border-line[data-border-idx="${idx}"]`);
+  if(!el) return;
+  el.classList.add('pulse');
+  setTimeout(()=>el.classList.remove('pulse'), 2800);
 }
 
 /* ============ Title edit ============ */
@@ -410,6 +468,12 @@ function clearPage(){
   clearInkRaw();
   closeSheet();
   render();
+  if(!onboardSeen('firstBar')){
+    onboardMarkSeen('firstBar');
+    setTimeout(()=>{
+      showOnboardTip('Tap the bar to add your first chord.', {duration:5000});
+    }, 400);
+  }
 }
 
 /* ============ Chord picker ============ */
@@ -418,6 +482,7 @@ let pickerRoot = null;
 let pickerWholeBarOptions = false;
 
 function handleBarTap(item, beatIdx){
+  hideOnboardTip();
   if(mode==='rhythm'){
     if(item.kind==='chords') openRhythmBuilder(item.id);
     return;
@@ -489,6 +554,7 @@ function pickQuality(qid){
   const b = findBarById(pickerTarget.barId);
   if(!b) return closeSheet();
   b.kind = 'chords';
+  const wasAdd = pickerTarget.mode !== 'edit';
   if(pickerTarget.mode==='edit'){
     const c = b.chords.find(c=>c.beat===pickerTarget.beat);
     if(c){ c.root=pickerRoot; c.quality=qid; delete c.rest; }
@@ -497,6 +563,12 @@ function pickQuality(qid){
   }
   closeSheet();
   render();
+  if(wasAdd && !onboardSeen('addAnother')){
+    onboardMarkSeen('addAnother');
+    setTimeout(()=>{
+      showOnboardTip('Nice! Tap this bar again for a second chord, or tap <b>+</b> to add a new bar.', {duration:5500});
+    }, 400);
+  }
 }
 function clearChordSlot(){
   if(pickerTarget.mode!=='edit'){ closeSheet(); return; }
@@ -616,6 +688,8 @@ function rhythmRemove(){
 /* ============ Border editing (type + optional section label) ============ */
 function openBorderEdit(idx){
   if(mode!=='chords') return;
+  hideOnboardTip();
+  document.querySelectorAll('.border-line.pulse').forEach(el=>el.classList.remove('pulse'));
   showSheet(`
     <div class="sheet-header"><span>Bar line</span><button onclick="closeSheet()">✕</button></div>
     <div class="symbol-grid two-col">
@@ -792,6 +866,16 @@ function showEditor(){
     applyResponsiveLayout();
     resizeCanvasPreserving();
   });
+  if(!onboardSeen('welcome')){
+    onboardMarkSeen('welcome');
+    setTimeout(()=>{
+      if(isPhoneLayout()){
+        showOnboardTip('Welcome! Tap <b>More</b>, then <b>Clear Page</b>, to start your own chart.', {arrowAction:'more', duration:6500});
+      } else {
+        showOnboardTip('Welcome! Tap <b>Clear Page</b> in the toolbar to start your own chart.', {duration:6000});
+      }
+    }, 600);
+  }
 }
 function continueAsGuest(){ showEditor(); }
 function attemptSignIn(){

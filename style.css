@@ -346,6 +346,7 @@ body{
 
 /* ===== Border lines (tappable barlines) ===== */
 .border-line{
+  position:relative;
   flex:0 0 auto;
   min-width:13px;
   display:flex;
@@ -354,6 +355,19 @@ body{
   gap:2px;
   cursor:pointer;
   margin:2px 0;
+}
+.border-line.pulse::before{
+  content:'';
+  position:absolute;
+  inset:-3px -5px;
+  border-radius:4px;
+  background:rgba(0,0,0,.12);
+  opacity:0;
+  animation:border-line-pulse 900ms ease-in-out 3;
+}
+@keyframes border-line-pulse{
+  0%,100%{ opacity:0; transform:scale(1); }
+  50%{ opacity:1; transform:scale(1.2); }
 }
 .border-line .ln-thin{ border-left:1.6px solid var(--ink); align-self:stretch; }
 .border-line .ln-thick{ border-left:2.4px solid var(--ink); align-self:stretch; }
@@ -479,6 +493,59 @@ body{
   text-align:center;
 }
 #toast.show{display:block;}
+
+/* ===== Onboarding tips (first-run guidance) ===== */
+#onboardTip{
+  position:absolute;
+  left:50%;
+  top:60px;
+  transform:translateX(-50%) translateY(-6px);
+  max-width:82%;
+  background:var(--ink);
+  color:var(--paper);
+  font-family:var(--ui-font);
+  font-size:13px;
+  line-height:1.45;
+  padding:11px 32px 11px 14px;
+  border-radius:12px;
+  box-shadow:0 8px 22px rgba(0,0,0,.24);
+  z-index:55;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease;
+}
+#onboardTip b{ font-weight:700; }
+#onboardTip.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
+#onboardTip .onboard-close{
+  position:absolute;
+  top:5px; right:7px;
+  color:var(--paper);
+  opacity:.65;
+  font-size:13px;
+  line-height:1;
+  padding:5px;
+  cursor:pointer;
+}
+#onboardTip.show .onboard-close{ pointer-events:auto; }
+#onboardArrow{
+  position:absolute;
+  z-index:55;
+  opacity:0;
+  pointer-events:none;
+  color:var(--ink);
+  transition:opacity .2s ease;
+}
+#onboardArrow.show{
+  opacity:1;
+  animation:onboard-bounce 1.1s ease-in-out infinite;
+}
+@keyframes onboard-bounce{
+  0%,100%{ transform:translateY(0); }
+  50%{ transform:translateY(7px); }
+}
 
 /* ===== Bottom sheet ===== */
 #backdrop{
@@ -730,7 +797,7 @@ body{
 @media print{
   html, body{ height:auto !important; overflow:visible !important; background:#fff; }
   #app{ box-shadow:none; max-width:none; height:auto !important; overflow:visible !important; }
-  .topbar, .toolbar, .sidebar, .info-panel, #toast, #backdrop, #sheet{ display:none !important; }
+  .topbar, .toolbar, .sidebar, .info-panel, #toast, #backdrop, #sheet, #onboardTip, #onboardArrow{ display:none !important; }
   .chart-scroll{ overflow:visible !important; padding:0; height:auto !important; }
   .chart-card{ border:none; box-shadow:none; max-width:none; margin:0; min-height:auto !important; }
   .add-bar, .empty-hint{ display:none !important; }

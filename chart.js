@@ -467,6 +467,7 @@ function renderBarEl(item){
 function renderBorderEl(border, idx){
   const div = document.createElement('div');
   div.className='border-line';
+  div.dataset.borderIdx = idx;
   div.onclick=()=>openBorderEdit(idx);
   const type = border.type;
   if(type==='repeatStart'){
@@ -542,6 +543,7 @@ function makeAddBarBtn(){
   addBtn.className='add-bar';
   addBtn.textContent='+';
   addBtn.onclick=()=>{
+    hideOnboardTip();
     pushSongUndo();
     const lastIdx = song.items.length;
     const wasEnd = song.borders[lastIdx].type === 'end';
@@ -549,6 +551,14 @@ function makeAddBarBtn(){
     song.items.push(bar([]));
     song.borders.push({type: wasEnd ? 'end' : 'normal', label:null});
     render();
+    if(song.items.length===3 && !onboardSeen('barLine')){
+      onboardMarkSeen('barLine');
+      const pulseIdx = song.items.length - 1;
+      setTimeout(()=>{
+        showOnboardTip("Have you tried tapping on the bar lines? That's where sections like Verse and Chorus hide.", {duration:6000});
+        pulseBorderLine(pulseIdx);
+      }, 1500);
+    }
   };
   return addBtn;
 }
