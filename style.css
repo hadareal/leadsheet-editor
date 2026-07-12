@@ -196,7 +196,7 @@ body{
   overflow:hidden;
   transition:height .18s ease;
 }
-.rhythm-row.has-rhythm{ height:30px; }
+.rhythm-row.has-rhythm{ height:35px; }
 .rhythm-row .rhythm-slot{
   flex:0 1 var(--bar-w);
   min-width:56px;
@@ -643,7 +643,7 @@ body{
 /* ===== Rhythm builder: sentence-in-progress + note/rest picker ===== */
 .seq-box{
   display:grid;
-  min-height:52px;
+  min-height:58px;
   border:1px solid var(--card-border);
   border-radius:10px;
   background:var(--header-bg);
@@ -673,7 +673,7 @@ body{
 }
 .palette-table{
   display:grid;
-  grid-template-columns:1.25fr .8fr 44px 44px;
+  grid-template-columns:1.25fr .8fr 52px 52px;
   align-items:center;
   gap:3px 6px;
   margin-bottom:6px;
@@ -691,7 +691,7 @@ body{
 .pt-name{ font-size:12px; font-weight:700; color:var(--ink); }
 .pt-value{ font-size:11px; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
 .pt-btn{
-  width:44px; height:40px;
+  width:52px; height:48px;
   display:flex; align-items:center; justify-content:center;
   border-radius:8px;
   border:1px solid var(--card-border);

@@ -623,8 +623,8 @@ function rhythmPaletteHtml(units){
     const n = SYMS[row.note], r = SYMS[row.rest];
     html += `<span class="pt-name">${n.name}</span>`;
     html += `<span class="pt-value">${n.value}</span>`;
-    html += `<button type="button" class="pt-btn" ${used+n.units>units?'disabled':''} onclick="rhythmPick('${row.note}')">${iconSvg(row.note,32)}</button>`;
-    html += `<button type="button" class="pt-btn" ${used+r.units>units?'disabled':''} onclick="rhythmPick('${row.rest}')">${iconSvg(row.rest,32)}</button>`;
+    html += `<button type="button" class="pt-btn" ${used+n.units>units?'disabled':''} onclick="rhythmPick('${row.note}')">${iconSvg(row.note,38)}</button>`;
+    html += `<button type="button" class="pt-btn" ${used+r.units>units?'disabled':''} onclick="rhythmPick('${row.rest}')">${iconSvg(row.rest,38)}</button>`;
   });
   return html;
 }
@@ -633,7 +633,7 @@ function rhythmSeqBoxHtml(units){
   let html = '';
   let filled = 0;
   groups.forEach(g=>{
-    html += `<div class="seq-cell filled" style="grid-column:span ${g.units}">${g.type==='beam'?beamGroupSvg(g.keys,24):iconSvg(g.key,24)}</div>`;
+    html += `<div class="seq-cell filled" style="grid-column:span ${g.units}">${g.type==='beam'?beamGroupSvg(g.keys,28):iconSvg(g.key,28)}</div>`;
     filled += g.units;
   });
   for(let u=filled; u<units; u++){

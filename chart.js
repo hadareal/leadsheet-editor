@@ -74,32 +74,41 @@ function blankSong(){
 
 function defaultDemoSong(){
   const c1 = (r,q)=>({root:r, quality:q});
+  const c2 = (r1,q1,r2,q2)=>([{root:r1,quality:q1,beat:0},{root:r2,quality:q2,beat:2}]);
+  // A classic 12-bar blues, played twice: the first chorus plain (wrapped
+  // in a repeat), the second a "shout chorus" with rhythm hits on the
+  // first three bars and again before the turnaround.
+  const HIT = ['n_quarter','r_quarter','r_half']; // hit on beat 1, then rest through the bar
   const items = [
-    bar([c1('C','m7')]),                              // 1
-    bar([c1('F','7')]),                                // 2
-    bar([c1('Bb','maj7')]),                            // 3
-    bar([c1('Eb','maj7')]),                             // 4
-    bar([c1('A','m7b5')]),                             // 5
-    bar([c1('D','7')]),                                // 6
-    bar([c1('G','m')]),                                // 7
-    (()=>{ const b=bar([]); b.kind='repeat'; return b; })(), // 8 (%)
-    bar([c1('A','m7b5')]),                             // 9
-    bar([c1('D','7')]),                                // 10
-    bar([c1('G','m')]),                                // 11
-    (()=>{ const b=bar([]); b.kind='repeat'; return b; })(), // 12 (%)
-    bar([c1('C','m7')]),                               // 13
-    bar([c1('F','7')]),                                // 14
-    bar([c1('Bb','maj7')]),                            // 15
-    bar([c1('Eb','maj7')]),                            // 16
-    bar([c1('A','m7b5')]),                             // 17
-    bar([c1('D','7')]),                                // 18
-    bar([{root:'G',quality:'m7',beat:0},{root:'Gb',quality:'m7',beat:2}]), // 19
-    bar([{root:'F',quality:'m7',beat:0},{root:'E',quality:'7',beat:2}]),   // 20
-    bar([c1('A','m7b5')]),                             // 21
-    bar([c1('D','7')]),                                // 22
-    bar([c1('G','m')]),                                // 23
-    (()=>{ const b=bar([]); b.kind='repeat'; return b; })(), // 24 (%)
+    bar([c1('F','7')]),                 // 1
+    bar([c1('Bb','7')]),                // 2
+    bar([c1('F','7')]),                 // 3
+    bar(c2('C','m7','F','7')),          // 4
+    bar([c1('Bb','7')]),                // 5
+    bar([c1('B','dim')]),               // 6
+    bar(c2('F','7','D','7')),           // 7
+    bar(c2('A','m7','D','7')),          // 8
+    bar([c1('G','m7')]),                // 9
+    bar([c1('C','7')]),                 // 10
+    bar(c2('F','7','D','7')),           // 11
+    bar(c2('G','m7','C','7')),          // 12 — repeat back to bar 1 ends here
+    bar([c1('F','7')]),                 // 13 — shout chorus starts (BREAKS)
+    bar([c1('Bb','7')]),                // 14
+    bar([c1('F','7')]),                 // 15
+    bar(c2('C','m7','F','7')),          // 16
+    bar([c1('Bb','7')]),                // 17
+    bar([c1('B','dim')]),               // 18
+    bar(c2('F','7','E','7')),           // 19
+    bar(c2('Eb','7','D','7')),          // 20
+    bar([c1('G','m7')]),                // 21
+    bar([c1('C','7')]),                 // 22 — one more break before the turnaround
+    bar(c2('F','7','D','7')),           // 23
+    bar(c2('G','m7','C','7')),          // 24
   ];
+  items[12].rhythm = HIT.slice();
+  items[13].rhythm = HIT.slice();
+  items[14].rhythm = HIT.slice();
+  items[21].rhythm = HIT.slice();
   // give single-chord bars an explicit beat 0 (addChordWithReflow isn't used here; set directly)
   items.forEach(it=>{
     if(it.kind==='chords' && it.chords.length===1 && it.chords[0].beat===undefined){
@@ -108,18 +117,20 @@ function defaultDemoSong(){
   });
   const borders = items.map(()=>({type:'normal', label:null}));
   borders.push({type:'normal', label:null}); // trailing, will be set to 'end' below
+  borders[0].type = 'repeatStart';
   borders[0].label = 'A';
-  borders[8].label = 'B';
-  borders[16].label = 'C';
+  borders[12].type = 'repeatEnd';
+  borders[12].label = 'B';
   borders[borders.length-1].type = 'end';
   return {
-    title:'Autumn Leaves',
-    composer:'Joseph Kosma',
-    key:'G minor',
-    feel:'Medium Swing',
+    title:'Tutorial Blues',
+    composer:'',
+    key:'F',
+    feel:'Medium Swing, ♩ = 130',
     timeSig:{num:4, den:4},
     items,
-    borders
+    borders,
+    textBoxes:[]
   };
 }
 
@@ -223,7 +234,16 @@ function rectSvg(x0, y0, w, h, baseX, baseY){
 
 function noteGlyph(sym){
   if(sym.rest){
-    let out = glyphSvg(REST_GLYPH[sym.base], 0, 0, BASE_X, BASE_Y);
+    let out = '';
+    // Whole/half rests are just a solid block that hangs below or sits
+    // above a staff line — without a staff drawn, that block reads as a
+    // floating rectangle with no way to tell which rest it is. A short
+    // reference line under it restores that context.
+    if(sym.base==='whole' || sym.base==='half'){
+      const w = REST_ADV[sym.base];
+      out += rectSvg(-60, -18, w+120, 36, BASE_X, BASE_Y);
+    }
+    out += glyphSvg(REST_GLYPH[sym.base], 0, 0, BASE_X, BASE_Y);
     if(sym.dotted) out += glyphSvg('augmentationDot', REST_ADV[sym.base]+40, REST_DOT_Y[sym.base], BASE_X, BASE_Y);
     return out;
   }
@@ -525,7 +545,7 @@ function renderRhythmRowEl(row){
     slot.className = 'rhythm-slot';
     const rh = rhythmForBar(item);
     if(rh && rh.length){
-      slot.innerHTML = sequenceHtml(rh, 22);
+      slot.innerHTML = sequenceHtml(rh, 27);
     }
     slot.onclick = ()=>handleBarTap(item, 0);
     div.appendChild(slot);
