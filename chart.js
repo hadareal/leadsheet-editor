@@ -154,17 +154,24 @@ function halfRestSvg(w){
   return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="10" x2="22" y2="10" stroke="#000000" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#000000"/></svg>`;
 }
 /* ============ Rhythm: note/rest symbols ============
-   Real engraving outlines lifted from Bravura (SIL Open Font License,
-   steinbergmedia/bravura) rather than hand-drawn approximations.
-   Coordinates are the font's own design units (1000/em); glyphSvg()/
-   rectSvg() place them by flipping font Y-up into SVG Y-down. Fills are
-   hardcoded #000000 (not var(--ink)) to match wholeRestSvg/halfRestSvg
-   above, which print more reliably than CSS-driven color on some
-   PDF/print engines. */
+   Flag and rest outlines are lifted from Bravura (SIL Open Font License,
+   steinbergmedia/bravura). Coordinates are the font's own design units
+   (1000/em); glyphSvg()/rectSvg() place them by flipping font Y-up into
+   SVG Y-down. Fills are hardcoded #000000 (not var(--ink)) to match
+   wholeRestSvg/halfRestSvg above, which print more reliably than
+   CSS-driven color on some PDF/print engines.
+   This is rhythm/"kick" notation, the jazz/big-band convention for marking
+   rhythmic hits: duration reads from the stem/flag/beam, not the head
+   shape. noteheadSlashFilled (a diagonal slash, custom-drawn — Bravura has
+   no vertical-slash notehead in the subset available to us) is used for
+   quarter notes and shorter. noteheadDiamondHollow and noteheadDiamondWhole
+   ARE genuine Bravura outlines (extracted from the same font's actual
+   noteheadDiamondHalf/noteheadDiamondWhole glyphs, not hand-approximated),
+   used for half and whole notes respectively. */
 const GLYPHS = {
-  noteheadBlack: { d:"M97 -125c-54 0 -97 31 -97 83c0 86 88 167 198 167c57 0 97 -32 97 -83c0 -85 -109 -167 -198 -167z" },
-  noteheadHalf: { d:"M97 -125c-55 0 -97 30 -97 83c0 52 47 167 196 167c58 0 99 -32 99 -83c0 -33 -33 -167 -198 -167zM75 -87c48 0 189 88 189 131c0 7 -3 13 -6 19c-7 12 -18 21 -37 21c-47 0 -192 -79 -192 -128c0 -7 3 -14 6 -20c7 -12 19 -23 40 -23z" },
-  noteheadWhole: { d:"M216 125c93 0 206 -52 206 -123c0 -70 -52 -127 -216 -127c-149 0 -206 60 -206 127c0 68 83 123 216 123zM111 63c-2 -8 -3 -16 -3 -24c0 -32 15 -66 35 -89c21 -28 58 -52 94 -52c10 0 21 1 31 4c33 8 46 36 46 67c0 60 -55 134 -124 134c-31 0 -68 -5 -79 -40z" },
+  noteheadSlashFilled: { d:"M-70 -202L84 43L84 188L-70 -57Z" },
+  noteheadDiamondHollow: { d:"M359 53C360 54 361 57 361 60C361 63 360 64 359 67L189 237C186 239 183 240 180 240C179 240 176 239 174 237L4 67C1 64 0 63 0 60C0 57 1 54 4 53L174 -117C176 -120 179 -120 180 -120C183 -120 186 -120 189 -117ZM266 86C266 48 176 -11 138 -11C121 -11 108 -3 96 10C89 17 88 28 88 36C88 73 177 133 215 133C238 133 266 110 266 86Z" },
+  noteheadDiamondWhole: { d:"M386 37C387 40 389 41 389 44C389 47 386 51 383 53L130 239C128 240 125 240 122 240C120 240 117 240 115 237L3 83C1 80 0 79 0 77C0 76 3 70 4 67L258 -119C261 -119 262 -120 264 -120C268 -120 271 -119 272 -116ZM66 100C65 102 62 105 62 108L109 171C109 172 111 172 112 172C115 172 117 171 118 171L320 23C323 21 324 18 324 14C278 -51 276 -51 275 -51C272 -51 271 -49 268 -48Z" },
   flag8thUp: { d:"M238 -790c-5 -17 -22 -23 -28 -19s-16 13 -16 29c0 4 1 9 3 15c17 45 24 92 24 137c0 59 -9 116 -24 150c-36 85 -131 221 -197 233v239c0 12 8 15 19 15c10 0 18 -6 21 -22c16 -96 58 -182 109 -261c63 -100 115 -218 115 -343c0 -78 -26 -173 -26 -173z" },
   flag16thUp: { d:"M272 -796c-6 -13 -13 -17 -20 -17c-14 0 -22 13 -22 26c0 3 0 5 1 9c5 30 8 60 8 89c0 52 -9 101 -32 149c-69 140 -140 142 -202 144h-5v388c0 7 11 10 17 10s18 -2 20 -13c17 -106 73 -122 127 -180c72 -78 98 -106 108 -174c2 -12 3 -23 3 -36 c0 -61 -22 -121 -25 -127c-1 -3 -1 -5 -1 -7c0 -4 1 -6 1 -9c18 -37 29 -78 29 -120v-22c0 -48 -3 -105 -7 -110zM209 -459c2 -3 4 -4 7 -4c5 0 12 3 13 6c5 8 5 18 7 26c1 7 1 13 1 20c0 32 -9 63 -27 89c-33 49 -87 105 -148 105h-8c-8 0 -14 -6 -14 -10c0 -1 0 -2 1 -3 c21 -82 67 -106 114 -160c21 -24 38 -44 54 -69z" },
   augmentationDot: { d:"M100 0c0 -28 -22 -50 -50 -50s-50 22 -50 50s22 50 50 50s50 -22 50 -50z" },
@@ -175,13 +182,14 @@ const GLYPHS = {
   rest16th: { d:"M208 111v-10c34 1 84 61 91 67c3 2 6 4 11 4c2 -1 10 -5 10 -11c0 -1 -1 -2 -1 -4c-2 -13 -27 -101 -27 -101s-19 -67 -45 -152l-116 -381c-4 -11 -9 -23 -38 -23c-22 0 -31 10 -31 19l1 1v1l95 283v1l1 1c0 4 -2 6 -4 6c-23 -12 -49 -21 -75 -21c-38 0 -80 27 -80 68 c0 38 30 68 68 68c37 0 68 -30 68 -68c0 -3 0 -6 -1 -10c14 0 41 12 49 31c7 15 58 164 58 180c0 5 -2 7 -5 7c-2 0 -4 -1 -7 -2c-23 -13 -51 -22 -78 -22c-38 0 -80 27 -80 68c0 38 31 68 68 68c38 0 68 -30 68 -68z" },
 };
 
-const STEM_UP    = { x:295, y:42 }; // noteheadBlack/Half stemUpSE anchor, font units
+const STEM_UP     = { x:84, y:94 }; // where the stem meets noteheadSlashFilled's upper end, font units
+const DIAMOND_STEM = { x:361, y:60 }; // where the stem meets noteheadDiamondHollow's right vertex
 const STEM_THICK = 30;
 const STEM_LEN   = 550;
 const BEAM_THICK = 125;
 const BEAM_GAP   = 187.5; // beam-center to beam-center spacing
 
-const VB_W = 640, VB_H = 1140, BASE_X = 45, BASE_Y = 614;
+const VB_W = 640, VB_H = 1140, BASE_X = 200, BASE_Y = 614;
 
 // Each rhythm symbol: units out of 16 (one bar of 4/4), whether it's a
 // rest, its note-value family, and whether it's dotted.
@@ -248,16 +256,18 @@ function noteGlyph(sym){
     return out;
   }
   if(sym.base==='whole'){
-    let out = glyphSvg('noteheadWhole', 0, 0, BASE_X, BASE_Y);
-    if(sym.dotted) out += glyphSvg('augmentationDot', 422+40, 0, BASE_X, BASE_Y);
+    let out = glyphSvg('noteheadDiamondWhole', 0, 0, BASE_X, BASE_Y);
+    if(sym.dotted) out += glyphSvg('augmentationDot', 429, DIAMOND_STEM.y, BASE_X, BASE_Y);
     return out;
   }
-  const headName = sym.base==='half' ? 'noteheadHalf' : 'noteheadBlack';
+  const isHalf = sym.base==='half';
+  const headName = isHalf ? 'noteheadDiamondHollow' : 'noteheadSlashFilled';
+  const stem = isHalf ? DIAMOND_STEM : STEM_UP;
   let out = glyphSvg(headName, 0, 0, BASE_X, BASE_Y);
-  out += rectSvg(STEM_UP.x-STEM_THICK, STEM_UP.y, STEM_THICK, STEM_LEN, BASE_X, BASE_Y);
-  if(sym.base==='eighth')    out += glyphSvg('flag8thUp',  STEM_UP.x, STEM_UP.y+STEM_LEN, BASE_X, BASE_Y);
-  if(sym.base==='sixteenth') out += glyphSvg('flag16thUp', STEM_UP.x, STEM_UP.y+STEM_LEN, BASE_X, BASE_Y);
-  if(sym.dotted) out += glyphSvg('augmentationDot', STEM_UP.x+40, 0, BASE_X, BASE_Y);
+  out += rectSvg(stem.x-STEM_THICK, stem.y, STEM_THICK, STEM_LEN, BASE_X, BASE_Y);
+  if(sym.base==='eighth')    out += glyphSvg('flag8thUp',  stem.x, stem.y+STEM_LEN, BASE_X, BASE_Y);
+  if(sym.base==='sixteenth') out += glyphSvg('flag16thUp', stem.x, stem.y+STEM_LEN, BASE_X, BASE_Y);
+  if(sym.dotted) out += glyphSvg('augmentationDot', stem.x+40, isHalf ? stem.y : 0, BASE_X, BASE_Y);
   return out;
 }
 
@@ -289,14 +299,14 @@ function groupForBeaming(seq){
         run.push(k2); units += d2.units; p += d2.units; j++;
       }
       if(run.length>=2){
-        groups.push({ type:'beam', keys:run, units });
+        groups.push({ type:'beam', keys:run, units, start:pos });
         pos += units; i = j;
       } else {
-        groups.push({ type:'single', key, units:def.units });
+        groups.push({ type:'single', key, units:def.units, start:pos });
         pos += def.units; i++;
       }
     } else {
-      groups.push({ type:'single', key, units:def.units });
+      groups.push({ type:'single', key, units:def.units, start:pos });
       pos += def.units; i++;
     }
   }
@@ -306,49 +316,73 @@ function groupForBeaming(seq){
 function beamGroupSvg(keys, size){
   size = size || 26;
   const UNIT_W = 190;
-  const MIN_GAP = 340; // floor so adjacent noteheads (each ~295 wide) never overlap
+  const MIN_GAP = 200; // floor so adjacent noteheads (each ~140 wide) never overlap
+  // Beam groups build their own tight viewBox (sized to totalLocalW below)
+  // rather than the shared single-icon canvas, so they get their own small
+  // left margin — just enough to cover a notehead's own leftward bleed —
+  // instead of the (much larger) BASE_X tuned for the diamond noteheads.
+  const MARGIN = 90;
   let cum = 0;
   const stems = [];
   let out = '';
   keys.forEach(k=>{
     const sym = SYMS[k];
-    out += glyphSvg('noteheadBlack', cum, 0, BASE_X, BASE_Y);
+    out += glyphSvg('noteheadSlashFilled', cum, 0, MARGIN, BASE_Y);
     const stemX = cum + STEM_UP.x;
-    out += rectSvg(stemX-STEM_THICK, STEM_UP.y, STEM_THICK, STEM_LEN, BASE_X, BASE_Y);
-    if(sym.dotted) out += glyphSvg('augmentationDot', cum+STEM_UP.x+40, 0, BASE_X, BASE_Y);
+    out += rectSvg(stemX-STEM_THICK, STEM_UP.y, STEM_THICK, STEM_LEN, MARGIN, BASE_Y);
+    if(sym.dotted) out += glyphSvg('augmentationDot', cum+STEM_UP.x+40, 0, MARGIN, BASE_Y);
     stems.push({ x:stemX, sixteenth: sym.base==='sixteenth' });
     cum += Math.max(sym.units*UNIT_W, MIN_GAP);
   });
-  const totalLocalW = cum + 40;
+  const totalLocalW = MARGIN + cum + 40;
   const topY = STEM_UP.y + STEM_LEN;
   const firstX = stems[0].x, lastX = stems[stems.length-1].x;
 
-  out += rectSvg(firstX-STEM_THICK, topY-BEAM_THICK/2, lastX-firstX+STEM_THICK, BEAM_THICK, BASE_X, BASE_Y);
+  out += rectSvg(firstX-STEM_THICK, topY-BEAM_THICK/2, lastX-firstX+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
 
   const connL = new Array(stems.length).fill(false);
   const connR = new Array(stems.length).fill(false);
   const secY = topY - BEAM_GAP;
   for(let i=0; i<stems.length-1; i++){
     if(stems[i].sixteenth && stems[i+1].sixteenth){
-      out += rectSvg(stems[i].x-STEM_THICK, secY-BEAM_THICK/2, stems[i+1].x-stems[i].x+STEM_THICK, BEAM_THICK, BASE_X, BASE_Y);
+      out += rectSvg(stems[i].x-STEM_THICK, secY-BEAM_THICK/2, stems[i+1].x-stems[i].x+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
       connR[i] = true; connL[i+1] = true;
     }
   }
   const STUB = 110;
   stems.forEach((s,i)=>{
     if(!s.sixteenth || connL[i] || connR[i]) return;
-    if(i>0) out += rectSvg(s.x-STEM_THICK-STUB, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, BASE_X, BASE_Y);
-    else if(i<stems.length-1) out += rectSvg(s.x-STEM_THICK, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, BASE_X, BASE_Y);
+    if(i>0) out += rectSvg(s.x-STEM_THICK-STUB, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
+    else if(i<stems.length-1) out += rectSvg(s.x-STEM_THICK, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
   });
 
   const w = Math.round(size*(totalLocalW/VB_H));
-  return '<svg class="rsym" width="'+w+'" height="'+size+'" viewBox="0 0 '+totalLocalW+' '+VB_H+'">'+out+'</svg>';
+  return '<svg class="rsym rsym-beam" width="'+w+'" height="'+size+'" preserveAspectRatio="none" viewBox="0 0 '+totalLocalW+' '+VB_H+'">'+out+'</svg>';
 }
 
+// Places each note/rest (or beam group) on a 16-column grid — one column
+// per sixteenth-note unit — so it lands at its actual beat position instead
+// of being packed left and centered. This is 4x finer than the bar's own
+// 4-column chord grid (one column per beat), so beat k of the chords lines
+// up exactly with rhythm columns 4k..4k+3, keeping the two rows in sync.
 function sequenceHtml(seq, size){
-  return groupForBeaming(seq).map(g=>
-    g.type==='beam' ? beamGroupSvg(g.keys,size) : iconSvg(g.key,size)
-  ).join('');
+  return groupForBeaming(seq).map(g=>{
+    const html = g.type==='beam' ? beamGroupSvg(g.keys,size) : iconSvg(g.key,size);
+    const cls = g.type==='beam' ? 'rhythm-item beam' : 'rhythm-item';
+    let inner = html;
+    if(g.type!=='beam'){
+      // A note/rest longer than one beat is a single event that happens at
+      // the start of its box, so it's centered on just its first beat —
+      // not the middle of the full multi-beat span, which would visually
+      // drift it away from the beat it actually belongs to. Beam groups
+      // are exempt: they always fit within one beat (see groupForBeaming)
+      // and already stretch to fill it edge-to-edge.
+      const centerPct = Math.min(50, 200/g.units);
+      const w = Math.round(size*VB_W/VB_H);
+      inner = '<span style="display:inline-block;margin-left:calc('+centerPct+'% - '+(w/2)+'px)">'+html+'</span>';
+    }
+    return '<span class="'+cls+'" style="grid-column:'+(g.start+1)+' / span '+g.units+'">'+inner+'</span>';
+  }).join('');
 }
 
 function remainingLabel(units){
@@ -538,21 +572,21 @@ function renderRhythmRowEl(row){
 
   row.forEach(item=>{
     const gap = document.createElement('div');
-    gap.className = 'label-slot';
+    gap.className = 'rhythm-gap';
     div.appendChild(gap);
 
     const slot = document.createElement('div');
     slot.className = 'rhythm-slot';
     const rh = rhythmForBar(item);
     if(rh && rh.length){
-      slot.innerHTML = sequenceHtml(rh, 27);
+      slot.innerHTML = sequenceHtml(rh, 32);
     }
     slot.onclick = ()=>handleBarTap(item, 0);
     div.appendChild(slot);
   });
 
   const trailingGap = document.createElement('div');
-  trailingGap.className = 'label-slot';
+  trailingGap.className = 'rhythm-gap';
   div.appendChild(trailingGap);
 
   return div;

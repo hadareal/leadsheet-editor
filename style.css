@@ -193,20 +193,42 @@ body{
   display:flex;
   align-items:flex-end;
   height:0;
-  overflow:hidden;
+  overflow-x:visible;
+  overflow-y:hidden;
   transition:height .18s ease;
 }
-.rhythm-row.has-rhythm{ height:35px; }
+.rhythm-row.has-rhythm{ height:42px; }
+/* Mirror the bar-row's own spacer widths (.time-sig, .border-line) so the
+   rhythm grid lines up exactly with the bar grid beneath it. */
+.rhythm-row .ts-spacer{ flex:0 0 12px; }
+.rhythm-row .rhythm-gap{ flex:0 0 auto; min-width:13px; }
+/* 16 columns = one per sixteenth-note unit in a 4/4 bar — 4x finer than
+   the bar's own 4-column (one-per-beat) chord grid, so beat k of the
+   chords always lines up with rhythm columns 4k..4k+3. Each note/rest is
+   placed on this grid by its actual beat position (see sequenceHtml in
+   chart.js) instead of being packed together and centered. */
 .rhythm-row .rhythm-slot{
   flex:0 1 var(--bar-w);
   min-width:56px;
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-  gap:1px;
+  padding:0 4px; /* matches .bar's horizontal padding, so both grids divide the same content width */
+  display:grid;
+  grid-template-columns:repeat(16,1fr);
+  align-items:end;
   cursor:pointer;
 }
 .rsym{ display:block; }
+/* Centers each note/rest on its beat (rather than sitting at the box's
+   left edge, matching how the chord above it is left-aligned) so it reads
+   clearly as "belonging to" that beat instead of crowding its neighbor.
+   The actual horizontal offset is set per-item via an inline margin (see
+   sequenceHtml in chart.js) rather than justify-content, so a note longer
+   than one beat can be centered on just its first beat instead of the
+   middle of its whole multi-beat box. */
+.rhythm-item{ display:flex; justify-content:flex-start; align-items:flex-end; }
+/* Beamed pairs/runs represent their whole box's duration, not a single
+   instant, so unlike a lone note they stretch edge-to-edge across it
+   instead of sitting centered with empty shoulders on both sides. */
+.rhythm-item.beam .rsym-beam{ width:100%; }
 
 .time-sig{
   flex:0 0 12px;
