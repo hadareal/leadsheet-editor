@@ -4,7 +4,7 @@
 
 **Goal:** Let a user mark two adjacent rhythm hits as tied (within a bar, or across a barline including a line break), and render that as a tapered curve connecting the two noteheads.
 
-**Architecture:** Extend each bar's saved rhythm with a parallel `rhythmTies` boolean array (plus a `tiedFromPrevBar` flag for cross-barline ties), add a one-shot "Tie" toggle to the existing rhythm builder sheet, and add a post-render pass in `chart.js` that measures where each tied notehead actually landed on screen (via `getBoundingClientRect`/`getBBox`) and draws a filled tapered-lens SVG shape between the two anchor points. Measurement-based anchoring is used instead of hand-derived pixel math because the row layout is CSS-grid/percentage-based (responsive) and the note glyphs are Bravier-lifted bezier paths that are error-prone to re-derive by hand (confirmed during design: an initial hand-derived version was visibly wrong twice before switching to `getBBox`).
+**Architecture:** Extend each bar's saved rhythm with a parallel `rhythmTies` boolean array (plus a `tiedFromPrevBar` flag for cross-barline ties), add a one-shot "Tie" toggle to the existing rhythm builder sheet, and add a post-render pass in `chart.js` that measures where each tied notehead actually landed on screen (via `getBoundingClientRect`/`getBBox`) and draws a filled tapered-lens SVG shape between the two anchor points. Measurement-based anchoring is used instead of hand-derived pixel math because the row layout is CSS-grid/percentage-based (responsive) and the note glyphs are Bravura-lifted bezier paths that are error-prone to re-derive by hand (confirmed during design: an initial hand-derived version was visibly wrong twice before switching to `getBBox`, and even the `getBBox` version needed one more fix — measuring a transformed `<g>` directly returns its pre-transform coordinates, caught via a live artifact test).
 
 **Tech Stack:** Vanilla JS, plain `<script>` tags sharing global scope, no build step, no test framework — matches the existing project exactly (see `CLAUDE.md`).
 
@@ -60,12 +60,20 @@ const NOTEHEAD_GLYPH_FOR_BASE = {
 let _noteheadAnchorCache = {};
 function noteheadAnchor(glyphName){
   if(_noteheadAnchorCache[glyphName]) return _noteheadAnchorCache[glyphName];
+  // getBBox() on an element returns its bounds BEFORE that element's own
+  // transform is applied — glyphSvg's <g> carries a translate/scale, so
+  // measuring it directly would return raw, untranslated path coordinates
+  // (confirmed the hard way: an earlier draft of this exact code, without
+  // the wrapping <g> below, anchored ties ~46px too high in a live test).
+  // Wrapping the output in a plain, untransformed <g> and measuring THAT
+  // instead makes the transform apply as normal content, not as the
+  // measured element's own transform.
   const probe = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   probe.setAttribute('width', '0');
   probe.setAttribute('height', '0');
   probe.style.position = 'absolute';
   probe.style.overflow = 'hidden';
-  probe.innerHTML = glyphSvg(glyphName, 0, 0, BASE_X, BASE_Y);
+  probe.innerHTML = '<g>' + glyphSvg(glyphName, 0, 0, BASE_X, BASE_Y) + '</g>';
   document.body.appendChild(probe);
   const bbox = probe.firstChild.getBBox();
   document.body.removeChild(probe);
