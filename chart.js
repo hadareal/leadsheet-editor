@@ -278,6 +278,58 @@ function iconSvg(key, size){
   return '<svg class="rsym" width="'+w+'" height="'+size+'" viewBox="0 0 '+VB_W+' '+VB_H+'">'+noteGlyph(sym)+'</svg>';
 }
 
+// ============ Ties: notehead anchor measurement + tie shape ============
+// A tie means "this hit continues the previous one, don't re-strike" — a
+// thin, filled, tapered curve connecting the bottom-center of one notehead
+// to the bottom-center of the next. Anchors are measured from the actual
+// rendered glyph (via getBBox on an isolated probe) rather than hand-derived
+// from the raw path data — these are Bravura-lifted bezier curves, and hand
+// math on them turned out to be wrong twice during design.
+const NOTEHEAD_GLYPH_FOR_BASE = {
+  whole: 'noteheadDiamondWhole',
+  half: 'noteheadDiamondHollow',
+  quarter: 'noteheadSlashFilled',
+  eighth: 'noteheadSlashFilled',
+  sixteenth: 'noteheadSlashFilled'
+};
+let _noteheadAnchorCache = {};
+function noteheadAnchor(glyphName){
+  if(_noteheadAnchorCache[glyphName]) return _noteheadAnchorCache[glyphName];
+  // getBBox() on an element returns its bounds BEFORE that element's own
+  // transform is applied — glyphSvg's <g> carries a translate/scale, so
+  // measuring it directly would return raw, untranslated path coordinates
+  // (confirmed the hard way: an earlier draft of this exact code, without
+  // the wrapping <g> below, anchored ties ~46px too high in a live test).
+  // Wrapping the output in a plain, untransformed <g> and measuring THAT
+  // instead makes the transform apply as normal content, not as the
+  // measured element's own transform.
+  const probe = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  probe.setAttribute('width', '0');
+  probe.setAttribute('height', '0');
+  probe.style.position = 'absolute';
+  probe.style.overflow = 'hidden';
+  probe.innerHTML = '<g>' + glyphSvg(glyphName, 0, 0, BASE_X, BASE_Y) + '</g>';
+  document.body.appendChild(probe);
+  const bbox = probe.firstChild.getBBox();
+  document.body.removeChild(probe);
+  const anchor = { x: bbox.x + bbox.width/2, y: bbox.y + bbox.height };
+  _noteheadAnchorCache[glyphName] = anchor;
+  return anchor;
+}
+
+// Depth/thickness are shallower than they look in isolation on purpose —
+// at the real 32px render size the rhythm row only has ~9px of blank
+// margin below a notehead before it touches the chord row underneath, so
+// this leaves a few px of safety margin rather than using it all up.
+const TIE_DEPTH_PER_SIZE = 0.19;
+const TIE_THICK_PER_SIZE = 0.065;
+function tieShapeSvg(x1, y1, x2, y2, depth, thick){
+  const mx = (x1+x2)/2;
+  const outerY = (y1+y2)/2 + depth;
+  const innerY = outerY - thick;
+  return '<path d="M '+x1+' '+y1+' Q '+mx+' '+outerY+' '+x2+' '+y2+' Q '+mx+' '+innerY+' '+x1+' '+y1+' Z" fill="#000000"/>';
+}
+
 // Consecutive quavers/semiquavers (plain or dotted) within the same beat
 // are grouped so they render as one beamed figure instead of separately
 // flagged notes — e.g. two quavers become a beamed pair, and a dotted
