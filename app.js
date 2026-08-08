@@ -605,7 +605,13 @@ function openRhythmBuilder(barId){
     showToast(`Rhythm isn't available yet for ${song.timeSig.num}/${song.timeSig.den}`);
     return;
   }
-  rhythmBuilding = { barId, seq: (b.rhythm||[]).slice() };
+  rhythmBuilding = {
+    barId,
+    seq: (b.rhythm||[]).slice(),
+    ties: (b.rhythmTies||[]).slice(),
+    tieArmed: false,
+    tieFromPrevBar: !!b.tiedFromPrevBar
+  };
   renderRhythmSheet();
 }
 function closeRhythmSheet(){
@@ -616,24 +622,40 @@ function closeRhythmSheet(){
 function rhythmUnitsUsed(){
   return rhythmBuilding.seq.reduce((s,k)=>s+SYMS[k].units, 0);
 }
+// Task 5 extends this to also allow arming when seq is empty but the
+// previous bar ends on a note (tying across the barline).
+function rhythmTieAvailable(){
+  if(rhythmBuilding.seq.length===0) return false;
+  const lastKey = rhythmBuilding.seq[rhythmBuilding.seq.length-1];
+  return !SYMS[lastKey].rest;
+}
+function rhythmToggleTie(){
+  if(!rhythmBuilding.tieArmed && !rhythmTieAvailable()) return;
+  rhythmBuilding.tieArmed = !rhythmBuilding.tieArmed;
+  renderRhythmSheet();
+}
 function rhythmPaletteHtml(units){
   const used = rhythmUnitsUsed();
+  const armed = rhythmBuilding.tieArmed;
   let html = '<span class="pt-head">Name</span><span class="pt-head">Value</span><span class="pt-head">Note</span><span class="pt-head">Rest</span>';
   RHYTHM_ROWS.forEach(row=>{
     const n = SYMS[row.note], r = SYMS[row.rest];
     html += `<span class="pt-name">${n.name}</span>`;
     html += `<span class="pt-value">${n.value}</span>`;
     html += `<button type="button" class="pt-btn" ${used+n.units>units?'disabled':''} onclick="rhythmPick('${row.note}')">${iconSvg(row.note,38)}</button>`;
-    html += `<button type="button" class="pt-btn" ${used+r.units>units?'disabled':''} onclick="rhythmPick('${row.rest}')">${iconSvg(row.rest,38)}</button>`;
+    html += `<button type="button" class="pt-btn" ${(used+r.units>units || armed)?'disabled':''} onclick="rhythmPick('${row.rest}')">${iconSvg(row.rest,38)}</button>`;
   });
   return html;
 }
 function rhythmSeqBoxHtml(units){
   const groups = groupForBeaming(rhythmBuilding.seq);
+  const ties = rhythmBuilding.ties;
   let html = '';
   let filled = 0;
   groups.forEach(g=>{
-    html += `<div class="seq-cell filled" style="grid-column:span ${g.units}">${g.type==='beam'?beamGroupSvg(g.keys,28):iconSvg(g.key,28)}</div>`;
+    const tied = g.seqStart>0 ? !!ties[g.seqStart] : !!rhythmBuilding.tieFromPrevBar;
+    const cls = 'seq-cell filled' + (tied ? ' tied-in' : '');
+    html += `<div class="${cls}" style="grid-column:span ${g.units}">${g.type==='beam'?beamGroupSvg(g.keys,28):iconSvg(g.key,28)}</div>`;
     filled += g.units;
   });
   for(let u=filled; u<units; u++){
@@ -647,12 +669,14 @@ function renderRhythmSheet(){
   const units = barUnitsFor(song.timeSig);
   const used = rhythmUnitsUsed();
   const label = barLabelHtml(b);
+  const tieAvailable = rhythmTieAvailable();
   showSheet(`
     <div class="sheet-header"><span>Bar rhythm${label?' · '+label:''}</span><button onclick="closeRhythmSheet()">✕</button></div>
     <div class="seq-box" style="grid-template-columns:repeat(${units},1fr);">${rhythmSeqBoxHtml(units)}</div>
     <div class="seq-caption">${remainingLabel(units-used)}</div>
     <div class="palette-table">${rhythmPaletteHtml(units)}</div>
     <div class="sheet-actions">
+      <button class="neutral${rhythmBuilding.tieArmed?' tie-armed':''}" ${tieAvailable?'':'disabled'} onclick="rhythmToggleTie()">Tie${rhythmBuilding.tieArmed?' ●':''}</button>
       <button class="neutral" ${rhythmBuilding.seq.length===0?'disabled':''} onclick="rhythmUndo()">Undo</button>
       <button class="neutral" ${rhythmBuilding.seq.length===0?'disabled':''} onclick="rhythmClear()">Clear</button>
     </div>
@@ -667,21 +691,48 @@ function renderRhythmSheet(){
 function rhythmPick(key){
   const units = barUnitsFor(song.timeSig);
   if(rhythmUnitsUsed() + SYMS[key].units > units) return;
+  const armed = rhythmBuilding.tieArmed && !SYMS[key].rest;
+  if(rhythmBuilding.seq.length===0){
+    rhythmBuilding.tieFromPrevBar = armed;
+  } else {
+    rhythmBuilding.ties[rhythmBuilding.seq.length] = armed;
+  }
   rhythmBuilding.seq.push(key);
+  rhythmBuilding.tieArmed = false;
   renderRhythmSheet();
 }
-function rhythmUndo(){ rhythmBuilding.seq.pop(); renderRhythmSheet(); }
-function rhythmClear(){ rhythmBuilding.seq = []; renderRhythmSheet(); }
+function rhythmUndo(){
+  rhythmBuilding.seq.pop();
+  rhythmBuilding.ties.length = rhythmBuilding.seq.length;
+  if(rhythmBuilding.seq.length===0) rhythmBuilding.tieFromPrevBar = false;
+  rhythmBuilding.tieArmed = false;
+  renderRhythmSheet();
+}
+function rhythmClear(){
+  rhythmBuilding.seq = [];
+  rhythmBuilding.ties = [];
+  rhythmBuilding.tieFromPrevBar = false;
+  rhythmBuilding.tieArmed = false;
+  renderRhythmSheet();
+}
 function rhythmSave(){
   pushSongUndo();
   const b = findBarById(rhythmBuilding.barId);
-  if(b) b.rhythm = rhythmBuilding.seq.slice();
+  if(b){
+    b.rhythm = rhythmBuilding.seq.slice();
+    b.rhythmTies = rhythmBuilding.ties.slice();
+    b.tiedFromPrevBar = rhythmBuilding.tieFromPrevBar;
+  }
   closeRhythmSheet();
 }
 function rhythmRemove(){
   pushSongUndo();
   const b = findBarById(rhythmBuilding.barId);
-  if(b) b.rhythm = null;
+  if(b){
+    b.rhythm = null;
+    b.rhythmTies = null;
+    b.tiedFromPrevBar = false;
+  }
   closeRhythmSheet();
 }
 
