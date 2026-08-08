@@ -622,10 +622,17 @@ function closeRhythmSheet(){
 function rhythmUnitsUsed(){
   return rhythmBuilding.seq.reduce((s,k)=>s+SYMS[k].units, 0);
 }
-// Task 5 extends this to also allow arming when seq is empty but the
-// previous bar ends on a note (tying across the barline).
+function canTieFromPrevBar(barId){
+  const idx = song.items.findIndex(it=>it.id===barId);
+  if(idx<=0) return false;
+  const prev = song.items[idx-1];
+  if(prev.kind!=='chords') return false;
+  const prevRh = prev.rhythm;
+  if(!prevRh || !prevRh.length) return false;
+  return !SYMS[prevRh[prevRh.length-1]].rest;
+}
 function rhythmTieAvailable(){
-  if(rhythmBuilding.seq.length===0) return false;
+  if(rhythmBuilding.seq.length===0) return canTieFromPrevBar(rhythmBuilding.barId);
   const lastKey = rhythmBuilding.seq[rhythmBuilding.seq.length-1];
   return !SYMS[lastKey].rest;
 }
