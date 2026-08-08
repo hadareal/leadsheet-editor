@@ -338,6 +338,7 @@ function groupForBeaming(seq){
   const groups = [];
   let i = 0, pos = 0;
   while(i < seq.length){
+    const seqStart = i;
     const key = seq[i], def = SYMS[key];
     const beamable = !def.rest && def.units<4;
     if(beamable){
@@ -351,61 +352,75 @@ function groupForBeaming(seq){
         run.push(k2); units += d2.units; p += d2.units; j++;
       }
       if(run.length>=2){
-        groups.push({ type:'beam', keys:run, units, start:pos });
+        groups.push({ type:'beam', keys:run, units, start:pos, seqStart });
         pos += units; i = j;
       } else {
-        groups.push({ type:'single', key, units:def.units, start:pos });
+        groups.push({ type:'single', key, units:def.units, start:pos, seqStart });
         pos += def.units; i++;
       }
     } else {
-      groups.push({ type:'single', key, units:def.units, start:pos });
+      groups.push({ type:'single', key, units:def.units, start:pos, seqStart });
       pos += def.units; i++;
     }
   }
   return groups;
 }
 
+const BEAM_UNIT_W = 190, BEAM_MIN_GAP = 200; // floor so adjacent noteheads (each ~140 wide) never overlap
+// Beam groups build their own tight viewBox (sized to totalLocalW below)
+// rather than the shared single-icon canvas, so they get their own small
+// left margin — just enough to cover a notehead's own leftward bleed —
+// instead of the (much larger) BASE_X tuned for the diamond noteheads.
+const BEAM_MARGIN = 90;
+
+// The cumulative x-offset of each note within a beam group, in the group's
+// own local viewBox units. Shared between beamGroupSvg (drawing) and the
+// tie-anchor lookup (chart.js Task 3), so a tied note's on-screen position
+// inside a beamed pair can be computed the same way it was drawn.
+function beamNoteOffsets(keys){
+  let cum = 0;
+  const offsets = [];
+  keys.forEach(k=>{
+    offsets.push(cum);
+    cum += Math.max(SYMS[k].units*BEAM_UNIT_W, BEAM_MIN_GAP);
+  });
+  return { offsets, cum };
+}
+
 function beamGroupSvg(keys, size){
   size = size || 26;
-  const UNIT_W = 190;
-  const MIN_GAP = 200; // floor so adjacent noteheads (each ~140 wide) never overlap
-  // Beam groups build their own tight viewBox (sized to totalLocalW below)
-  // rather than the shared single-icon canvas, so they get their own small
-  // left margin — just enough to cover a notehead's own leftward bleed —
-  // instead of the (much larger) BASE_X tuned for the diamond noteheads.
-  const MARGIN = 90;
-  let cum = 0;
+  const { offsets, cum } = beamNoteOffsets(keys);
   const stems = [];
   let out = '';
-  keys.forEach(k=>{
+  keys.forEach((k, idx)=>{
     const sym = SYMS[k];
-    out += glyphSvg('noteheadSlashFilled', cum, 0, MARGIN, BASE_Y);
-    const stemX = cum + STEM_UP.x;
-    out += rectSvg(stemX-STEM_THICK, STEM_UP.y, STEM_THICK, STEM_LEN, MARGIN, BASE_Y);
-    if(sym.dotted) out += glyphSvg('augmentationDot', cum+STEM_UP.x+40, 0, MARGIN, BASE_Y);
+    const cumX = offsets[idx];
+    out += glyphSvg('noteheadSlashFilled', cumX, 0, BEAM_MARGIN, BASE_Y);
+    const stemX = cumX + STEM_UP.x;
+    out += rectSvg(stemX-STEM_THICK, STEM_UP.y, STEM_THICK, STEM_LEN, BEAM_MARGIN, BASE_Y);
+    if(sym.dotted) out += glyphSvg('augmentationDot', cumX+STEM_UP.x+40, 0, BEAM_MARGIN, BASE_Y);
     stems.push({ x:stemX, sixteenth: sym.base==='sixteenth' });
-    cum += Math.max(sym.units*UNIT_W, MIN_GAP);
   });
-  const totalLocalW = MARGIN + cum + 40;
+  const totalLocalW = BEAM_MARGIN + cum + 40;
   const topY = STEM_UP.y + STEM_LEN;
   const firstX = stems[0].x, lastX = stems[stems.length-1].x;
 
-  out += rectSvg(firstX-STEM_THICK, topY-BEAM_THICK/2, lastX-firstX+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
+  out += rectSvg(firstX-STEM_THICK, topY-BEAM_THICK/2, lastX-firstX+STEM_THICK, BEAM_THICK, BEAM_MARGIN, BASE_Y);
 
   const connL = new Array(stems.length).fill(false);
   const connR = new Array(stems.length).fill(false);
   const secY = topY - BEAM_GAP;
   for(let i=0; i<stems.length-1; i++){
     if(stems[i].sixteenth && stems[i+1].sixteenth){
-      out += rectSvg(stems[i].x-STEM_THICK, secY-BEAM_THICK/2, stems[i+1].x-stems[i].x+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
+      out += rectSvg(stems[i].x-STEM_THICK, secY-BEAM_THICK/2, stems[i+1].x-stems[i].x+STEM_THICK, BEAM_THICK, BEAM_MARGIN, BASE_Y);
       connR[i] = true; connL[i+1] = true;
     }
   }
   const STUB = 110;
   stems.forEach((s,i)=>{
     if(!s.sixteenth || connL[i] || connR[i]) return;
-    if(i>0) out += rectSvg(s.x-STEM_THICK-STUB, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
-    else if(i<stems.length-1) out += rectSvg(s.x-STEM_THICK, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
+    if(i>0) out += rectSvg(s.x-STEM_THICK-STUB, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, BEAM_MARGIN, BASE_Y);
+    else if(i<stems.length-1) out += rectSvg(s.x-STEM_THICK, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, BEAM_MARGIN, BASE_Y);
   });
 
   const w = Math.round(size*(totalLocalW/VB_H));
@@ -433,7 +448,7 @@ function sequenceHtml(seq, size){
       const w = Math.round(size*VB_W/VB_H);
       inner = '<span style="display:inline-block;margin-left:calc('+centerPct+'% - '+(w/2)+'px)">'+html+'</span>';
     }
-    return '<span class="'+cls+'" style="grid-column:'+(g.start+1)+' / span '+g.units+'">'+inner+'</span>';
+    return '<span class="'+cls+'" data-seq-idx="'+g.seqStart+'" style="grid-column:'+(g.start+1)+' / span '+g.units+'">'+inner+'</span>';
   }).join('');
 }
 
