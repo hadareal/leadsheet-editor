@@ -617,9 +617,10 @@ function applyResponsiveLayout(){
   }
   n = Math.max(MIN_N, Math.min(MAX_N, n));
   const bw = Math.round(Math.max(MIN_BAR, barWidthFor(n)));
+  const prevBarW = document.documentElement.style.getPropertyValue('--bar-w');
   document.documentElement.style.setProperty('--bar-w', bw+'px');
 
-  if(n !== BARS_PER_ROW){
+  if(n !== BARS_PER_ROW || prevBarW !== bw+'px'){
     BARS_PER_ROW = n;
     render();
   }
