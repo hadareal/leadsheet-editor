@@ -470,6 +470,112 @@ function rhythmForBar(item){
   return item.rhythm || null;
 }
 
+function rhythmTiesForBar(item){
+  if(rhythmBuilding && rhythmBuilding.barId===item.id) return rhythmBuilding.ties;
+  return item.rhythmTies || [];
+}
+function tiedFromPrevBarFor(item){
+  if(rhythmBuilding && rhythmBuilding.barId===item.id) return !!rhythmBuilding.tieFromPrevBar;
+  return !!item.tiedFromPrevBar;
+}
+
+// Finds where the notehead at flat sequence index `seqIndex` actually landed
+// on screen, in viewport pixels. `slotEl` is the already-rendered
+// `.rhythm-slot` for this bar; `groups` is groupForBeaming(seq) for the same
+// bar. Returns null if the note can't be located (e.g. layout not settled).
+function tieAnchorForIndex(groups, seqIndex, slotEl, size){
+  const group = groups.find(g => seqIndex >= g.seqStart && seqIndex < g.seqStart + (g.type==='beam' ? g.keys.length : 1));
+  if(!group) return null;
+  const itemEl = slotEl.querySelector('[data-seq-idx="'+group.seqStart+'"]');
+  if(!itemEl) return null;
+  const svgEl = itemEl.querySelector('svg');
+  if(!svgEl) return null;
+  const rect = svgEl.getBoundingClientRect();
+  if(group.type==='single'){
+    const glyphName = NOTEHEAD_GLYPH_FOR_BASE[SYMS[group.key].base];
+    const a = noteheadAnchor(glyphName);
+    return { x: rect.left + (a.x/VB_W)*rect.width, y: rect.top + (a.y/VB_H)*rect.height };
+  }
+  const k = seqIndex - group.seqStart;
+  const { offsets, cum } = beamNoteOffsets(group.keys);
+  const totalLocalW = BEAM_MARGIN + cum + 40;
+  const a = noteheadAnchor('noteheadSlashFilled');
+  const localX = BEAM_MARGIN + offsets[k] + (a.x - BASE_X);
+  const localY = a.y;
+  return { x: rect.left + (localX/totalLocalW)*rect.width, y: rect.top + (localY/VB_H)*rect.height };
+}
+
+function tieOverlayFor(rowEl, overlays){
+  if(overlays.has(rowEl)) return overlays.get(rowEl);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'tie-overlay');
+  svg.style.position = 'absolute';
+  svg.style.left = '0'; svg.style.top = '0';
+  svg.style.width = '100%'; svg.style.height = '100%';
+  svg.style.pointerEvents = 'none';
+  rowEl.appendChild(svg);
+  overlays.set(rowEl, svg);
+  return svg;
+}
+
+// Draws every tie in the current song. `slotMap` maps bar id -> {slotEl,
+// rowEl}, built by renderRhythmRowEl during this render() pass. Must run
+// after the rhythm rows are attached to the document (needs real layout).
+function drawAllTies(slotMap){
+  const overlays = new Map();
+  function addShape(rowEl, x1, y1, x2, y2, depth, thick){
+    const rowRect = rowEl.getBoundingClientRect();
+    const svg = tieOverlayFor(rowEl, overlays);
+    svg.insertAdjacentHTML('beforeend', tieShapeSvg(x1-rowRect.left, y1-rowRect.top, x2-rowRect.left, y2-rowRect.top, depth, thick));
+  }
+  const SIZE = 32;
+  const depth = SIZE*TIE_DEPTH_PER_SIZE, thick = SIZE*TIE_THICK_PER_SIZE;
+
+  // Within-bar ties.
+  song.items.forEach(item=>{
+    if(item.kind!=='chords') return;
+    const rh = rhythmForBar(item);
+    if(!rh || !rh.length) return;
+    const ties = rhythmTiesForBar(item);
+    const info = slotMap.get(item.id);
+    if(!info) return;
+    const groups = groupForBeaming(rh);
+    for(let i=1; i<rh.length; i++){
+      if(!ties[i] || SYMS[rh[i]].rest || SYMS[rh[i-1]].rest) continue;
+      const a1 = tieAnchorForIndex(groups, i-1, info.slotEl, SIZE);
+      const a2 = tieAnchorForIndex(groups, i, info.slotEl, SIZE);
+      if(a1 && a2) addShape(info.rowEl, a1.x, a1.y, a2.x, a2.y, depth, thick);
+    }
+  });
+
+  // Cross-barline ties (same row, or a stub pair across a line break).
+  for(let k=1; k<song.items.length; k++){
+    const prev = song.items[k-1], cur = song.items[k];
+    if(prev.kind!=='chords' || cur.kind!=='chords') continue;
+    if(!tiedFromPrevBarFor(cur)) continue;
+    const prevRh = rhythmForBar(prev);
+    if(!prevRh || !prevRh.length || SYMS[prevRh[prevRh.length-1]].rest) continue;
+    const curRh = rhythmForBar(cur);
+    if(!curRh || !curRh.length || SYMS[curRh[0]].rest) continue;
+    const prevInfo = slotMap.get(prev.id), curInfo = slotMap.get(cur.id);
+    if(!prevInfo || !curInfo) continue;
+    const aPrev = tieAnchorForIndex(groupForBeaming(prevRh), prevRh.length-1, prevInfo.slotEl, SIZE);
+    const aCur = tieAnchorForIndex(groupForBeaming(curRh), 0, curInfo.slotEl, SIZE);
+    if(!aPrev || !aCur) continue;
+
+    if(prevInfo.rowEl === curInfo.rowEl){
+      addShape(prevInfo.rowEl, aPrev.x, aPrev.y, aCur.x, aCur.y, depth, thick);
+    } else {
+      // Tied pair landed on different printed rows — draw two short stubs
+      // instead of one continuous curve (standard engraving practice for
+      // a tie broken by a system break).
+      const STUB = 20;
+      addShape(prevInfo.rowEl, aPrev.x, aPrev.y, aPrev.x+STUB, aPrev.y, depth*0.8, thick*0.8);
+      addShape(curInfo.rowEl, aCur.x-STUB, aCur.y, aCur.x, aCur.y, depth*0.8, thick*0.8);
+    }
+  }
+}
+
 function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
 function updateHeader(){
   const sub = song.key ? `${song.timeSig.num}/${song.timeSig.den} · ${song.key}` : `${song.timeSig.num}/${song.timeSig.den}`;
@@ -627,7 +733,7 @@ function renderTimeSigEl(showDigits){
 // each bar's rhythm sentence lined up over its own bar. Collapses to
 // nothing when no bar in the row has one, so it never adds space to
 // rows that don't use it.
-function renderRhythmRowEl(row){
+function renderRhythmRowEl(row, slotMap){
   const div = document.createElement('div');
   div.className = 'rhythm-row';
   const hasAny = row.some(item=>{ const rh = rhythmForBar(item); return rh && rh.length; });
@@ -650,6 +756,7 @@ function renderRhythmRowEl(row){
     }
     slot.onclick = ()=>handleBarTap(item, 0);
     div.appendChild(slot);
+    if(slotMap) slotMap.set(item.id, { slotEl: slot, rowEl: div });
   });
 
   const trailingGap = document.createElement('div');
@@ -692,6 +799,7 @@ function render(){
   const rows = chunkRows(song.items, BARS_PER_ROW);
   const songBlock = document.createElement('div');
   songBlock.className='song-block';
+  const slotMap = new Map();
 
   let lastRowBarRow = null;
   let globalIdx = 0;
@@ -731,7 +839,7 @@ function render(){
       songBlock.appendChild(labelRow);
     }
 
-    songBlock.appendChild(renderRhythmRowEl(row));
+    songBlock.appendChild(renderRhythmRowEl(row, slotMap));
 
     const barRow = document.createElement('div');
     barRow.className='bar-row';
@@ -760,6 +868,7 @@ function render(){
 
   inner.appendChild(songBlock);
   inner.appendChild(canvas);
+  drawAllTies(slotMap);
   requestAnimationFrame(resizeCanvasPreserving);
   renderInfoPanel();
 }

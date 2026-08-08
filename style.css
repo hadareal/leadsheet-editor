@@ -196,8 +196,10 @@ body{
   overflow-x:visible;
   overflow-y:hidden;
   transition:height .18s ease;
+  position:relative;
 }
 .rhythm-row.has-rhythm{ height:42px; }
+.tie-overlay{ overflow:visible; }
 /* Mirror the bar-row's own spacer widths (.time-sig, .border-line) so the
    rhythm grid lines up exactly with the bar grid beneath it. */
 .rhythm-row .ts-spacer{ flex:0 0 12px; }
