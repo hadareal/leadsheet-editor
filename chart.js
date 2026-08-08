@@ -518,10 +518,25 @@ function tieOverlayFor(rowEl, overlays){
   return svg;
 }
 
+// Remembers the slotMap from the last full render() so a bar-width-only
+// change (see applyResponsiveLayout) can redraw ties without rebuilding the
+// whole chart — the bars/notes already resize for free via CSS, only the
+// tie curves' baked-in pixel coordinates go stale.
+let _lastTieSlotMap = null;
+
 // Draws every tie in the current song. `slotMap` maps bar id -> {slotEl,
 // rowEl}, built by renderRhythmRowEl during this render() pass. Must run
 // after the rhythm rows are attached to the document (needs real layout).
+// Safe to call again on the same slotMap (e.g. from redrawTies()) — clears
+// each row's previous tie overlay first instead of stacking a new one.
 function drawAllTies(slotMap){
+  _lastTieSlotMap = slotMap;
+  const rowEls = new Set();
+  slotMap.forEach(info=>rowEls.add(info.rowEl));
+  rowEls.forEach(rowEl=>{
+    const old = rowEl.querySelector('.tie-overlay');
+    if(old) old.remove();
+  });
   const overlays = new Map();
   function addShape(rowEl, x1, y1, x2, y2, depth, thick){
     const rowRect = rowEl.getBoundingClientRect();
@@ -576,6 +591,15 @@ function drawAllTies(slotMap){
   }
 }
 
+// Re-measures and redraws tie curves in place, without rebuilding the
+// chart's DOM. Used by applyResponsiveLayout when only --bar-w changed:
+// the bar/note elements already reflow for free via CSS, so a full render()
+// would just be re-creating DOM nodes that didn't need to change in order
+// to re-run the one part (tie curves) that does.
+function redrawTies(){
+  if(_lastTieSlotMap) drawAllTies(_lastTieSlotMap);
+}
+
 function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
 function updateHeader(){
   const sub = song.key ? `${song.timeSig.num}/${song.timeSig.den} · ${song.key}` : `${song.timeSig.num}/${song.timeSig.den}`;
@@ -620,9 +644,14 @@ function applyResponsiveLayout(){
   const prevBarW = document.documentElement.style.getPropertyValue('--bar-w');
   document.documentElement.style.setProperty('--bar-w', bw+'px');
 
-  if(n !== BARS_PER_ROW || prevBarW !== bw+'px'){
+  if(n !== BARS_PER_ROW){
     BARS_PER_ROW = n;
     render();
+  } else if(prevBarW !== bw+'px'){
+    // Bar count didn't change, so bars/notes already reflowed for free via
+    // CSS — no need to rebuild the DOM, just re-anchor the tie curves to
+    // their notes' new pixel positions.
+    redrawTies();
   }
 }
 
