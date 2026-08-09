@@ -187,11 +187,11 @@ function renderInfoPanel(){
   panel.innerHTML = `
     <div class="info-row">
       <h4>Song Info</h4>
-      ${infoLines.map(l=>`<div class="info-line">${l}</div>`).join('')}
+      ${infoLines.map(l=>`<div class="info-line">${escapeHtml(l)}</div>`).join('')}
     </div>
     ${sections.length ? `<div class="info-row">
       <h4>Sections</h4>
-      ${sections.map(s=>`<div class="section-item"><span class="section-badge">${s.label}</span><span class="section-range">bars ${s.from}-${s.to}</span></div>`).join('')}
+      ${sections.map(s=>`<div class="section-item"><span class="section-badge">${escapeHtml(s.label)}</span><span class="section-range">bars ${s.from}-${s.to}</span></div>`).join('')}
     </div>` : ''}
   `;
 }

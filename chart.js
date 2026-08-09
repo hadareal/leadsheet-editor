@@ -140,9 +140,16 @@ function defaultDemoSong(){
 let song = defaultDemoSong();
 
 /* ============ Helpers ============ */
+// Song data can come from an imported .json file (chart-sharing feature), so
+// any of it that gets written into innerHTML needs escaping first — otherwise
+// a crafted import could run script instead of just displaying as text.
+const HTML_ESCAPES = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, ch=>HTML_ESCAPES[ch]);
+}
 function rootHtml(r){
-  if(r.length===2 && r[1]==='b') return r[0]+'<span class="acc">♭</span>';
-  return r;
+  if(r.length===2 && r[1]==='b') return escapeHtml(r[0])+'<span class="acc">♭</span>';
+  return escapeHtml(r);
 }
 function qualityById(id){ return QUALITIES.find(q=>q.id===id) || QUALITIES[0]; }
 function wholeRestSvg(w){
@@ -768,7 +775,7 @@ function renderLabelSlot(idx, allow){
   div.className='label-slot';
   const b = song.borders[idx];
   if(allow && b && b.label){
-    div.innerHTML = `<span class="sec-badge">${b.label}</span>`;
+    div.innerHTML = `<span class="sec-badge">${escapeHtml(b.label)}</span>`;
   }
   return div;
 }
@@ -868,7 +875,7 @@ function render(){
     const lane = document.createElement('div');
     lane.className='write-lane';
     if(rIdx===0 && song.feel){
-      lane.innerHTML = `<span class="feel-label">${song.feel}</span>`;
+      lane.innerHTML = `<span class="feel-label">${escapeHtml(song.feel)}</span>`;
     }
     songBlock.appendChild(lane);
 
