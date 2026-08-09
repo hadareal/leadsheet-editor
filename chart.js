@@ -478,6 +478,11 @@ function tiedFromPrevBarFor(item){
   if(rhythmBuilding && rhythmBuilding.barId===item.id) return !!rhythmBuilding.tieFromPrevBar;
   return !!item.tiedFromPrevBar;
 }
+// Whether this bar's last note ties forward, authored from this bar's own
+// side (as opposed to tiedFromPrevBarFor, authored from the receiving bar).
+// Never read while this bar's own builder is open — the main chart doesn't
+// re-render until the sheet closes — so no rhythmBuilding-aware branch here.
+function tiedToNextBarFor(item){ return !!item.tiedToNextBar; }
 
 // Finds where the notehead at flat sequence index `seqIndex` actually landed
 // on screen, in viewport pixels. `slotEl` is the already-rendered
@@ -563,30 +568,49 @@ function drawAllTies(slotMap){
     }
   });
 
-  // Cross-barline ties (same row, or a stub pair across a line break).
-  for(let k=1; k<song.items.length; k++){
-    const prev = song.items[k-1], cur = song.items[k];
-    if(prev.kind!=='chords' || cur.kind!=='chords') continue;
-    if(!tiedFromPrevBarFor(cur)) continue;
+  // Cross-barline ties (same row, a stub pair across a line break, or —
+  // when prev wants to tie forward but there's no next note to connect to
+  // yet, either because prev is the last bar or the next bar has no valid
+  // first note — a single open-ended stub).
+  for(let k=0; k<song.items.length; k++){
+    const prev = song.items[k];
+    if(prev.kind!=='chords') continue;
+    const cur = song.items[k+1];
+    const curIsChordBar = !!cur && cur.kind==='chords';
+    const wantsFromReceiver = curIsChordBar && tiedFromPrevBarFor(cur);
+    const wantsFromSender = tiedToNextBarFor(prev);
+    if(!wantsFromReceiver && !wantsFromSender) continue;
+
     const prevRh = rhythmForBar(prev);
     if(!prevRh || !prevRh.length || SYMS[prevRh[prevRh.length-1]].rest) continue;
-    const curRh = rhythmForBar(cur);
-    if(!curRh || !curRh.length || SYMS[curRh[0]].rest) continue;
-    const prevInfo = slotMap.get(prev.id), curInfo = slotMap.get(cur.id);
-    if(!prevInfo || !curInfo) continue;
+    const prevInfo = slotMap.get(prev.id);
+    if(!prevInfo) continue;
     const aPrev = tieAnchorForIndex(groupForBeaming(prevRh), prevRh.length-1, prevInfo.slotEl, SIZE);
-    const aCur = tieAnchorForIndex(groupForBeaming(curRh), 0, curInfo.slotEl, SIZE);
-    if(!aPrev || !aCur) continue;
+    if(!aPrev) continue;
 
-    if(prevInfo.rowEl === curInfo.rowEl){
-      addShape(prevInfo.rowEl, aPrev.x, aPrev.y, aCur.x, aCur.y, depth, thick);
-    } else {
-      // Tied pair landed on different printed rows — draw two short stubs
-      // instead of one continuous curve (standard engraving practice for
-      // a tie broken by a system break).
+    const curRh = curIsChordBar ? rhythmForBar(cur) : null;
+    const curHasNote = curRh && curRh.length && !SYMS[curRh[0]].rest;
+    const curInfo = curHasNote ? slotMap.get(cur.id) : null;
+    const aCur = curInfo ? tieAnchorForIndex(groupForBeaming(curRh), 0, curInfo.slotEl, SIZE) : null;
+
+    if(aCur){
+      if(prevInfo.rowEl === curInfo.rowEl){
+        addShape(prevInfo.rowEl, aPrev.x, aPrev.y, aCur.x, aCur.y, depth, thick);
+      } else {
+        // Tied pair landed on different printed rows — draw two short stubs
+        // instead of one continuous curve (standard engraving practice for
+        // a tie broken by a system break).
+        const STUB = 20;
+        addShape(prevInfo.rowEl, aPrev.x, aPrev.y, aPrev.x+STUB, aPrev.y, depth*0.8, thick*0.8);
+        addShape(curInfo.rowEl, aCur.x-STUB, aCur.y, aCur.x, aCur.y, depth*0.8, thick*0.8);
+      }
+    } else if(wantsFromSender){
+      // Nothing to connect to yet (no next bar, or its first note isn't
+      // struck) — a bare receiver-side flag with nothing there is just
+      // inert, but the bar that explicitly asked to tie forward gets an
+      // open-ended stub so the intent stays visible until something lands.
       const STUB = 20;
       addShape(prevInfo.rowEl, aPrev.x, aPrev.y, aPrev.x+STUB, aPrev.y, depth*0.8, thick*0.8);
-      addShape(curInfo.rowEl, aCur.x-STUB, aCur.y, aCur.x, aCur.y, depth*0.8, thick*0.8);
     }
   }
 }
@@ -806,7 +830,13 @@ function makeAddBarBtn(){
     const lastIdx = song.items.length;
     const wasEnd = song.borders[lastIdx].type === 'end';
     if(wasEnd) song.borders[lastIdx].type = 'normal';
-    song.items.push(bar([]));
+    const prevLast = song.items[song.items.length-1];
+    const newBar = bar([]);
+    // The bar before this one may be waiting on a tie with nothing to
+    // connect to yet — hook it up automatically so the user doesn't have to
+    // separately re-arm Tie on the new bar's side too.
+    if(prevLast && prevLast.kind==='chords' && prevLast.tiedToNextBar) newBar.tiedFromPrevBar = true;
+    song.items.push(newBar);
     song.borders.push({type: wasEnd ? 'end' : 'normal', label:null});
     render();
     if(song.items.length===3 && !onboardSeen('barLine')){

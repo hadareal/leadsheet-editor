@@ -605,11 +605,18 @@ function openRhythmBuilder(barId){
     showToast(`Rhythm isn't available yet for ${song.timeSig.num}/${song.timeSig.den}`);
     return;
   }
+  // A saved bar's rhythm is always either empty or completely full (Done is
+  // disabled otherwise), so seq.length===0 unambiguously means "reopening a
+  // fresh bar" (start edge, inherit tiedFromPrevBar) vs "reopening a full
+  // one" (end edge, inherit tiedToNextBar) — pre-arm Tie to match whichever
+  // edge's saved state, so picking a note right away doesn't silently drop
+  // an already-saved tie the user has to remember to re-confirm.
+  const startsEmpty = !b.rhythm || !b.rhythm.length;
   rhythmBuilding = {
     barId,
     seq: (b.rhythm||[]).slice(),
     ties: (b.rhythmTies||[]).slice(),
-    tieArmed: false,
+    tieArmed: startsEmpty ? !!b.tiedFromPrevBar : !!b.tiedToNextBar,
     tieFromPrevBar: !!b.tiedFromPrevBar
   };
   renderRhythmSheet();
@@ -734,6 +741,10 @@ function rhythmSave(){
     b.rhythm = rhythmBuilding.seq.slice();
     b.rhythmTies = rhythmBuilding.ties.slice();
     b.tiedFromPrevBar = rhythmBuilding.tieFromPrevBar;
+    // Done is only enabled once the bar is full, so tieArmed still being true
+    // here means it was armed after the last note and never consumed by a
+    // further pick — i.e. "tie forward," whether or not a next bar exists yet.
+    b.tiedToNextBar = rhythmBuilding.tieArmed;
   }
   closeRhythmSheet();
 }
@@ -744,6 +755,7 @@ function rhythmRemove(){
     b.rhythm = null;
     b.rhythmTies = null;
     b.tiedFromPrevBar = false;
+    b.tiedToNextBar = false;
   }
   closeRhythmSheet();
 }
