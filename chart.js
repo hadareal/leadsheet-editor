@@ -278,6 +278,58 @@ function iconSvg(key, size){
   return '<svg class="rsym" width="'+w+'" height="'+size+'" viewBox="0 0 '+VB_W+' '+VB_H+'">'+noteGlyph(sym)+'</svg>';
 }
 
+// ============ Ties: notehead anchor measurement + tie shape ============
+// A tie means "this hit continues the previous one, don't re-strike" — a
+// thin, filled, tapered curve connecting the bottom-center of one notehead
+// to the bottom-center of the next. Anchors are measured from the actual
+// rendered glyph (via getBBox on an isolated probe) rather than hand-derived
+// from the raw path data — these are Bravura-lifted bezier curves, and hand
+// math on them turned out to be wrong twice during design.
+const NOTEHEAD_GLYPH_FOR_BASE = {
+  whole: 'noteheadDiamondWhole',
+  half: 'noteheadDiamondHollow',
+  quarter: 'noteheadSlashFilled',
+  eighth: 'noteheadSlashFilled',
+  sixteenth: 'noteheadSlashFilled'
+};
+let _noteheadAnchorCache = {};
+function noteheadAnchor(glyphName){
+  if(_noteheadAnchorCache[glyphName]) return _noteheadAnchorCache[glyphName];
+  // getBBox() on an element returns its bounds BEFORE that element's own
+  // transform is applied — glyphSvg's <g> carries a translate/scale, so
+  // measuring it directly would return raw, untranslated path coordinates
+  // (confirmed the hard way: an earlier draft of this exact code, without
+  // the wrapping <g> below, anchored ties ~46px too high in a live test).
+  // Wrapping the output in a plain, untransformed <g> and measuring THAT
+  // instead makes the transform apply as normal content, not as the
+  // measured element's own transform.
+  const probe = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  probe.setAttribute('width', '0');
+  probe.setAttribute('height', '0');
+  probe.style.position = 'absolute';
+  probe.style.overflow = 'hidden';
+  probe.innerHTML = '<g>' + glyphSvg(glyphName, 0, 0, BASE_X, BASE_Y) + '</g>';
+  document.body.appendChild(probe);
+  const bbox = probe.firstChild.getBBox();
+  document.body.removeChild(probe);
+  const anchor = { x: bbox.x + bbox.width/2, y: bbox.y + bbox.height };
+  _noteheadAnchorCache[glyphName] = anchor;
+  return anchor;
+}
+
+// Depth/thickness are shallower than they look in isolation on purpose —
+// at the real 32px render size the rhythm row only has ~9px of blank
+// margin below a notehead before it touches the chord row underneath, so
+// this leaves a few px of safety margin rather than using it all up.
+const TIE_DEPTH_PER_SIZE = 0.19;
+const TIE_THICK_PER_SIZE = 0.065;
+function tieShapeSvg(x1, y1, x2, y2, depth, thick){
+  const mx = (x1+x2)/2;
+  const outerY = (y1+y2)/2 + depth;
+  const innerY = outerY - thick;
+  return '<path d="M '+x1+' '+y1+' Q '+mx+' '+outerY+' '+x2+' '+y2+' Q '+mx+' '+innerY+' '+x1+' '+y1+' Z" fill="#000000"/>';
+}
+
 // Consecutive quavers/semiquavers (plain or dotted) within the same beat
 // are grouped so they render as one beamed figure instead of separately
 // flagged notes — e.g. two quavers become a beamed pair, and a dotted
@@ -286,6 +338,7 @@ function groupForBeaming(seq){
   const groups = [];
   let i = 0, pos = 0;
   while(i < seq.length){
+    const seqStart = i;
     const key = seq[i], def = SYMS[key];
     const beamable = !def.rest && def.units<4;
     if(beamable){
@@ -299,61 +352,75 @@ function groupForBeaming(seq){
         run.push(k2); units += d2.units; p += d2.units; j++;
       }
       if(run.length>=2){
-        groups.push({ type:'beam', keys:run, units, start:pos });
+        groups.push({ type:'beam', keys:run, units, start:pos, seqStart });
         pos += units; i = j;
       } else {
-        groups.push({ type:'single', key, units:def.units, start:pos });
+        groups.push({ type:'single', key, units:def.units, start:pos, seqStart });
         pos += def.units; i++;
       }
     } else {
-      groups.push({ type:'single', key, units:def.units, start:pos });
+      groups.push({ type:'single', key, units:def.units, start:pos, seqStart });
       pos += def.units; i++;
     }
   }
   return groups;
 }
 
+const BEAM_UNIT_W = 190, BEAM_MIN_GAP = 200; // floor so adjacent noteheads (each ~140 wide) never overlap
+// Beam groups build their own tight viewBox (sized to totalLocalW below)
+// rather than the shared single-icon canvas, so they get their own small
+// left margin — just enough to cover a notehead's own leftward bleed —
+// instead of the (much larger) BASE_X tuned for the diamond noteheads.
+const BEAM_MARGIN = 90;
+
+// The cumulative x-offset of each note within a beam group, in the group's
+// own local viewBox units. Shared between beamGroupSvg (drawing) and the
+// tie-anchor lookup (chart.js Task 3), so a tied note's on-screen position
+// inside a beamed pair can be computed the same way it was drawn.
+function beamNoteOffsets(keys){
+  let cum = 0;
+  const offsets = [];
+  keys.forEach(k=>{
+    offsets.push(cum);
+    cum += Math.max(SYMS[k].units*BEAM_UNIT_W, BEAM_MIN_GAP);
+  });
+  return { offsets, cum };
+}
+
 function beamGroupSvg(keys, size){
   size = size || 26;
-  const UNIT_W = 190;
-  const MIN_GAP = 200; // floor so adjacent noteheads (each ~140 wide) never overlap
-  // Beam groups build their own tight viewBox (sized to totalLocalW below)
-  // rather than the shared single-icon canvas, so they get their own small
-  // left margin — just enough to cover a notehead's own leftward bleed —
-  // instead of the (much larger) BASE_X tuned for the diamond noteheads.
-  const MARGIN = 90;
-  let cum = 0;
+  const { offsets, cum } = beamNoteOffsets(keys);
   const stems = [];
   let out = '';
-  keys.forEach(k=>{
+  keys.forEach((k, idx)=>{
     const sym = SYMS[k];
-    out += glyphSvg('noteheadSlashFilled', cum, 0, MARGIN, BASE_Y);
-    const stemX = cum + STEM_UP.x;
-    out += rectSvg(stemX-STEM_THICK, STEM_UP.y, STEM_THICK, STEM_LEN, MARGIN, BASE_Y);
-    if(sym.dotted) out += glyphSvg('augmentationDot', cum+STEM_UP.x+40, 0, MARGIN, BASE_Y);
+    const cumX = offsets[idx];
+    out += glyphSvg('noteheadSlashFilled', cumX, 0, BEAM_MARGIN, BASE_Y);
+    const stemX = cumX + STEM_UP.x;
+    out += rectSvg(stemX-STEM_THICK, STEM_UP.y, STEM_THICK, STEM_LEN, BEAM_MARGIN, BASE_Y);
+    if(sym.dotted) out += glyphSvg('augmentationDot', cumX+STEM_UP.x+40, 0, BEAM_MARGIN, BASE_Y);
     stems.push({ x:stemX, sixteenth: sym.base==='sixteenth' });
-    cum += Math.max(sym.units*UNIT_W, MIN_GAP);
   });
-  const totalLocalW = MARGIN + cum + 40;
+  const totalLocalW = BEAM_MARGIN + cum + 40;
   const topY = STEM_UP.y + STEM_LEN;
   const firstX = stems[0].x, lastX = stems[stems.length-1].x;
 
-  out += rectSvg(firstX-STEM_THICK, topY-BEAM_THICK/2, lastX-firstX+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
+  out += rectSvg(firstX-STEM_THICK, topY-BEAM_THICK/2, lastX-firstX+STEM_THICK, BEAM_THICK, BEAM_MARGIN, BASE_Y);
 
   const connL = new Array(stems.length).fill(false);
   const connR = new Array(stems.length).fill(false);
   const secY = topY - BEAM_GAP;
   for(let i=0; i<stems.length-1; i++){
     if(stems[i].sixteenth && stems[i+1].sixteenth){
-      out += rectSvg(stems[i].x-STEM_THICK, secY-BEAM_THICK/2, stems[i+1].x-stems[i].x+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
+      out += rectSvg(stems[i].x-STEM_THICK, secY-BEAM_THICK/2, stems[i+1].x-stems[i].x+STEM_THICK, BEAM_THICK, BEAM_MARGIN, BASE_Y);
       connR[i] = true; connL[i+1] = true;
     }
   }
   const STUB = 110;
   stems.forEach((s,i)=>{
     if(!s.sixteenth || connL[i] || connR[i]) return;
-    if(i>0) out += rectSvg(s.x-STEM_THICK-STUB, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
-    else if(i<stems.length-1) out += rectSvg(s.x-STEM_THICK, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, MARGIN, BASE_Y);
+    if(i>0) out += rectSvg(s.x-STEM_THICK-STUB, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, BEAM_MARGIN, BASE_Y);
+    else if(i<stems.length-1) out += rectSvg(s.x-STEM_THICK, secY-BEAM_THICK/2, STUB+STEM_THICK, BEAM_THICK, BEAM_MARGIN, BASE_Y);
   });
 
   const w = Math.round(size*(totalLocalW/VB_H));
@@ -381,7 +448,7 @@ function sequenceHtml(seq, size){
       const w = Math.round(size*VB_W/VB_H);
       inner = '<span style="display:inline-block;margin-left:calc('+centerPct+'% - '+(w/2)+'px)">'+html+'</span>';
     }
-    return '<span class="'+cls+'" style="grid-column:'+(g.start+1)+' / span '+g.units+'">'+inner+'</span>';
+    return '<span class="'+cls+'" data-seq-idx="'+g.seqStart+'" style="grid-column:'+(g.start+1)+' / span '+g.units+'">'+inner+'</span>';
   }).join('');
 }
 
@@ -401,6 +468,160 @@ function remainingLabel(units){
 function rhythmForBar(item){
   if(rhythmBuilding && rhythmBuilding.barId===item.id) return rhythmBuilding.seq;
   return item.rhythm || null;
+}
+
+function rhythmTiesForBar(item){
+  if(rhythmBuilding && rhythmBuilding.barId===item.id) return rhythmBuilding.ties;
+  return item.rhythmTies || [];
+}
+function tiedFromPrevBarFor(item){
+  if(rhythmBuilding && rhythmBuilding.barId===item.id) return !!rhythmBuilding.tieFromPrevBar;
+  return !!item.tiedFromPrevBar;
+}
+// Whether this bar's last note ties forward, authored from this bar's own
+// side (as opposed to tiedFromPrevBarFor, authored from the receiving bar).
+// Never read while this bar's own builder is open — the main chart doesn't
+// re-render until the sheet closes — so no rhythmBuilding-aware branch here.
+function tiedToNextBarFor(item){ return !!item.tiedToNextBar; }
+
+// Finds where the notehead at flat sequence index `seqIndex` actually landed
+// on screen, in viewport pixels. `slotEl` is the already-rendered
+// `.rhythm-slot` for this bar; `groups` is groupForBeaming(seq) for the same
+// bar. Returns null if the note can't be located (e.g. layout not settled).
+function tieAnchorForIndex(groups, seqIndex, slotEl, size){
+  const group = groups.find(g => seqIndex >= g.seqStart && seqIndex < g.seqStart + (g.type==='beam' ? g.keys.length : 1));
+  if(!group) return null;
+  const itemEl = slotEl.querySelector('[data-seq-idx="'+group.seqStart+'"]');
+  if(!itemEl) return null;
+  const svgEl = itemEl.querySelector('svg');
+  if(!svgEl) return null;
+  const rect = svgEl.getBoundingClientRect();
+  if(group.type==='single'){
+    const glyphName = NOTEHEAD_GLYPH_FOR_BASE[SYMS[group.key].base];
+    const a = noteheadAnchor(glyphName);
+    return { x: rect.left + (a.x/VB_W)*rect.width, y: rect.top + (a.y/VB_H)*rect.height };
+  }
+  const k = seqIndex - group.seqStart;
+  const { offsets, cum } = beamNoteOffsets(group.keys);
+  const totalLocalW = BEAM_MARGIN + cum + 40;
+  const a = noteheadAnchor('noteheadSlashFilled');
+  const localX = BEAM_MARGIN + offsets[k] + (a.x - BASE_X);
+  const localY = a.y;
+  return { x: rect.left + (localX/totalLocalW)*rect.width, y: rect.top + (localY/VB_H)*rect.height };
+}
+
+function tieOverlayFor(rowEl, overlays){
+  if(overlays.has(rowEl)) return overlays.get(rowEl);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'tie-overlay');
+  svg.style.position = 'absolute';
+  svg.style.left = '0'; svg.style.top = '0';
+  svg.style.width = '100%'; svg.style.height = '100%';
+  svg.style.pointerEvents = 'none';
+  rowEl.appendChild(svg);
+  overlays.set(rowEl, svg);
+  return svg;
+}
+
+// Remembers the slotMap from the last full render() so a bar-width-only
+// change (see applyResponsiveLayout) can redraw ties without rebuilding the
+// whole chart — the bars/notes already resize for free via CSS, only the
+// tie curves' baked-in pixel coordinates go stale.
+let _lastTieSlotMap = null;
+
+// Draws every tie in the current song. `slotMap` maps bar id -> {slotEl,
+// rowEl}, built by renderRhythmRowEl during this render() pass. Must run
+// after the rhythm rows are attached to the document (needs real layout).
+// Safe to call again on the same slotMap (e.g. from redrawTies()) — clears
+// each row's previous tie overlay first instead of stacking a new one.
+function drawAllTies(slotMap){
+  _lastTieSlotMap = slotMap;
+  const rowEls = new Set();
+  slotMap.forEach(info=>rowEls.add(info.rowEl));
+  rowEls.forEach(rowEl=>{
+    const old = rowEl.querySelector('.tie-overlay');
+    if(old) old.remove();
+  });
+  const overlays = new Map();
+  function addShape(rowEl, x1, y1, x2, y2, depth, thick){
+    const rowRect = rowEl.getBoundingClientRect();
+    const svg = tieOverlayFor(rowEl, overlays);
+    svg.insertAdjacentHTML('beforeend', tieShapeSvg(x1-rowRect.left, y1-rowRect.top, x2-rowRect.left, y2-rowRect.top, depth, thick));
+  }
+  const SIZE = 32;
+  const depth = SIZE*TIE_DEPTH_PER_SIZE, thick = SIZE*TIE_THICK_PER_SIZE;
+
+  // Within-bar ties.
+  song.items.forEach(item=>{
+    if(item.kind!=='chords') return;
+    const rh = rhythmForBar(item);
+    if(!rh || !rh.length) return;
+    const ties = rhythmTiesForBar(item);
+    const info = slotMap.get(item.id);
+    if(!info) return;
+    const groups = groupForBeaming(rh);
+    for(let i=1; i<rh.length; i++){
+      if(!ties[i] || SYMS[rh[i]].rest || SYMS[rh[i-1]].rest) continue;
+      const a1 = tieAnchorForIndex(groups, i-1, info.slotEl, SIZE);
+      const a2 = tieAnchorForIndex(groups, i, info.slotEl, SIZE);
+      if(a1 && a2) addShape(info.rowEl, a1.x, a1.y, a2.x, a2.y, depth, thick);
+    }
+  });
+
+  // Cross-barline ties (same row, a stub pair across a line break, or —
+  // when prev wants to tie forward but there's no next note to connect to
+  // yet, either because prev is the last bar or the next bar has no valid
+  // first note — a single open-ended stub).
+  for(let k=0; k<song.items.length; k++){
+    const prev = song.items[k];
+    if(prev.kind!=='chords') continue;
+    const cur = song.items[k+1];
+    const curIsChordBar = !!cur && cur.kind==='chords';
+    const wantsFromReceiver = curIsChordBar && tiedFromPrevBarFor(cur);
+    const wantsFromSender = tiedToNextBarFor(prev);
+    if(!wantsFromReceiver && !wantsFromSender) continue;
+
+    const prevRh = rhythmForBar(prev);
+    if(!prevRh || !prevRh.length || SYMS[prevRh[prevRh.length-1]].rest) continue;
+    const prevInfo = slotMap.get(prev.id);
+    if(!prevInfo) continue;
+    const aPrev = tieAnchorForIndex(groupForBeaming(prevRh), prevRh.length-1, prevInfo.slotEl, SIZE);
+    if(!aPrev) continue;
+
+    const curRh = curIsChordBar ? rhythmForBar(cur) : null;
+    const curHasNote = curRh && curRh.length && !SYMS[curRh[0]].rest;
+    const curInfo = curHasNote ? slotMap.get(cur.id) : null;
+    const aCur = curInfo ? tieAnchorForIndex(groupForBeaming(curRh), 0, curInfo.slotEl, SIZE) : null;
+
+    if(aCur){
+      if(prevInfo.rowEl === curInfo.rowEl){
+        addShape(prevInfo.rowEl, aPrev.x, aPrev.y, aCur.x, aCur.y, depth, thick);
+      } else {
+        // Tied pair landed on different printed rows — draw two short stubs
+        // instead of one continuous curve (standard engraving practice for
+        // a tie broken by a system break).
+        const STUB = 20;
+        addShape(prevInfo.rowEl, aPrev.x, aPrev.y, aPrev.x+STUB, aPrev.y, depth*0.8, thick*0.8);
+        addShape(curInfo.rowEl, aCur.x-STUB, aCur.y, aCur.x, aCur.y, depth*0.8, thick*0.8);
+      }
+    } else if(wantsFromSender){
+      // Nothing to connect to yet (no next bar, or its first note isn't
+      // struck) — a bare receiver-side flag with nothing there is just
+      // inert, but the bar that explicitly asked to tie forward gets an
+      // open-ended stub so the intent stays visible until something lands.
+      const STUB = 20;
+      addShape(prevInfo.rowEl, aPrev.x, aPrev.y, aPrev.x+STUB, aPrev.y, depth*0.8, thick*0.8);
+    }
+  }
+}
+
+// Re-measures and redraws tie curves in place, without rebuilding the
+// chart's DOM. Used by applyResponsiveLayout when only --bar-w changed:
+// the bar/note elements already reflow for free via CSS, so a full render()
+// would just be re-creating DOM nodes that didn't need to change in order
+// to re-run the one part (tie curves) that does.
+function redrawTies(){
+  if(_lastTieSlotMap) drawAllTies(_lastTieSlotMap);
 }
 
 function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
@@ -444,11 +665,17 @@ function applyResponsiveLayout(){
   }
   n = Math.max(MIN_N, Math.min(MAX_N, n));
   const bw = Math.round(Math.max(MIN_BAR, barWidthFor(n)));
+  const prevBarW = document.documentElement.style.getPropertyValue('--bar-w');
   document.documentElement.style.setProperty('--bar-w', bw+'px');
 
   if(n !== BARS_PER_ROW){
     BARS_PER_ROW = n;
     render();
+  } else if(prevBarW !== bw+'px'){
+    // Bar count didn't change, so bars/notes already reflowed for free via
+    // CSS — no need to rebuild the DOM, just re-anchor the tie curves to
+    // their notes' new pixel positions.
+    redrawTies();
   }
 }
 
@@ -560,7 +787,7 @@ function renderTimeSigEl(showDigits){
 // each bar's rhythm sentence lined up over its own bar. Collapses to
 // nothing when no bar in the row has one, so it never adds space to
 // rows that don't use it.
-function renderRhythmRowEl(row){
+function renderRhythmRowEl(row, slotMap){
   const div = document.createElement('div');
   div.className = 'rhythm-row';
   const hasAny = row.some(item=>{ const rh = rhythmForBar(item); return rh && rh.length; });
@@ -583,6 +810,7 @@ function renderRhythmRowEl(row){
     }
     slot.onclick = ()=>handleBarTap(item, 0);
     div.appendChild(slot);
+    if(slotMap) slotMap.set(item.id, { slotEl: slot, rowEl: div });
   });
 
   const trailingGap = document.createElement('div');
@@ -602,7 +830,13 @@ function makeAddBarBtn(){
     const lastIdx = song.items.length;
     const wasEnd = song.borders[lastIdx].type === 'end';
     if(wasEnd) song.borders[lastIdx].type = 'normal';
-    song.items.push(bar([]));
+    const prevLast = song.items[song.items.length-1];
+    const newBar = bar([]);
+    // The bar before this one may be waiting on a tie with nothing to
+    // connect to yet — hook it up automatically so the user doesn't have to
+    // separately re-arm Tie on the new bar's side too.
+    if(prevLast && prevLast.kind==='chords' && prevLast.tiedToNextBar) newBar.tiedFromPrevBar = true;
+    song.items.push(newBar);
     song.borders.push({type: wasEnd ? 'end' : 'normal', label:null});
     render();
     if(song.items.length===3 && !onboardSeen('barLine')){
@@ -625,6 +859,7 @@ function render(){
   const rows = chunkRows(song.items, BARS_PER_ROW);
   const songBlock = document.createElement('div');
   songBlock.className='song-block';
+  const slotMap = new Map();
 
   let lastRowBarRow = null;
   let globalIdx = 0;
@@ -664,7 +899,7 @@ function render(){
       songBlock.appendChild(labelRow);
     }
 
-    songBlock.appendChild(renderRhythmRowEl(row));
+    songBlock.appendChild(renderRhythmRowEl(row, slotMap));
 
     const barRow = document.createElement('div');
     barRow.className='bar-row';
@@ -693,6 +928,7 @@ function render(){
 
   inner.appendChild(songBlock);
   inner.appendChild(canvas);
+  drawAllTies(slotMap);
   requestAnimationFrame(resizeCanvasPreserving);
   renderInfoPanel();
 }
