@@ -476,10 +476,44 @@ function clearPage(){
   }
 }
 
-/* ============ Chord picker ============ */
+/* ============ Chord keyboard ============ */
 let pickerTarget = null;
-let pickerRoot = null;
 let pickerWholeBarOptions = false;
+// Builder state for the chord currently being typed. Lives entirely
+// separate from `song` until Done/Next commits it — Cancel (X) needs no
+// song mutation at all, just closeSheet().
+let cbRoot = null;       // e.g. 'F' or 'F#' or null
+let cbTokens = [];       // [{ch, sup}, ...] everything after the root
+let cbBass = null;       // e.g. 'E' or 'Bb' or null
+let cbInBass = false;    // true once '/' has been pressed
+let cbHistory = [];      // stack of {t:'root'|'rootAcc'|'token'|'slash'|'bassLetter'|'bassAcc'} for backspace
+
+function resetBuilderState(){
+  cbRoot = null;
+  cbTokens = [];
+  cbBass = null;
+  cbInBass = false;
+  cbHistory = [];
+}
+
+// Reconstructs a plausible key-press history from an existing chord's saved
+// shape, so backspace works immediately when reopening a chord to edit it —
+// not just for keys pressed during the current session.
+function rebuildHistory(){
+  cbHistory = [];
+  if(cbRoot){
+    cbHistory.push({t:'root'});
+    if(cbRoot.length===2) cbHistory.push({t:'rootAcc'});
+  }
+  cbTokens.forEach(()=>cbHistory.push({t:'token'}));
+  if(cbInBass){
+    cbHistory.push({t:'slash'});
+    if(cbBass){
+      cbHistory.push({t:'bassLetter'});
+      if(cbBass.length===2) cbHistory.push({t:'bassAcc'});
+    }
+  }
+}
 
 function handleBarTap(item, beatIdx){
   hideOnboardTip();
@@ -490,77 +524,196 @@ function handleBarTap(item, beatIdx){
   if(mode!=='chords') return;
   if(item.kind!=='chords' || item.chords.length===0){
     pickerTarget = {barId:item.id, mode:'add'};
-    pickerRoot = null;
     pickerWholeBarOptions = true;
-    openStep1();
+    resetBuilderState();
+    renderChordKeyboard();
     return;
   }
   pickerWholeBarOptions = false;
   const existing = item.chords.find(c=>c.beat===beatIdx);
   if(existing){
     pickerTarget = {barId:item.id, mode:'edit', beat:beatIdx};
-    if(existing.rest){ pickerRoot=null; openStep1(); }
-    else { pickerRoot = existing.root; openStep2(); }
+    if(existing.rest){
+      resetBuilderState();
+    } else {
+      cbRoot = existing.root;
+      cbTokens = (existing.tokens||[]).map(t=>({...t}));
+      cbBass = existing.bass || null;
+      cbInBass = !!existing.bass;
+      rebuildHistory();
+    }
   } else {
     pickerTarget = {barId:item.id, mode:'add'};
-    pickerRoot = null;
-    openStep1();
+    resetBuilderState();
   }
+  renderChordKeyboard();
 }
 
-function openStep1(){
-  const wholeBarBlock = pickerWholeBarOptions ? `
-    <div class="sheet-subhead">Or</div>
-    <div class="wholebar-grid">
+function barActionsHtml(){
+  const wholeBarIcons = pickerWholeBarOptions ? `
       <button class="icon-btn" onclick="setBarKind('${pickerTarget.barId}','repeat')">%</button>
-      <button class="icon-btn" onclick="setBarKind('${pickerTarget.barId}','rest')">${wholeRestSvg(26)}</button>
-    </div>
-  ` : '';
-  showSheet(`
-    <div class="sheet-header"><span>Choose root</span><button onclick="closeSheet()">✕</button></div>
-    <div class="root-grid">
-      ${ROOTS.map(r=>`<button onclick="pickRoot('${r}')">${rootHtml(r)}</button>`).join('')}
+      <button class="icon-btn" onclick="setBarKind('${pickerTarget.barId}','rest')">${wholeRestSvg(20)}</button>` : '';
+  return `
+    <div class="sheet-actions">
+      ${wholeBarIcons}
       <button class="icon-btn" onclick="setHalfRest('${pickerTarget.barId}')">${halfRestSvg(20)}</button>
     </div>
-    ${wholeBarBlock}
     <div class="sheet-actions">
-      <button class="neutral" onclick="clearChordSlot()">Clear</button>
       <button class="neutral" onclick="duplicateBar('${pickerTarget.barId}')">Duplicate Bar</button>
       <button class="danger" onclick="deleteBar('${pickerTarget.barId}')">Delete Bar</button>
     </div>
-  `);
+  `;
 }
-function pickRoot(r){ pickerRoot=r; openStep2(); }
 
-function openStep2(){
-  showSheet(`
-    <div class="sheet-header">
-      <button onclick="openStep1()">‹</button>
-      <span>${rootHtml(pickerRoot)} — quality</span>
-      <button onclick="closeSheet()">✕</button>
-    </div>
-    <div class="quality-grid">
-      ${QUALITIES.map(q=>`<button onclick="pickQuality('${q.id}')">${q.label}</button>`).join('')}
-    </div>
-    <div class="sheet-actions">
-      <button class="neutral" onclick="clearChordSlot()">Clear</button>
-      <button class="neutral" onclick="duplicateBar('${pickerTarget.barId}')">Duplicate Bar</button>
-      <button class="danger" onclick="deleteBar('${pickerTarget.barId}')">Delete Bar</button>
-    </div>
-  `);
-}
-function pickQuality(qid){
-  pushSongUndo();
+function renderChordKeyboard(){
   const b = findBarById(pickerTarget.barId);
   if(!b) return closeSheet();
+
+  const previewHtml = cbRoot ? chordInnerHtml({root:cbRoot, tokens:cbTokens, bass:cbBass}) : '<span class="kb-placeholder">–</span>';
+  const letterLocked = cbInBass ? !!cbBass : !!cbRoot;
+  const row1 = ROOT_LETTERS.map(l=>`<button ${letterLocked?'disabled':''} onclick="cbPickLetter('${l}')">${l}</button>`).join('')
+    + `<button onclick="cbAccidental('flat')">♭</button>`
+    + `<button onclick="cbAccidental('sharp')">♯</button>`;
+  const row2 = CHORD_KB_SYMBOLS.map(s=>
+    `<button onclick="cbPickToken('${s.ch}',${s.sup})">${s.ch}${s.label?`<span class="kb-sub">${s.label}</span>`:''}</button>`
+  ).join('');
+  const row3 = CHORD_KB_NUMBERS.map(n=>`<button onclick="cbPickToken('${n}',true)">${n}</button>`).join('')
+    + `<button ${cbInBass?'disabled':''} onclick="cbSlash()">/</button>`
+    + `<button ${cbHistory.length===0?'disabled':''} onclick="cbBackspace()">⌫</button>`;
+  const doneNextDisabled = (pickerTarget.mode!=='edit' && !cbRoot) ? 'disabled' : '';
+
+  showSheet(`
+    <div class="sheet-header">
+      <span>Chord</span>
+      <div style="display:flex;gap:4px;">
+        <button onclick="cbClearAll()" title="Clear All">🗑</button>
+        <button onclick="cbCancel()">✕</button>
+      </div>
+    </div>
+    ${barActionsHtml()}
+    <div class="kb-preview">${previewHtml}</div>
+    <div class="sheet-body-text" style="text-align:center;">Tap a key to build the chord</div>
+    <div class="kb-grid" style="grid-template-columns:repeat(9,1fr);">${row1}</div>
+    <div class="kb-grid" style="grid-template-columns:repeat(10,1fr);">${row2}</div>
+    <div class="kb-grid" style="grid-template-columns:repeat(10,1fr);">${row3}</div>
+    <div class="sheet-actions">
+      <button class="neutral" onclick="cbClearChord()">Clear Chord</button>
+      <button class="neutral" ${doneNextDisabled} onclick="cbNext()">Next</button>
+      <button class="primary" ${doneNextDisabled} onclick="cbDone()">Done</button>
+    </div>
+  `);
+}
+
+function cbPickLetter(letter){
+  if(cbInBass){
+    cbBass = letter;
+    cbHistory.push({t:'bassLetter'});
+  } else {
+    cbRoot = letter;
+    cbHistory.push({t:'root'});
+  }
+  renderChordKeyboard();
+}
+
+// ♭/♯ attaches to whatever was just placed: the root (if it has no
+// accidental yet), the bass letter (same rule), or — for anything else,
+// most commonly a number like ♭5/♯9/♯11 — it's pushed as its own
+// superscript token, landing right where it was typed in the sequence.
+function cbAccidental(kind){
+  const asciiAcc = kind==='flat' ? 'b' : '#';
+  const glyphAcc = kind==='flat' ? '♭' : '♯';
+  const top = cbHistory[cbHistory.length-1];
+  if(top && top.t==='root' && cbRoot.length===1){
+    cbRoot += asciiAcc;
+    cbHistory.push({t:'rootAcc'});
+  } else if(top && top.t==='bassLetter' && cbBass.length===1){
+    cbBass += asciiAcc;
+    cbHistory.push({t:'bassAcc'});
+  } else {
+    cbTokens.push({ch:glyphAcc, sup:true});
+    cbHistory.push({t:'token'});
+  }
+  renderChordKeyboard();
+}
+
+function cbPickToken(ch, sup){
+  cbTokens.push({ch, sup});
+  cbHistory.push({t:'token'});
+  renderChordKeyboard();
+}
+
+function cbSlash(){
+  cbInBass = true;
+  cbHistory.push({t:'slash'});
+  renderChordKeyboard();
+}
+
+// Undoes key presses in strict reverse order — a single history stack
+// across root, tokens, and bass, not a per-field rule.
+function cbBackspace(){
+  const last = cbHistory.pop();
+  if(!last) return;
+  if(last.t==='root') cbRoot = null;
+  else if(last.t==='rootAcc') cbRoot = cbRoot.slice(0,1);
+  else if(last.t==='token') cbTokens.pop();
+  else if(last.t==='slash') cbInBass = false;
+  else if(last.t==='bassLetter') cbBass = null;
+  else if(last.t==='bassAcc') cbBass = cbBass.slice(0,1);
+  renderChordKeyboard();
+}
+
+function cbClearChord(){
+  resetBuilderState();
+  renderChordKeyboard();
+}
+
+function cbClearAll(){
+  pushSongUndo();
+  const b = findBarById(pickerTarget.barId);
+  if(b) b.chords = [];
+  closeSheet();
+  render();
+}
+
+function cbCancel(){
+  closeSheet();
+}
+
+// Writes the builder state into the target bar/beat. If nothing was typed
+// (cbRoot is null), this means "remove the chord at this slot" in edit
+// mode — the same effect the old per-slot Clear had — and is a no-op in
+// add mode (unreachable via the UI: Done/Next are disabled in that state).
+function cbCommit(){
+  pushSongUndo();
+  const b = findBarById(pickerTarget.barId);
+  if(!b) return;
   b.kind = 'chords';
-  const wasAdd = pickerTarget.mode !== 'edit';
+  if(!cbRoot){
+    if(pickerTarget.mode==='edit'){
+      const idx = b.chords.findIndex(c=>c.beat===pickerTarget.beat);
+      if(idx>=0){ b.chords.splice(idx,1); reflowBeats(b); }
+    }
+    return;
+  }
+  const chordData = { root:cbRoot, tokens:cbTokens.map(t=>({...t})), bass:cbBass };
   if(pickerTarget.mode==='edit'){
     const c = b.chords.find(c=>c.beat===pickerTarget.beat);
-    if(c){ c.root=pickerRoot; c.quality=qid; delete c.rest; }
+    if(c){ Object.assign(c, chordData); delete c.rest; }
   } else {
-    addChordWithReflow(b, {root:pickerRoot, quality:qid});
+    addChordWithReflow(b, chordData);
   }
+}
+
+function firstEmptyBeat(b){
+  for(let i=0;i<4;i++){
+    if(!b.chords.find(c=>c.beat===i)) return i;
+  }
+  return null;
+}
+
+function cbDone(){
+  const wasAdd = pickerTarget.mode !== 'edit';
+  cbCommit();
   closeSheet();
   render();
   if(wasAdd && !onboardSeen('addAnother')){
@@ -570,19 +723,19 @@ function pickQuality(qid){
     }, 400);
   }
 }
-function clearChordSlot(){
-  if(pickerTarget.mode!=='edit'){ closeSheet(); return; }
-  pushSongUndo();
-  const b = findBarById(pickerTarget.barId);
-  if(b){
-    const idx = b.chords.findIndex(c=>c.beat===pickerTarget.beat);
-    if(idx>=0){
-      b.chords.splice(idx,1);
-      reflowBeats(b);
-    }
-  }
-  closeSheet();
+
+function cbNext(){
+  cbCommit();
+  const idx = song.items.findIndex(it=>it.id===pickerTarget.barId);
+  const nextBar = song.items[idx+1];
   render();
+  if(!nextBar || nextBar.kind!=='chords'){ closeSheet(); return; }
+  const beat = firstEmptyBeat(nextBar);
+  if(beat===null){ closeSheet(); return; }
+  pickerTarget = {barId: nextBar.id, mode:'add'};
+  pickerWholeBarOptions = nextBar.chords.length===0;
+  resetBuilderState();
+  renderChordKeyboard();
 }
 
 /* ============ Rhythm builder ============ */

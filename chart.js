@@ -1,17 +1,22 @@
 /* ============ Data ============ */
-const ROOTS = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-const QUALITIES = [
-  {id:'maj',  label:'Major',  suffix:'',     sup:false},
-  {id:'m',    label:'Minor',  suffix:'−',    sup:false},
-  {id:'7',    label:'7',      suffix:'7',    sup:true},
-  {id:'maj7', label:'Maj7',   suffix:'Δ7',   sup:true},
-  {id:'m7',   label:'Min7',   suffix:'−7',   sup:true},
-  {id:'dim',  label:'Dim',    suffix:'°',    sup:true},
-  {id:'sus4', label:'Sus4',   suffix:'sus4', sup:true},
-  {id:'add9', label:'Add9',   suffix:'add9', sup:true},
-  {id:'m7b5', label:'Min7♭5',suffix:'ø7',   sup:true},
-  {id:'aug',  label:'Aug',    suffix:'+',    sup:true},
+const ROOT_LETTERS = ['C','D','E','F','G','A','B'];
+// Chord keyboard palette: row 2 (quality symbols) and row 3 (extension
+// numbers). `sup:false` on the minor sign matches how this app has always
+// rendered a minor chord — every other quality mark is superscript, only
+// the plain minor dash sits full-size next to the root (see chordInnerHtml).
+const CHORD_KB_SYMBOLS = [
+  {ch:'−',   sup:false, label:'min'},
+  {ch:'△',   sup:true,  label:'maj'},
+  {ch:'°',   sup:true,  label:'dim'},
+  {ch:'ø',   sup:true,  label:'m7♭5'},
+  {ch:'sus', sup:true,  label:'sus'},
+  {ch:'alt', sup:true,  label:'alt'},
+  {ch:'add', sup:true,  label:'add'},
+  {ch:'no',  sup:true,  label:'omit'},
+  {ch:'(',   sup:true,  label:''},
+  {ch:')',   sup:true,  label:''},
 ];
+const CHORD_KB_NUMBERS = ['1','2','3','4','5','6','7','9'];
 const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
 const SECTION_LETTERS = ['A','B','C','D','E','F','G','H'];
 const NAMED_SECTIONS = ['Verse','Pre-Chorus','Chorus','Interlude','Solo'];
@@ -73,8 +78,19 @@ function blankSong(){
 }
 
 function defaultDemoSong(){
-  const c1 = (r,q)=>({root:r, quality:q});
-  const c2 = (r1,q1,r2,q2)=>([{root:r1,quality:q1,beat:0},{root:r2,quality:q2,beat:2}]);
+  // The demo song only ever uses dominant 7, minor 7, and diminished triads —
+  // this tiny lookup builds their token form instead of hand-writing the
+  // same {ch,sup} pairs at every call site below.
+  const DEMO_QUALITY_TOKENS = {
+    '7':   [{ch:'7',  sup:true}],
+    'm7':  [{ch:'−7', sup:true}],
+    'dim': [{ch:'°',  sup:true}],
+  };
+  const c1 = (r,q)=>({root:r, tokens:DEMO_QUALITY_TOKENS[q], bass:null});
+  const c2 = (r1,q1,r2,q2)=>([
+    {root:r1, tokens:DEMO_QUALITY_TOKENS[q1], bass:null, beat:0},
+    {root:r2, tokens:DEMO_QUALITY_TOKENS[q2], bass:null, beat:2},
+  ]);
   // A classic 12-bar blues, played twice: the first chorus plain (wrapped
   // in a repeat), the second a "shout chorus" with rhythm hits on the
   // first three bars and again before the turnaround.
@@ -149,9 +165,9 @@ function escapeHtml(s){
 }
 function rootHtml(r){
   if(r.length===2 && r[1]==='b') return escapeHtml(r[0])+'<span class="acc">♭</span>';
+  if(r.length===2 && r[1]==='#') return escapeHtml(r[0])+'<span class="acc">♯</span>';
   return escapeHtml(r);
 }
-function qualityById(id){ return QUALITIES.find(q=>q.id===id) || QUALITIES[0]; }
 function wholeRestSvg(w){
   w = w||22;
   return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="4" x2="22" y2="4" stroke="#000000" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#000000"/></svg>`;
@@ -698,11 +714,13 @@ function chunkRows(items, barsPerRow){
 }
 
 function chordInnerHtml(chord){
-  const q = qualityById(chord.quality);
-  const root = rootHtml(chord.root);
-  if(!q.suffix) return root;
-  const cls = q.sup ? 'suf' : '';
-  return `${root}<span class="${cls}">${q.suffix}</span>`;
+  let html = rootHtml(chord.root);
+  (chord.tokens||[]).forEach(t=>{
+    const text = escapeHtml(t.ch);
+    html += t.sup ? `<span class="suf">${text}</span>` : text;
+  });
+  if(chord.bass) html += '/' + rootHtml(chord.bass);
+  return html;
 }
 
 function renderBarEl(item){
@@ -956,7 +974,7 @@ function setHalfRest(barId){
   b.kind='chords';
   if(pickerTarget.mode==='edit'){
     const c = b.chords.find(c=>c.beat===pickerTarget.beat);
-    if(c){ c.rest=true; delete c.root; delete c.quality; }
+    if(c){ c.rest=true; delete c.root; delete c.tokens; delete c.bass; }
   } else {
     addChordWithReflow(b, {rest:true});
   }
