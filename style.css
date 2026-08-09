@@ -700,6 +700,16 @@ body{
   border-radius:0 0 50% 50%;
   pointer-events:none;
 }
+.seq-cell.tied-out{ position:relative; }
+.seq-cell.tied-out::after{
+  content:'';
+  position:absolute;
+  right:-7px; bottom:8px;
+  width:14px; height:7px;
+  border-bottom:2px solid var(--ink);
+  border-radius:0 0 50% 50%;
+  pointer-events:none;
+}
 .seq-caption{
   text-align:center;
   font-size:11.5px;

@@ -659,9 +659,14 @@ function rhythmSeqBoxHtml(units){
   const ties = rhythmBuilding.ties;
   let html = '';
   let filled = 0;
-  groups.forEach(g=>{
+  groups.forEach((g, idx)=>{
     const tied = g.seqStart>0 ? !!ties[g.seqStart] : !!rhythmBuilding.tieFromPrevBar;
-    const cls = 'seq-cell filled' + (tied ? ' tied-in' : '');
+    // Show a tie mark on the last-placed note as soon as Tie is armed, before
+    // a second note exists to connect to — it hands off to the normal
+    // tied-in mark the moment the next note is picked (rhythmBuilding.ties
+    // gets set there, and this note stops being "last").
+    const pending = idx===groups.length-1 && rhythmBuilding.tieArmed;
+    const cls = 'seq-cell filled' + (tied ? ' tied-in' : '') + (pending ? ' tied-out' : '');
     html += `<div class="${cls}" style="grid-column:span ${g.units}">${g.type==='beam'?beamGroupSvg(g.keys,28):iconSvg(g.key,28)}</div>`;
     filled += g.units;
   });
