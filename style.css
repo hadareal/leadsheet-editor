@@ -188,6 +188,34 @@ body{
   margin-bottom:5px;
 }
 
+/* ===== Volta row (1st/2nd/3rd ending brackets, sits above the rhythm row) ===== */
+.volta-row{
+  display:flex;
+  align-items:flex-end;
+  height:0;
+  overflow:hidden;
+  transition:height .18s ease;
+}
+.volta-row.has-volta{ height:20px; }
+/* Mirrors the bar-row's own spacer widths, same technique as the rhythm row
+   below, so a bracket lines up exactly with the bars it spans. */
+.volta-row .ts-spacer{ flex:0 0 12px; }
+.volta-row .volta-gap{ flex:0 0 auto; min-width:13px; }
+.volta-row .volta-slot{
+  flex:0 1 var(--bar-w);
+  min-width:56px;
+  position:relative;
+  height:18px;
+}
+.volta-line{ position:absolute; top:2px; left:0; right:0; border-top:1.6px solid var(--ink); }
+.volta-tick{ position:absolute; top:2px; height:10px; border-left:1.6px solid var(--ink); }
+.volta-tick.left{ left:0; }
+.volta-tick.right{ right:0; }
+.volta-label{
+  position:absolute; top:0; left:3px;
+  font-family:var(--ui-font); font-weight:700; font-size:11px; color:var(--ink);
+}
+
 /* ===== Rhythm row (sits directly above a row of bars) ===== */
 .rhythm-row{
   display:flex;

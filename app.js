@@ -583,14 +583,32 @@ function barActionsHtml(){
     <div class="sheet-actions">
       <button class="icon-btn" onclick="setBarKind('${pickerTarget.barId}','repeat')">${repeatBarSvg(20)}</button>
     </div>` : '';
+  const b = findBarById(pickerTarget.barId);
+  const volta = b ? b.volta : null;
+  const voltaBtns = [1,2,3].map(n=>
+    `<button class="neutral compact${volta===n?' tie-armed':''}" onclick="setBarVolta('${pickerTarget.barId}',${n})">${n}.</button>`
+  ).join('');
   return `
     ${wholeBarIcons}
+    <div class="sheet-actions">${voltaBtns}</div>
     <div class="sheet-actions">
       <button class="neutral compact" onclick="cbClearBar()"><span class="btn-icon">⌫</span>Clear Bar</button>
       <button class="neutral compact" onclick="duplicateBar('${pickerTarget.barId}')">${duplicateIconSvg(13)}Duplicate</button>
       <button class="danger compact" onclick="deleteBar('${pickerTarget.barId}')">🗑️ Delete Bar</button>
     </div>
   `;
+}
+// Tapping the active ending number again clears it (matches the Tie
+// button's toggle behavior). Doesn't close the sheet — unlike the other bar
+// actions, marking an ending doesn't stop you from continuing to enter
+// chords for the bar.
+function setBarVolta(barId, n){
+  pushSongUndo();
+  const b = findBarById(barId);
+  if(!b) return;
+  b.volta = (b.volta===n) ? null : n;
+  render();
+  renderChordKeyboard();
 }
 
 function renderChordKeyboard(){

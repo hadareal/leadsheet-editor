@@ -17,7 +17,7 @@ const CHORD_KB_SYMBOLS = [
 const CHORD_KB_NUMBERS = ['2','3','4','5','6','7','9','11','13'];
 const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
 const SECTION_LETTERS = ['A','B','C'];
-const NAMED_SECTIONS = ['Intro','Verse','Pre-Chorus','Chorus','Interlude','Solo'];
+const NAMED_SECTIONS = ['Intro','Verse','Pre-Chorus','Chorus','Bridge','Interlude','Solo'];
 const BARLINE_TYPES = [
   {type:'normal',      label:'Clear'},
   {type:'double',      label:'Double bar line'},
@@ -40,7 +40,7 @@ let BARS_PER_ROW = 4;
 let idCounter = 1;
 const genId = () => 'id' + (idCounter++);
 
-function bar(chords){ return {type:'bar', id:genId(), kind:'chords', chords: chords||[], rhythm:null}; }
+function bar(chords){ return {type:'bar', id:genId(), kind:'chords', chords: chords||[], rhythm:null, volta:null}; }
 
 // Appends a new empty chords bar to the end of the song, correctly handling
 // the trailing "end" border and inheriting an unresolved tie from the
@@ -868,6 +868,65 @@ function renderTimeSigEl(showDigits){
   return div;
 }
 
+// Groups a row's bars into consecutive same-numbered volta runs (1st/2nd/3rd
+// ending brackets don't cross a row wrap in this implementation — a run
+// always starts fresh at the top of each row, even if the same ending
+// number continues from the previous row's bars).
+function voltaRunsForRow(row){
+  const runs = [];
+  let i = 0;
+  while(i < row.length){
+    const n = row[i].volta;
+    if(!n){ i++; continue; }
+    let j = i;
+    while(j+1 < row.length && row[j+1].volta === n) j++;
+    runs.push({start:i, end:j, number:n});
+    i = j+1;
+  }
+  return runs;
+}
+
+// A thin, borderless row sitting above a row of bars (above the rhythm row,
+// which itself hugs the bars), drawing a bracket — top line + end ticks +
+// number label — over each run of consecutively-numbered volta (1st/2nd/3rd
+// ending) bars. Collapses to nothing when the row has no voltas.
+function renderVoltaRowEl(row){
+  const div = document.createElement('div');
+  div.className = 'volta-row';
+  const hasAny = row.some(item=>item.volta);
+  if(hasAny) div.classList.add('has-volta');
+
+  const tsSpacer = document.createElement('div');
+  tsSpacer.className = 'ts-spacer';
+  div.appendChild(tsSpacer);
+
+  const runs = voltaRunsForRow(row);
+
+  row.forEach((item, i)=>{
+    const gap = document.createElement('div');
+    gap.className = 'volta-gap';
+    div.appendChild(gap);
+
+    const slot = document.createElement('div');
+    slot.className = 'volta-slot';
+    const run = runs.find(r=>i>=r.start && i<=r.end);
+    if(run){
+      const isStart = run.start===i, isEnd = run.end===i;
+      slot.innerHTML = '<div class="volta-line"></div>'
+        + (isStart ? '<div class="volta-tick left"></div>' : '')
+        + (isEnd ? '<div class="volta-tick right"></div>' : '')
+        + (isStart ? `<span class="volta-label">${run.number}.</span>` : '');
+    }
+    div.appendChild(slot);
+  });
+
+  const trailingGap = document.createElement('div');
+  trailingGap.className = 'volta-gap';
+  div.appendChild(trailingGap);
+
+  return div;
+}
+
 // A thin, borderless row sitting directly above a row of bars, showing
 // each bar's rhythm sentence lined up over its own bar. Collapses to
 // nothing when no bar in the row has one, so it never adds space to
@@ -974,6 +1033,7 @@ function render(){
       songBlock.appendChild(labelRow);
     }
 
+    songBlock.appendChild(renderVoltaRowEl(row));
     songBlock.appendChild(renderRhythmRowEl(row, slotMap));
 
     const barRow = document.createElement('div');
