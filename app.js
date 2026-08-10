@@ -787,11 +787,13 @@ function cbNextBeat(){
 }
 
 // Always advances to the NEXT bar, regardless of room left in this one —
-// falls back to Done if there's no next bar or it's already full.
+// creates a new bar if this is already the last one, and otherwise falls
+// back to Done if the next bar isn't a chords bar or it's already full.
 function cbNextBar(){
   cbCommit();
   const idx = song.items.findIndex(it=>it.id===pickerTarget.barId);
-  const nextBar = song.items[idx+1];
+  let nextBar = song.items[idx+1];
+  if(!nextBar) nextBar = appendNewBar();
   render();
   if(!nextBar || nextBar.kind!=='chords'){ closeSheet(); return; }
   const beat = firstEmptyBeat(nextBar);

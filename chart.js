@@ -33,6 +33,21 @@ const genId = () => 'id' + (idCounter++);
 
 function bar(chords){ return {type:'bar', id:genId(), kind:'chords', chords: chords||[], rhythm:null}; }
 
+// Appends a new empty chords bar to the end of the song, correctly handling
+// the trailing "end" border and inheriting an unresolved tie from the
+// previous bar. Caller is responsible for pushSongUndo() and render().
+function appendNewBar(){
+  const lastIdx = song.items.length;
+  const wasEnd = song.borders[lastIdx].type === 'end';
+  if(wasEnd) song.borders[lastIdx].type = 'normal';
+  const prevLast = song.items[song.items.length-1];
+  const newBar = bar([]);
+  if(prevLast && prevLast.kind==='chords' && prevLast.tiedToNextBar) newBar.tiedFromPrevBar = true;
+  song.items.push(newBar);
+  song.borders.push({type: wasEnd ? 'end' : 'normal', label:null});
+  return newBar;
+}
+
 // Sixteenth-note units per bar for a given time signature, or null if
 // that meter isn't supported by the rhythm feature yet (compound/odd
 // meters beam in groups of 3, not 2, so they need their own logic later).
@@ -853,17 +868,7 @@ function makeAddBarBtn(){
   addBtn.onclick=()=>{
     hideOnboardTip();
     pushSongUndo();
-    const lastIdx = song.items.length;
-    const wasEnd = song.borders[lastIdx].type === 'end';
-    if(wasEnd) song.borders[lastIdx].type = 'normal';
-    const prevLast = song.items[song.items.length-1];
-    const newBar = bar([]);
-    // The bar before this one may be waiting on a tie with nothing to
-    // connect to yet — hook it up automatically so the user doesn't have to
-    // separately re-arm Tie on the new bar's side too.
-    if(prevLast && prevLast.kind==='chords' && prevLast.tiedToNextBar) newBar.tiedFromPrevBar = true;
-    song.items.push(newBar);
-    song.borders.push({type: wasEnd ? 'end' : 'normal', label:null});
+    appendNewBar();
     render();
     if(song.items.length===3 && !onboardSeen('barLine')){
       onboardMarkSeen('barLine');
