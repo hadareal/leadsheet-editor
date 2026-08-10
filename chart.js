@@ -186,6 +186,10 @@ function duplicateIconSvg(w){
   w = w||16;
   return `<svg width="${w}" height="${w}" viewBox="0 0 20 20" style="display:block;"><rect x="6" y="2" width="12" height="12" rx="2" fill="none" stroke="#000000" stroke-width="1.5"/><rect x="2" y="6" width="12" height="12" rx="2" fill="#eeeeee" stroke="#000000" stroke-width="1.5"/></svg>`;
 }
+function arrowRightSvg(w){
+  w = w||16;
+  return `<svg width="${w}" height="${w}" viewBox="0 0 20 20" style="display:block;"><line x1="2" y1="10" x2="15" y2="10" stroke="#000000" stroke-width="1.8" stroke-linecap="round"/><polyline points="10,4 17,10 10,16" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
 /* ============ Rhythm: note/rest symbols ============
    Flag and rest outlines are lifted from Bravura (SIL Open Font License,
    steinbergmedia/bravura). Coordinates are the font's own design units

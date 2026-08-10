@@ -671,7 +671,6 @@ body{
 .sheet-actions button.danger{ background:#eeeeee; color:var(--danger); }
 .sheet-actions button:disabled{ opacity:.35; cursor:not-allowed; }
 .sheet-actions button .btn-icon{ font-family:var(--chord-font); font-size:16px; line-height:1; }
-.sheet-actions button .btn-arrow{ font-size:24px; line-height:1; font-weight:400; }
 .sheet-actions button.compact{ padding:11px 4px; gap:4px; font-size:12px; }
 .sheet-actions button.neutral.tie-armed{ background:var(--ink); color:var(--paper); }
 
