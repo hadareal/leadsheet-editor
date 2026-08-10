@@ -335,10 +335,13 @@ body{
 }
 .bar .bar-glyph{
   grid-column:1/-1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding-top:8px;
   font-size:22px;
   font-weight:bold;
   color:var(--ink);
-  margin:0 auto;
 }
 .bar .add-chord{
   position:absolute;
@@ -651,6 +654,10 @@ body{
 .sheet-actions{margin-top:14px;display:flex;gap:8px;}
 .sheet-actions button{
   flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
   padding:11px;
   border-radius:8px;
   border:none;
@@ -663,7 +670,41 @@ body{
 .sheet-actions button.neutral{ background:#eeeeee; color:var(--ink-soft); }
 .sheet-actions button.danger{ background:#eeeeee; color:var(--danger); }
 .sheet-actions button:disabled{ opacity:.35; cursor:not-allowed; }
+.sheet-actions button .btn-icon{ font-family:var(--chord-font); font-size:16px; line-height:1; }
+.sheet-actions button.compact{ padding:11px 4px; gap:4px; font-size:12px; }
 .sheet-actions button.neutral.tie-armed{ background:var(--ink); color:var(--paper); }
+
+/* ===== Chord keyboard ===== */
+.kb-preview{
+  min-height:44px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--chord-font);
+  font-size:34px;
+  color:var(--ink);
+  margin-bottom:2px;
+}
+.kb-preview .suf{ font-size:.5em; vertical-align:top; position:relative; top:2px; margin-left:1px; }
+.kb-preview .acc{ font-size:.6em; margin-left:-1px; position:relative; top:-2px; }
+.kb-placeholder{ color:#c4c4c4; }
+.kb-grid{ display:grid; gap:6px; margin-bottom:8px; }
+.kb-grid button{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  padding:10px 2px;
+  border-radius:8px;
+  border:1px solid var(--card-border);
+  background:var(--paper);
+  font-family:var(--chord-font);
+  font-size:15px;
+  color:var(--ink);
+  cursor:pointer;
+}
+.kb-grid button .kb-sub{
+  font-family:var(--ui-font);
+  font-size:8.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+}
+.kb-grid button:disabled{ opacity:.3; cursor:not-allowed; }
 
 /* ===== Rhythm builder: sentence-in-progress + note/rest picker ===== */
 .seq-box{

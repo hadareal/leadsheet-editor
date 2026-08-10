@@ -1,17 +1,20 @@
 /* ============ Data ============ */
-const ROOTS = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-const QUALITIES = [
-  {id:'maj',  label:'Major',  suffix:'',     sup:false},
-  {id:'m',    label:'Minor',  suffix:'−',    sup:false},
-  {id:'7',    label:'7',      suffix:'7',    sup:true},
-  {id:'maj7', label:'Maj7',   suffix:'Δ7',   sup:true},
-  {id:'m7',   label:'Min7',   suffix:'−7',   sup:true},
-  {id:'dim',  label:'Dim',    suffix:'°',    sup:true},
-  {id:'sus4', label:'Sus4',   suffix:'sus4', sup:true},
-  {id:'add9', label:'Add9',   suffix:'add9', sup:true},
-  {id:'m7b5', label:'Min7♭5',suffix:'ø7',   sup:true},
-  {id:'aug',  label:'Aug',    suffix:'+',    sup:true},
+const ROOT_LETTERS = ['C','D','E','F','G','A','B'];
+// Chord keyboard palette: row 2 (quality symbols) and row 3 (extension
+// numbers). `sup:false` on the minor sign matches how this app has always
+// rendered a minor chord — every other quality mark is superscript, only
+// the plain minor dash sits full-size next to the root (see chordInnerHtml).
+const CHORD_KB_SYMBOLS = [
+  {ch:'−',   sup:false, label:'min'},
+  {ch:'△',   sup:true,  label:'maj'},
+  {ch:'°',   sup:true,  label:'dim'},
+  {ch:'ø',   sup:true,  label:'m7♭5'},
+  {ch:'sus', sup:true,  label:'sus'},
+  {ch:'alt', sup:true,  label:'alt'},
+  {ch:'add', sup:true,  label:'add'},
+  {ch:'no',  sup:true,  label:'omit'},
 ];
+const CHORD_KB_NUMBERS = ['2','3','4','5','6','7','9','11','13'];
 const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
 const SECTION_LETTERS = ['A','B','C','D','E','F','G','H'];
 const NAMED_SECTIONS = ['Verse','Pre-Chorus','Chorus','Interlude','Solo'];
@@ -73,8 +76,19 @@ function blankSong(){
 }
 
 function defaultDemoSong(){
-  const c1 = (r,q)=>({root:r, quality:q});
-  const c2 = (r1,q1,r2,q2)=>([{root:r1,quality:q1,beat:0},{root:r2,quality:q2,beat:2}]);
+  // The demo song only ever uses dominant 7, minor 7, and diminished triads —
+  // this tiny lookup builds their token form instead of hand-writing the
+  // same {ch,sup} pairs at every call site below.
+  const DEMO_QUALITY_TOKENS = {
+    '7':   [{ch:'7',  sup:true}],
+    'm7':  [{ch:'−7', sup:true}],
+    'dim': [{ch:'°',  sup:true}],
+  };
+  const c1 = (r,q)=>({root:r, tokens:DEMO_QUALITY_TOKENS[q], bass:null});
+  const c2 = (r1,q1,r2,q2)=>([
+    {root:r1, tokens:DEMO_QUALITY_TOKENS[q1], bass:null, beat:0},
+    {root:r2, tokens:DEMO_QUALITY_TOKENS[q2], bass:null, beat:2},
+  ]);
   // A classic 12-bar blues, played twice: the first chorus plain (wrapped
   // in a repeat), the second a "shout chorus" with rhythm hits on the
   // first three bars and again before the turnaround.
@@ -149,24 +163,35 @@ function escapeHtml(s){
 }
 function rootHtml(r){
   if(r.length===2 && r[1]==='b') return escapeHtml(r[0])+'<span class="acc">♭</span>';
+  if(r.length===2 && r[1]==='#') return escapeHtml(r[0])+'<span class="acc">♯</span>';
+  if(r.length===2 && r[1]==='n') return escapeHtml(r[0])+'<span class="acc">♮</span>';
   return escapeHtml(r);
 }
-function qualityById(id){ return QUALITIES.find(q=>q.id===id) || QUALITIES[0]; }
-function wholeRestSvg(w){
+// The "simile" mark: real notation for "repeat the previous bar" — a
+// diagonal slash with a dot above-left and a dot below-right. Hand-drawn
+// with plain SVG primitives (not lifted from Bravura, unlike the note
+// glyphs below) since it's simple enough to get right without the font.
+function repeatBarSvg(w){
   w = w||22;
-  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="4" x2="22" y2="4" stroke="#000000" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#000000"/></svg>`;
+  const h = w*16/22;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 22 16" style="display:block;"><circle cx="6" cy="4.5" r="2" fill="#000000"/><line x1="18" y1="0" x2="4" y2="16" stroke="#000000" stroke-width="1.8"/><circle cx="16" cy="11.5" r="2" fill="#000000"/></svg>`;
 }
-function halfRestSvg(w){
-  w = w||22;
-  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="10" x2="22" y2="10" stroke="#000000" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#000000"/></svg>`;
+// Small UI icons for the chord keyboard's action buttons (Clear/Duplicate) —
+// same hand-drawn-with-primitives approach as repeatBarSvg above.
+function duplicateIconSvg(w){
+  w = w||16;
+  return `<svg width="${w}" height="${w}" viewBox="0 0 20 20" style="display:block;"><rect x="6" y="2" width="12" height="12" rx="2" fill="none" stroke="#000000" stroke-width="1.5"/><rect x="2" y="6" width="12" height="12" rx="2" fill="#eeeeee" stroke="#000000" stroke-width="1.5"/></svg>`;
+}
+function arrowRightSvg(w){
+  w = w||16;
+  return `<svg width="${w}" height="${w}" viewBox="0 0 20 20" style="display:block;"><line x1="2" y1="10" x2="15" y2="10" stroke="#000000" stroke-width="1.8" stroke-linecap="round"/><polyline points="10,4 17,10 10,16" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 /* ============ Rhythm: note/rest symbols ============
    Flag and rest outlines are lifted from Bravura (SIL Open Font License,
    steinbergmedia/bravura). Coordinates are the font's own design units
    (1000/em); glyphSvg()/rectSvg() place them by flipping font Y-up into
-   SVG Y-down. Fills are hardcoded #000000 (not var(--ink)) to match
-   wholeRestSvg/halfRestSvg above, which print more reliably than
-   CSS-driven color on some PDF/print engines.
+   SVG Y-down. Fills are hardcoded #000000 (not var(--ink)), which prints
+   more reliably than CSS-driven color on some PDF/print engines.
    This is rhythm/"kick" notation, the jazz/big-band convention for marking
    rhythmic hits: duration reads from the stem/flag/beam, not the head
    shape. noteheadSlashFilled (a diagonal slash, custom-drawn — Bravura has
@@ -698,11 +723,13 @@ function chunkRows(items, barsPerRow){
 }
 
 function chordInnerHtml(chord){
-  const q = qualityById(chord.quality);
-  const root = rootHtml(chord.root);
-  if(!q.suffix) return root;
-  const cls = q.sup ? 'suf' : '';
-  return `${root}<span class="${cls}">${q.suffix}</span>`;
+  let html = rootHtml(chord.root);
+  (chord.tokens||[]).forEach(t=>{
+    const text = escapeHtml(t.ch);
+    html += t.sup ? `<span class="suf">${text}</span>` : text;
+  });
+  if(chord.bass) html += '/' + rootHtml(chord.bass);
+  return html;
 }
 
 function renderBarEl(item){
@@ -711,12 +738,7 @@ function renderBarEl(item){
   div.dataset.id=item.id;
 
   if(item.kind==='repeat'){
-    div.innerHTML = '<span class="bar-glyph">%</span>';
-    div.onclick=()=>handleBarTap(item, 0);
-    return div;
-  }
-  if(item.kind==='rest'){
-    div.innerHTML = `<span class="bar-glyph" style="font-size:0;">${wholeRestSvg()}</span>`;
+    div.innerHTML = `<span class="bar-glyph" style="font-size:0;">${repeatBarSvg(26)}</span>`;
     div.onclick=()=>handleBarTap(item, 0);
     return div;
   }
@@ -732,13 +754,10 @@ function renderBarEl(item){
     const slot = document.createElement('div');
     slot.className='slot';
     const chord = item.chords.find(c=>c.beat===beatIdx);
-    if(chord && chord.rest){
-      slot.innerHTML = halfRestSvg(14);
-      slot.addEventListener('pointerdown', (e)=>slotPointerDown(e, item, beatIdx, div));
-    } else if(chord){
+    if(chord){
       const c = document.createElement('span');
       c.className='chord'+denseCls;
-      c.innerHTML = chordInnerHtml(chord);
+      c.innerHTML = chord.nc ? 'N.C.' : chordInnerHtml(chord);
       slot.appendChild(c);
       slot.addEventListener('pointerdown', (e)=>slotPointerDown(e, item, beatIdx, div));
     }
@@ -940,26 +959,12 @@ function render(){
   renderInfoPanel();
 }
 
-/* ============ Bar content (chord / % / rest / half-rest) ============ */
+/* ============ Bar content (chord / %) ============ */
 function setBarKind(barId, kind){
   pushSongUndo();
   const b = findBarById(barId);
   if(!b) return closeSheet();
   b.kind=kind; b.chords=[];
-  closeSheet();
-  render();
-}
-function setHalfRest(barId){
-  pushSongUndo();
-  const b = findBarById(barId);
-  if(!b) return closeSheet();
-  b.kind='chords';
-  if(pickerTarget.mode==='edit'){
-    const c = b.chords.find(c=>c.beat===pickerTarget.beat);
-    if(c){ c.rest=true; delete c.root; delete c.quality; }
-  } else {
-    addChordWithReflow(b, {rest:true});
-  }
   closeSheet();
   render();
 }
