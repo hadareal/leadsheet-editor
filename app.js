@@ -693,7 +693,7 @@ function cbClearChord(){
 function cbClearBar(){
   pushSongUndo();
   const b = findBarById(pickerTarget.barId);
-  if(b) b.chords = [];
+  if(b){ b.kind = 'chords'; b.chords = []; }
   closeSheet();
   render();
 }
