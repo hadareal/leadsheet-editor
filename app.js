@@ -589,7 +589,7 @@ function renderChordKeyboard(){
     `<button ${cbNC?'disabled':''} onclick="cbPickToken('${s.ch}',${s.sup})">${s.ch}${s.label?`<span class="kb-sub">${s.label}</span>`:''}</button>`
   ).join('')
     + `<button ${ncDisabled?'disabled':''} onclick="cbPickNC()">N.C.</button>`
-    + `<button ${cbNC?'disabled':''} onclick="cbPickToken('${nextParen}',true)">${nextParen}</button>`;
+    + `<button ${cbNC?'disabled':''} onclick="cbPickToken('${nextParen}',true)">()</button>`;
   const row3 = CHORD_KB_NUMBERS.map(n=>`<button ${cbNC?'disabled':''} onclick="cbPickToken('${n}',true)">${n}</button>`).join('')
     + `<button ${(cbInBass||cbNC)?'disabled':''} onclick="cbSlash()">/</button>`
     + `<button ${cbHistory.length===0?'disabled':''} onclick="cbBackspace()">⌫</button>`;
