@@ -16,8 +16,15 @@ const CHORD_KB_SYMBOLS = [
 ];
 const CHORD_KB_NUMBERS = ['2','3','4','5','6','7','9','11','13'];
 const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
-const SECTION_LETTERS = ['A','B','C','D','E','F','G','H'];
-const NAMED_SECTIONS = ['Verse','Pre-Chorus','Chorus','Interlude','Solo'];
+const SECTION_LETTERS = ['A','B','C'];
+const NAMED_SECTIONS = ['Intro','Verse','Pre-Chorus','Chorus','Interlude','Solo'];
+const BARLINE_TYPES = [
+  {type:'normal',      label:'Clear'},
+  {type:'double',      label:'Double bar line'},
+  {type:'repeatStart', label:'Repeat start'},
+  {type:'repeatEnd',   label:'Repeat end'},
+  {type:'end',         label:'End'},
+];
 const MAX_CHORDS_PER_BAR = 4;
 const FONT_OPTIONS = [
   {id:'simple', label:'Simple', sample:'Db7', family:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"},
@@ -786,6 +793,16 @@ function renderBarEl(item){
   return div;
 }
 
+// Shared between the chart's own border-line rendering and the Bar line
+// picker sheet, so both draw the exact same glyph for a given type.
+function borderGlyphHtml(type){
+  if(type==='repeatStart') return `<div class="ln-thick"></div><div class="ln-thin"></div><div class="dots"><span></span><span></span></div>`;
+  if(type==='repeatEnd') return `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div>`;
+  if(type==='end') return `<div class="ln-thin"></div><div class="ln-thick"></div>`;
+  if(type==='double') return `<div class="ln-thin"></div><div class="ln-thin"></div>`;
+  return `<div class="ln-thin"></div>`;
+}
+
 // At a row wrap there's only one border object for the gap, but it's drawn
 // twice — as the trailing edge of the row above and the leading edge of the
 // row below — so the row visually looks closed on both sides. Directional
@@ -802,18 +819,7 @@ function renderBorderEl(border, idx, edge){
   div.onclick=()=>openBorderEdit(idx);
   const downgrade = (edge==='trailing' && border.type==='repeatStart')
     || (edge==='leading' && (border.type==='end' || border.type==='repeatEnd'));
-  const type = downgrade ? 'normal' : border.type;
-  if(type==='repeatStart'){
-    div.innerHTML = `<div class="ln-thick"></div><div class="ln-thin"></div><div class="dots"><span></span><span></span></div>`;
-  } else if(type==='repeatEnd'){
-    div.innerHTML = `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div>`;
-  } else if(type==='end'){
-    div.innerHTML = `<div class="ln-thin"></div><div class="ln-thick"></div>`;
-  } else if(type==='double'){
-    div.innerHTML = `<div class="ln-thin"></div><div class="ln-thin"></div>`;
-  } else {
-    div.innerHTML = `<div class="ln-thin"></div>`;
-  }
+  div.innerHTML = borderGlyphHtml(downgrade ? 'normal' : border.type);
   return div;
 }
 

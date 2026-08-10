@@ -985,19 +985,15 @@ function openBorderEdit(idx){
   document.querySelectorAll('.border-line.pulse').forEach(el=>el.classList.remove('pulse'));
   showSheet(`
     <div class="sheet-header"><span>Bar line</span><button onclick="closeSheet()">✕</button></div>
-    <div class="symbol-grid two-col">
-      <button onclick="setBorderType(${idx},'normal')">Clear |</button>
-      <button onclick="setBorderType(${idx},'double')">Double ||</button>
-      <button onclick="setBorderType(${idx},'repeatStart')">Repeat Start ||:</button>
-      <button onclick="setBorderType(${idx},'repeatEnd')">Repeat End :||</button>
-      <button onclick="setBorderType(${idx},'end')">End ||</button>
+    <div class="barline-grid">
+      ${BARLINE_TYPES.map(t=>`<button onclick="setBorderType(${idx},'${t.type}')"><div class="border-line">${borderGlyphHtml(t.type)}</div></button>`).join('')}
     </div>
     <div class="sheet-subhead">Section label</div>
-    <div class="root-grid" style="grid-template-columns:repeat(5,1fr);">
+    <div class="root-grid" style="grid-template-columns:repeat(3,1fr);">
       ${SECTION_LETTERS.map(l=>`<button onclick="setLabel(${idx},'${l}')">${l}</button>`).join('')}
-      <button onclick="setLabel(${idx},null)">None</button>
     </div>
     <div class="symbol-grid two-col" style="margin-top:8px;">
+      <button onclick="setLabel(${idx},null)">⌫ Clear label</button>
       ${NAMED_SECTIONS.map(n=>`<button onclick="setLabel(${idx},'${n}')">${n}</button>`).join('')}
       <button onclick="openCustomLabelEdit(${idx})">Custom…</button>
     </div>
