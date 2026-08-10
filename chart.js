@@ -786,12 +786,23 @@ function renderBarEl(item){
   return div;
 }
 
-function renderBorderEl(border, idx){
+// At a row wrap there's only one border object for the gap, but it's drawn
+// twice — as the trailing edge of the row above and the leading edge of the
+// row below — so the row visually looks closed on both sides. Directional
+// glyphs (repeat/end marks) only belong on the edge matching their meaning;
+// showing e.g. "End ||" at the START of the next row would falsely suggest
+// the piece stops there, so the other edge falls back to a plain line
+// instead of duplicating the full glyph. `edge` is 'full' (not a wrap —
+// mid-row, or the song's true first/last border), 'trailing' (this row's
+// own closing edge) or 'leading' (this row's own opening edge).
+function renderBorderEl(border, idx, edge){
   const div = document.createElement('div');
   div.className='border-line';
   div.dataset.borderIdx = idx;
   div.onclick=()=>openBorderEdit(idx);
-  const type = border.type;
+  const downgrade = (edge==='trailing' && border.type==='repeatStart')
+    || (edge==='leading' && (border.type==='end' || border.type==='repeatEnd'));
+  const type = downgrade ? 'normal' : border.type;
   if(type==='repeatStart'){
     div.innerHTML = `<div class="ln-thick"></div><div class="ln-thin"></div><div class="dots"><span></span><span></span></div>`;
   } else if(type==='repeatEnd'){
@@ -936,12 +947,13 @@ function render(){
     barRow.className='bar-row';
     barRow.appendChild(renderTimeSigEl(rIdx===0));
 
-    row.forEach(item=>{
-      barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx));
+    row.forEach((item, kIdx)=>{
+      const edge = (kIdx===0 && rIdx>0) ? 'leading' : 'full';
+      barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx, edge));
       barRow.appendChild(renderBarEl(item));
       globalIdx++;
     });
-    barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx));
+    barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx, isLastRow ? 'full' : 'trailing'));
 
     songBlock.appendChild(barRow);
     lastRowBarRow = barRow;
