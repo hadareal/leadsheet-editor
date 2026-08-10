@@ -809,6 +809,8 @@ function renderBorderEl(border, idx, edge){
     div.innerHTML = `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div>`;
   } else if(type==='end'){
     div.innerHTML = `<div class="ln-thin"></div><div class="ln-thick"></div>`;
+  } else if(type==='double'){
+    div.innerHTML = `<div class="ln-thin"></div><div class="ln-thin"></div>`;
   } else {
     div.innerHTML = `<div class="ln-thin"></div>`;
   }

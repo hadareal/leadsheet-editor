@@ -987,6 +987,7 @@ function openBorderEdit(idx){
     <div class="sheet-header"><span>Bar line</span><button onclick="closeSheet()">✕</button></div>
     <div class="symbol-grid two-col">
       <button onclick="setBorderType(${idx},'normal')">Clear |</button>
+      <button onclick="setBorderType(${idx},'double')">Double ||</button>
       <button onclick="setBorderType(${idx},'repeatStart')">Repeat Start ||:</button>
       <button onclick="setBorderType(${idx},'repeatEnd')">Repeat End :||</button>
       <button onclick="setBorderType(${idx},'end')">End ||</button>
