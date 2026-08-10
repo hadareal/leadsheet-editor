@@ -1004,23 +1004,22 @@ function openBorderEdit(idx){
   showSheet(`
     <div class="sheet-header"><span>Bar line</span><button onclick="closeSheet()">✕</button></div>
     <div class="barline-grid">
-      ${BARLINE_TYPES.map(t=>{
-        const inner = t.type==='segno' ? `<div style="align-self:center;">${segnoSvg(20)}</div>`
-          : t.type==='coda' ? `<div style="align-self:center;">${codaSvg(20)}</div>`
-          : borderGlyphHtml(t.type);
-        return `<button onclick="setBorderType(${idx},'${t.type}')"><div class="border-line">${inner}</div></button>`;
-      }).join('')}
+      ${BARLINE_TYPES.map(t=>`<button onclick="setBorderType(${idx},'${t.type}')"><div class="border-line">${borderGlyphHtml(t.type)}</div></button>`).join('')}
     </div>
     <div class="sheet-subhead">Section label</div>
-    <div class="root-grid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="symbol-grid compact six-col">
       ${SECTION_LETTERS.map(l=>`<button onclick="setLabel(${idx},'${l}')">${l}</button>`).join('')}
-    </div>
-    <div class="symbol-grid" style="margin-top:8px;">
-      <button class="clear-label-btn" onclick="setLabel(${idx},null)">⌫ Clear label</button>
-    </div>
-    <div class="symbol-grid two-col" style="margin-top:8px;">
       ${NAMED_SECTIONS.map(n=>`<button onclick="setLabel(${idx},'${n}')">${n}</button>`).join('')}
       <button onclick="openCustomLabelEdit(${idx})">Custom…</button>
+      <button class="clear-label-btn" onclick="setLabel(${idx},null)">⌫ Clear</button>
+    </div>
+    <div class="sheet-subhead">Navigation</div>
+    <div class="symbol-grid compact">
+      ${NAV_MARK_TYPES.map(t=>{
+        if(t.type==='segno') return `<button class="icon-only" onclick="setBorderMark(${idx},'segno')">${segnoSvg(18)}</button>`;
+        if(t.type==='coda') return `<button class="icon-only" onclick="setBorderMark(${idx},'coda')">${codaSvg(18)}</button>`;
+        return `<button onclick="setBorderMark(${idx},'${t.type}')">${t.label}</button>`;
+      }).join('')}
     </div>
   `);
 }
@@ -1038,6 +1037,17 @@ function saveCustomLabel(idx){
 function setBorderType(idx, type){
   pushSongUndo();
   song.borders[idx].type = type;
+  closeSheet();
+  render();
+}
+// Segno/Coda/D.C./D.S./Fine/To Coda (see NAV_MARK_TYPES) are independent of
+// the barline stroke (BARLINE_TYPES), but mutually exclusive with each other
+// — a bar line carries at most one navigation mark. Tapping the currently-set
+// mark again clears it.
+function setBorderMark(idx, mark){
+  pushSongUndo();
+  const b = song.borders[idx];
+  b.mark = (b.mark === mark) ? null : mark;
   closeSheet();
   render();
 }

@@ -18,15 +18,35 @@ const CHORD_KB_NUMBERS = ['2','3','4','5','6','7','9','11','13'];
 const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
 const SECTION_LETTERS = ['A','B','C'];
 const NAMED_SECTIONS = ['Intro','Verse','Pre-Chorus','Chorus','Bridge','Interlude','Solo'];
+// Bar line stroke picker sheet grid — independent of border.mark (below),
+// so a stroke change never touches whatever navigation mark is set.
 const BARLINE_TYPES = [
   {type:'normal',      label:'Clear'},
   {type:'double',      label:'Double bar line'},
   {type:'repeatStart', label:'Repeat start'},
   {type:'repeatEnd',   label:'Repeat end'},
   {type:'end',         label:'End'},
-  {type:'segno',       label:'Segno'},
-  {type:'coda',        label:'Coda'},
 ];
+// Segno/Coda bookmarks and D.C./D.S./Fine/To Coda text directions all set
+// border.mark — one shared field, so a bar line carries at most one of these
+// ten navigation marks at a time (never e.g. an unrelated Coda icon *and*
+// "D.S." on the same line — a single spot in a chart means one thing).
+// Segno/Coda render as an icon reading forward into the bar that follows;
+// the rest render as italic text reading backward, flush at this exact bar
+// line, marking where a phrase ends (see renderLabelSlot).
+const NAV_MARK_TYPES = [
+  {type:'segno',     label:'Segno'},
+  {type:'coda',      label:'Coda'},
+  {type:'DC',        label:'D.C.'},
+  {type:'DS',        label:'D.S.'},
+  {type:'DCalFine',  label:'D.C. al Fine'},
+  {type:'DSalFine',  label:'D.S. al Fine'},
+  {type:'DCalCoda',  label:'D.C. al Coda'},
+  {type:'DSalCoda',  label:'D.S. al Coda'},
+  {type:'Fine',      label:'Fine'},
+  {type:'ToCoda',    label:'To Coda'},
+];
+const NAV_MARK_LABEL_BY_TYPE = Object.fromEntries(NAV_MARK_TYPES.map(d=>[d.type, d.label]));
 const MAX_CHORDS_PER_BAR = 4;
 const FONT_OPTIONS = [
   {id:'simple', label:'Simple', sample:'Db7', family:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"},
@@ -173,8 +193,12 @@ function defaultDemoSong(){
 }
 
 // song.items is a flat list of bars.
-// song.borders[i] = {type, label} is the border BEFORE items[i];
-// song.borders[items.length] is the trailing (final) border.
+// song.borders[i] = {type, label, mark} is the border BEFORE items[i];
+// song.borders[items.length] is the trailing (final) border. `type` is the
+// barline stroke (normal/double/repeatStart/repeatEnd/end), independent of
+// `mark` since a stroke change should never affect a navigation mark. `mark`
+// is one of NAV_MARK_TYPES (Segno, Coda, D.C., D.S., ...) or null — a single
+// field because a bar line carries at most one of these at a time.
 let song = defaultDemoSong();
 
 /* ============ Helpers ============ */
@@ -817,10 +841,7 @@ function renderBarEl(item){
 }
 
 // Shared between the chart's own border-line rendering and the Bar line
-// picker sheet, so both draw the exact same glyph for a given type. Segno
-// and Coda don't change the barline stroke itself in real notation — they're
-// icons shown above the bar line instead (see renderLabelSlot), so here they
-// fall through to a plain line like a normal border.
+// picker sheet, so both draw the exact same glyph for a given type.
 function borderGlyphHtml(type){
   if(type==='repeatStart') return `<div class="ln-thick"></div><div class="ln-thin"></div><div class="dots"><span></span><span></span></div>`;
   if(type==='repeatEnd') return `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div>`;
@@ -849,21 +870,37 @@ function renderBorderEl(border, idx, edge){
   return div;
 }
 
-// A border needs the label row shown at all if it has a section label OR a
-// Segno/Coda mark — both render as a badge/icon sitting above the bar line,
-// at the position where the marked bar begins.
-function borderWantsLabelRow(b){
-  return !!(b && (b.label || b.type==='segno' || b.type==='coda'));
+// A border needs the label row shown at all if it has a section label or a
+// mark — both render as a badge/icon/text sitting above the bar line.
+// Label/Segno/Coda mark the start of what follows (where the marked bar
+// begins); a text direction marks the end of the phrase that's finishing,
+// so at a row wrap the two halves of one border split across rows — see
+// renderLabelSlot's `edge` param, mirroring how renderBorderEl already
+// splits the barline stroke glyph the same way.
+function borderWantsLabelRow(b, edge){
+  if(!b) return false;
+  const isIcon = b.mark==='segno' || b.mark==='coda';
+  const wantsLeading = !!(b.label || isIcon);
+  const wantsTrailing = !!(b.mark && !isIcon);
+  if(edge==='leading') return wantsLeading;
+  if(edge==='trailing') return wantsTrailing;
+  return wantsLeading || wantsTrailing;
 }
-function renderLabelSlot(idx, allow){
+function renderLabelSlot(idx, allow, edge){
   const div = document.createElement('div');
   div.className='label-slot';
   const b = song.borders[idx];
   if(allow && b){
     let html = '';
-    if(b.label) html += `<span class="sec-badge">${escapeHtml(b.label)}</span>`;
-    if(b.type==='segno') html += segnoSvg(16);
-    if(b.type==='coda') html += codaSvg(16);
+    const isIcon = b.mark==='segno' || b.mark==='coda';
+    if(edge!=='trailing'){
+      let forward = '';
+      if(b.label) forward += `<span class="sec-badge">${escapeHtml(b.label)}</span>`;
+      if(b.mark==='segno') forward += segnoSvg(16);
+      if(b.mark==='coda') forward += codaSvg(16);
+      if(forward) html += `<div class="label-forward">${forward}</div>`;
+    }
+    if(edge!=='leading' && b.mark && !isIcon) html += `<span class="direction-badge">${NAV_MARK_LABEL_BY_TYPE[b.mark]}</span>`;
     div.innerHTML = html;
   }
   return div;
@@ -1060,11 +1097,13 @@ function render(){
 
     const rowStart = globalIdx;
     const isLastRow = (rIdx === rows.length-1);
+    const endEdge = isLastRow ? 'full' : 'trailing';
     let needsLabelRow = false;
     for(let k=rowStart;k<rowStart+row.length;k++){
-      if(borderWantsLabelRow(song.borders[k])){ needsLabelRow=true; break; }
+      const kEdge = (k===rowStart && rIdx>0) ? 'leading' : 'full';
+      if(borderWantsLabelRow(song.borders[k], kEdge)){ needsLabelRow=true; break; }
     }
-    if(!needsLabelRow && isLastRow && borderWantsLabelRow(song.borders[rowStart+row.length])){
+    if(!needsLabelRow && borderWantsLabelRow(song.borders[rowStart+row.length], endEdge)){
       needsLabelRow = true;
     }
     if(needsLabelRow){
@@ -1075,13 +1114,14 @@ function render(){
       labelRow.appendChild(tsSpacer);
       let li = rowStart;
       row.forEach(()=>{
-        labelRow.appendChild(renderLabelSlot(li, true));
+        const kEdge = (li===rowStart && rIdx>0) ? 'leading' : 'full';
+        labelRow.appendChild(renderLabelSlot(li, true, kEdge));
         li++;
         const barSpacer=document.createElement('div');
         barSpacer.className='bar-spacer';
         labelRow.appendChild(barSpacer);
       });
-      labelRow.appendChild(renderLabelSlot(li, isLastRow));
+      labelRow.appendChild(renderLabelSlot(li, true, endEdge));
       songBlock.appendChild(labelRow);
     }
 

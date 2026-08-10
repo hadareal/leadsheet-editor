@@ -160,13 +160,30 @@ body{
 }
 .label-row .ts-spacer{ flex:0 0 12px; }
 .label-row .bar-spacer{ flex:0 0 var(--bar-w); }
+/* .label-slot must consume exactly the same flex width as its matching
+   .border-line (see renderBorderEl) regardless of what's inside it —
+   otherwise a wide section label or icon in an earlier column pushes every
+   later column's slot out of alignment with its own bar line. So this box
+   stays fixed at .border-line's floor width (13px) and every child is
+   position:absolute (removed from flow, allowed to overflow) rather than
+   sized/centered by flexbox. */
 .label-slot{
-  flex:0 0 auto;
-  min-width:18px;
+  position:relative;
+  flex:0 0 13px;
+  min-width:13px;
+}
+/* Section label + Segno/Coda: a bookmark/destination, reading forward into
+   the bar that follows this line — centered on the (fixed-width) anchor,
+   same visual spot they've always sat in. */
+.label-forward{
+  position:absolute;
+  left:50%;
+  bottom:2px;
+  transform:translateX(-50%);
   display:flex;
   align-items:flex-end;
-  justify-content:center;
   gap:4px;
+  white-space:nowrap;
 }
 .sec-badge{
   background:transparent;
@@ -179,7 +196,22 @@ body{
   font-size:13px;
   padding:1px 6px;
   border-radius:3px;
-  margin-bottom:2px;
+  white-space:nowrap;
+}
+/* Unlike .label-forward (which reads forward into the bar that follows this
+   line — correct for a bookmark/destination), a direction belongs to the
+   phrase that's ending: the actual bar-line stroke sits at the horizontal
+   center of the (fixed-width) .label-slot anchor, not its right edge, so
+   `right:50%` (not 0) ends the text flush at the stroke itself and grows
+   leftward from there, instead of stopping visibly short of it. */
+.direction-badge{
+  position:absolute;
+  right:50%;
+  bottom:2px;
+  color:var(--ink);
+  font-family:Georgia,'Times New Roman',serif;
+  font-style:italic;
+  font-size:13px;
   white-space:nowrap;
 }
 
@@ -682,12 +714,14 @@ body{
    sets this apart from the plain black section-label buttons as a lighter,
    reversible "clear" action rather than picking a label. */
 .symbol-grid button.clear-label-btn{ color:#8a3b2c; border-color:#8a3b2c; }
-.symbol-grid.two-col{ grid-template-columns:repeat(2,1fr); }
-.symbol-grid.two-col button{
-  padding:10px 6px;
+.symbol-grid.compact{ grid-template-columns:repeat(5,1fr); gap:6px; }
+.symbol-grid.compact.six-col{ grid-template-columns:repeat(6,1fr); }
+.symbol-grid.compact button{
+  padding:9px 2px;
   text-align:center;
-  font-size:13px;
+  font-size:11.5px;
 }
+.symbol-grid.compact button.icon-only{ display:flex; align-items:center; justify-content:center; }
 .symbol-grid button.icon-row{ display:flex; align-items:center; gap:10px; text-align:left; }
 .symbol-grid button.icon-row svg{ flex:0 0 auto; }
 .symbol-grid button.icon-row .sg-aa{ width:19px; text-align:center; flex:0 0 auto; }
@@ -700,7 +734,7 @@ body{
 }
 /* Icon-only bar-line type picker — reuses the chart's own .border-line
    glyph markup/CSS so a button shows exactly what it will draw. */
-.barline-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.barline-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
 .barline-grid button{
   display:flex;align-items:stretch;justify-content:center;
   height:40px;padding:6px 2px;
