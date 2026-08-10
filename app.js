@@ -607,7 +607,7 @@ function renderChordKeyboard(){
     <div class="kb-grid" style="grid-template-columns:repeat(10,1fr);">${row2}</div>
     <div class="kb-grid" style="grid-template-columns:repeat(11,1fr);">${row3}</div>
     <div class="sheet-actions">
-      <button class="neutral" onclick="cbClearChord()">${clearIconSvg(15)}Clear Chord</button>
+      <button class="neutral" onclick="cbClearChord()"><span class="btn-icon">⌫</span>Clear Chord</button>
       <button class="neutral" ${doneNextDisabled} onclick="cbNextBeat()">Next Beat${arrowRightSvg(22)}</button>
     </div>
     <div class="sheet-actions">
