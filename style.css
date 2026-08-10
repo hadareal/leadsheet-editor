@@ -219,7 +219,12 @@ body{
 .volta-line{ position:absolute; top:14px; left:0; right:0; border-top:1.6px solid var(--ink); }
 .volta-line-left{ left:0; right:50%; }
 .volta-line-right{ left:50%; right:0; }
+/* A closing tick stops a little short of the slot's own right edge (instead
+   of reaching all the way to the next bar line), so it doesn't visually run
+   into whatever starts right after it — e.g. the next ending's own tick. */
+.volta-line-inset-end{ right:6px; }
 .volta-tick{ position:absolute; top:14px; left:50%; height:9px; border-left:1.6px solid var(--ink); transform:translateX(-50%); }
+.volta-tick-inset-end{ left:auto; right:6px; transform:none; }
 /* Sits in the gap next to its tick (not offset into the bar), starting
    right at the tick and spilling rightward over the bar below — nothing
    here clips it (only .volta-row itself has overflow:hidden). */

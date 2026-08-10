@@ -914,14 +914,17 @@ function voltaRunsForRow(row, rowStart){
 // The line/ticks are built from row.length+1 "gap" positions (mirroring the
 // border-lines: gap[k] sits at the actual bar line before bar k, gap[row.
 // length] is the trailing one) plus row.length "slot" positions (one per
-// bar, matching .bar's own width). A tick sits at the gap's own center — the
-// real bar line position, since .border-line's stroke is centered in that
-// same column — and each flanking gap's line only spans the HALF between
-// its tick and the neighboring slot, not the gap's full width, so the
-// bracket doesn't overshoot past the bar line it's anchored to. The number
-// label lives in the start gap too, right next to its tick, instead of
-// being offset into the bar — text is left un-clipped (no overflow:hidden
-// on the gap itself) so it can spill rightward over the bar below it.
+// bar, matching .bar's own width). A run's OPENING tick sits at the gap's
+// own center — the real bar line position, since .border-line's stroke is
+// centered in that same column. Its CLOSING tick, though, is inset a little
+// into its own last bar rather than reaching the following bar line — so
+// when another ending starts right after (e.g. "1." on bars 1-2 then "2."
+// on bar 3), "1."'s line visibly stops short instead of touching "2."'s
+// opening tick, reading as two distinct brackets instead of one continuous
+// line. The number label lives in the start gap, right next to its tick,
+// instead of being offset into the bar — text is left un-clipped (no
+// overflow:hidden on the gap itself) so it can spill rightward over the bar
+// below it.
 function renderVoltaRowEl(row, rowStart){
   const div = document.createElement('div');
   div.className = 'volta-row';
@@ -935,10 +938,6 @@ function renderVoltaRowEl(row, rowStart){
     gapInfo[run.start].tick = true;
     gapInfo[run.start].label = run.number;
     for(let g=run.start+1; g<=run.end; g++){ gapInfo[g].leftHalf = true; gapInfo[g].rightHalf = true; }
-    if(!run.isOpen){
-      gapInfo[run.end+1].leftHalf = true;
-      gapInfo[run.end+1].tick = true;
-    }
   });
   function gapHtml(info){
     let html = '';
@@ -963,7 +962,12 @@ function renderVoltaRowEl(row, rowStart){
     const slot = document.createElement('div');
     slot.className = 'volta-slot';
     const run = runs.find(r=>i>=r.start && i<=r.end);
-    if(run) slot.innerHTML = '<div class="volta-line"></div>';
+    if(run){
+      const isClosingEnd = run.end===i && !run.isOpen;
+      slot.innerHTML = isClosingEnd
+        ? '<div class="volta-line volta-line-inset-end"></div><div class="volta-tick volta-tick-inset-end"></div>'
+        : '<div class="volta-line"></div>';
+    }
     div.appendChild(slot);
   });
 
