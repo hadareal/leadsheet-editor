@@ -24,6 +24,8 @@ const BARLINE_TYPES = [
   {type:'repeatStart', label:'Repeat start'},
   {type:'repeatEnd',   label:'Repeat end'},
   {type:'end',         label:'End'},
+  {type:'segno',       label:'Segno'},
+  {type:'coda',        label:'Coda'},
 ];
 const MAX_CHORDS_PER_BAR = 4;
 const FONT_OPTIONS = [
@@ -197,6 +199,21 @@ function repeatBarSvg(w){
   w = w||22;
   const h = w*16/22;
   return `<svg width="${w}" height="${h}" viewBox="0 0 22 16" style="display:block;"><circle cx="6" cy="4.5" r="2" fill="#000000"/><line x1="18" y1="0" x2="4" y2="16" stroke="#000000" stroke-width="1.8"/><circle cx="16" cy="11.5" r="2" fill="#000000"/></svg>`;
+}
+// Segno: an S-curve (two mirrored semicircular arcs — same technique as the
+// undo/redo toolbar icons) with a dot in each of its two counters. Real
+// Segno also has a diagonal slash through the S, but at this render size
+// (~18px in the chart) the slash competed with the curve and read as a
+// percent sign rather than an S — dropped it in favor of legibility.
+function segnoSvg(w){
+  w = w||22;
+  const h = w*16/22;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 22 16" style="display:block;"><circle cx="5.5" cy="4" r="1.8" fill="#000000"/><path d="M13 1A4 4 0 0 1 13 8A4 4 0 0 0 13 15" fill="none" stroke="#000000" stroke-width="1.7" stroke-linecap="round"/><circle cx="16.5" cy="12" r="1.8" fill="#000000"/></svg>`;
+}
+// Coda: a circle with a cross through it, extending past the circle's edge.
+function codaSvg(w){
+  w = w||22;
+  return `<svg width="${w}" height="${w}" viewBox="0 0 22 22" style="display:block;"><circle cx="11" cy="11" r="6" fill="none" stroke="#000000" stroke-width="1.8"/><line x1="11" y1="1" x2="11" y2="21" stroke="#000000" stroke-width="1.8"/><line x1="1" y1="11" x2="21" y2="11" stroke="#000000" stroke-width="1.8"/></svg>`;
 }
 // Small UI icons for the chord keyboard's action buttons (Clear/Duplicate) —
 // same hand-drawn-with-primitives approach as repeatBarSvg above.
@@ -794,30 +811,38 @@ function renderBarEl(item){
 }
 
 // Shared between the chart's own border-line rendering and the Bar line
-// picker sheet, so both draw the exact same glyph for a given type.
+// picker sheet, so both draw the exact same glyph for a given type. Segno
+// and Coda don't change the barline stroke itself in real notation — they're
+// separate icons placed near a plain barline — so they keep the thin line
+// and add the icon beside it, sized to itself (align-self:center) rather
+// than stretching full bar height like the line divs do.
 function borderGlyphHtml(type){
   if(type==='repeatStart') return `<div class="ln-thick"></div><div class="ln-thin"></div><div class="dots"><span></span><span></span></div>`;
   if(type==='repeatEnd') return `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div>`;
   if(type==='end') return `<div class="ln-thin"></div><div class="ln-thick"></div>`;
   if(type==='double') return `<div class="ln-thin"></div><div class="ln-thin"></div>`;
+  if(type==='segno') return `<div class="ln-thin"></div><div style="align-self:center;">${segnoSvg(18)}</div>`;
+  if(type==='coda') return `<div class="ln-thin"></div><div style="align-self:center;">${codaSvg(18)}</div>`;
   return `<div class="ln-thin"></div>`;
 }
 
 // At a row wrap there's only one border object for the gap, but it's drawn
 // twice — as the trailing edge of the row above and the leading edge of the
 // row below — so the row visually looks closed on both sides. Directional
-// glyphs (repeat/end marks) only belong on the edge matching their meaning;
-// showing e.g. "End ||" at the START of the next row would falsely suggest
-// the piece stops there, so the other edge falls back to a plain line
-// instead of duplicating the full glyph. `edge` is 'full' (not a wrap —
-// mid-row, or the song's true first/last border), 'trailing' (this row's
-// own closing edge) or 'leading' (this row's own opening edge).
+// glyphs (repeat/end/segno/coda marks) only belong on the edge matching
+// their meaning; showing e.g. "End ||" at the START of the next row would
+// falsely suggest the piece stops there, so the other edge falls back to a
+// plain line instead of duplicating the full glyph. Segno and Coda mark the
+// START of what follows (like Repeat Start), not the close of what came
+// before. `edge` is 'full' (not a wrap — mid-row, or the song's true
+// first/last border), 'trailing' (this row's own closing edge) or 'leading'
+// (this row's own opening edge).
 function renderBorderEl(border, idx, edge){
   const div = document.createElement('div');
   div.className='border-line';
   div.dataset.borderIdx = idx;
   div.onclick=()=>openBorderEdit(idx);
-  const downgrade = (edge==='trailing' && border.type==='repeatStart')
+  const downgrade = (edge==='trailing' && (border.type==='repeatStart' || border.type==='segno' || border.type==='coda'))
     || (edge==='leading' && (border.type==='end' || border.type==='repeatEnd'));
   div.innerHTML = borderGlyphHtml(downgrade ? 'normal' : border.type);
   return div;

@@ -654,7 +654,7 @@ body{
 }
 /* Icon-only bar-line type picker — reuses the chart's own .border-line
    glyph markup/CSS so a button shows exactly what it will draw. */
-.barline-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.barline-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
 .barline-grid button{
   display:flex;align-items:stretch;justify-content:center;
   height:40px;padding:6px 2px;
