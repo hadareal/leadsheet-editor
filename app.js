@@ -1004,7 +1004,12 @@ function openBorderEdit(idx){
   showSheet(`
     <div class="sheet-header"><span>Bar line</span><button onclick="closeSheet()">✕</button></div>
     <div class="barline-grid">
-      ${BARLINE_TYPES.map(t=>`<button onclick="setBorderType(${idx},'${t.type}')"><div class="border-line">${borderGlyphHtml(t.type)}</div></button>`).join('')}
+      ${BARLINE_TYPES.map(t=>{
+        const inner = t.type==='segno' ? `<div style="align-self:center;">${segnoSvg(20)}</div>`
+          : t.type==='coda' ? `<div style="align-self:center;">${codaSvg(20)}</div>`
+          : borderGlyphHtml(t.type);
+        return `<button onclick="setBorderType(${idx},'${t.type}')"><div class="border-line">${inner}</div></button>`;
+      }).join('')}
     </div>
     <div class="sheet-subhead">Section label</div>
     <div class="root-grid" style="grid-template-columns:repeat(3,1fr);">

@@ -200,21 +200,6 @@ function repeatBarSvg(w){
   const h = w*16/22;
   return `<svg width="${w}" height="${h}" viewBox="0 0 22 16" style="display:block;"><circle cx="6" cy="4.5" r="2" fill="#000000"/><line x1="18" y1="0" x2="4" y2="16" stroke="#000000" stroke-width="1.8"/><circle cx="16" cy="11.5" r="2" fill="#000000"/></svg>`;
 }
-// Segno: an S-curve (two mirrored semicircular arcs — same technique as the
-// undo/redo toolbar icons) with a dot in each of its two counters. Real
-// Segno also has a diagonal slash through the S, but at this render size
-// (~18px in the chart) the slash competed with the curve and read as a
-// percent sign rather than an S — dropped it in favor of legibility.
-function segnoSvg(w){
-  w = w||22;
-  const h = w*16/22;
-  return `<svg width="${w}" height="${h}" viewBox="0 0 22 16" style="display:block;"><circle cx="5.5" cy="4" r="1.8" fill="#000000"/><path d="M13 1A4 4 0 0 1 13 8A4 4 0 0 0 13 15" fill="none" stroke="#000000" stroke-width="1.7" stroke-linecap="round"/><circle cx="16.5" cy="12" r="1.8" fill="#000000"/></svg>`;
-}
-// Coda: a circle with a cross through it, extending past the circle's edge.
-function codaSvg(w){
-  w = w||22;
-  return `<svg width="${w}" height="${w}" viewBox="0 0 22 22" style="display:block;"><circle cx="11" cy="11" r="6" fill="none" stroke="#000000" stroke-width="1.8"/><line x1="11" y1="1" x2="11" y2="21" stroke="#000000" stroke-width="1.8"/><line x1="1" y1="11" x2="21" y2="11" stroke="#000000" stroke-width="1.8"/></svg>`;
-}
 // Small UI icons for the chord keyboard's action buttons (Clear/Duplicate) —
 // same hand-drawn-with-primitives approach as repeatBarSvg above.
 function duplicateIconSvg(w){
@@ -251,6 +236,10 @@ const GLYPHS = {
   restQuarter: { d:"M78 -38l-49 60s-10 10 -10 24c0 8 4 19 14 29c45 47 60 90 60 127c0 72 -57 123 -61 134c-3 6 -4 11 -4 16c0 14 10 21 20 21c6 0 13 -3 18 -8c17 -17 165 -193 165 -193s4 -9 4 -19c0 -5 -1 -10 -4 -15c-26 -41 -62 -89 -66 -147v-3l-1 -7v-3c0 -56 31 -93 69 -139 c11 -12 37 -45 37 -57c0 -3 -2 -4 -5 -4c-2 0 -4 0 -8 1l-1 1c-17 6 -50 17 -79 17c-42 0 -63 -32 -63 -73c0 -9 1 -18 4 -26c2 -9 13 -36 26 -36c8 -7 16 -15 16 -24c0 -2 -1 -4 -2 -7c-1 -4 -8 -6 -15 -6c-8 0 -18 3 -26 9c-73 56 -116 105 -116 155c0 49 34 96 86 96 l8 -3h4c4 -1 12 -3 16 -3c5 0 9 1 11 5c1 1 1 3 1 4c0 2 -4 10 -6 14c-13 21 -27 40 -43 60z" },
   rest8th: { d:"M134 107v-10c33 0 83 60 90 66c6 4 9 4 11 4c2 -1 12 -6 12 -16c-1 -5 -6 -21 -10 -39c0 0 -98 -351 -101 -353c-10 -8 -24 -10 -35 -10c-6 0 -29 1 -29 13c18 66 90 265 93 280c1 4 1 8 1 11c0 5 -1 9 -5 9c-1 0 -3 0 -5 -1c-13 -7 -22 -11 -36 -15 c-11 -4 -25 -7 -39 -7c-19 0 -38 6 -54 17c-15 12 -27 30 -27 51c0 37 30 67 67 67s67 -30 67 -67z" },
   rest16th: { d:"M208 111v-10c34 1 84 61 91 67c3 2 6 4 11 4c2 -1 10 -5 10 -11c0 -1 -1 -2 -1 -4c-2 -13 -27 -101 -27 -101s-19 -67 -45 -152l-116 -381c-4 -11 -9 -23 -38 -23c-22 0 -31 10 -31 19l1 1v1l95 283v1l1 1c0 4 -2 6 -4 6c-23 -12 -49 -21 -75 -21c-38 0 -80 27 -80 68 c0 38 30 68 68 68c37 0 68 -30 68 -68c0 -3 0 -6 -1 -10c14 0 41 12 49 31c7 15 58 164 58 180c0 5 -2 7 -5 7c-2 0 -4 -1 -7 -2c-23 -13 -51 -22 -78 -22c-38 0 -80 27 -80 68c0 38 31 68 68 68c38 0 68 -30 68 -68z" },
+  // Segno (uniE047) and Coda (uniE048), genuine Bravura outlines extracted
+  // from the font itself (opentype.js), not hand-approximated.
+  segno: { d:"M135 665C141 665 148 663 151 652L153 645C160 618 175 559 226 559C235 559 244 560 255 564C284 574 295 598 295 626C295 641 292 657 287 673C271 719 204 736 153 736C83 736 4 650 4 551C4 527 9 502 20 477C52 404 197 315 205 312C209 310 211 308 211 304C211 300 209 295 205 288C198 274 54 15 54 15C52 11 51 6 51 2C51 -8 56 -18 65 -23C70 -26 74 -27 79 -27C89 -27 99 -21 104 -12C104 -12 259 268 262 274C262 273 270 279 274 279C289 276 489 217 489 122C489 83 465 57 433 52C431 52 428 51 426 51C407 51 390 65 390 96L390 107C390 145 365 173 337 173C333 173 329 172 325 171C288 162 254 146 254 106C254 102 254 98 255 93C262 50 307 -8 375 -8C388 -8 402 -6 417 -1C497 26 550 91 550 174C550 183 549 193 548 203C533 313 375 402 363 408C351 415 346 419 346 424C346 426 347 428 348 430C353 438 508 717 508 717C511 722 512 726 512 731C512 741 506 751 497 756C493 758 488 759 484 759C474 759 464 754 459 745C459 745 300 458 294 449C291 444 289 441 285 441C282 441 279 442 275 444C266 447 115 505 89 550C83 561 75 582 75 603C75 630 87 658 129 665ZM415 466C415 435 441 409 472 409C504 409 529 435 529 466C529 498 504 523 472 523C441 523 415 498 415 466ZM140 264C140 295 115 321 83 321C52 321 26 295 26 264C26 232 52 207 83 207C115 207 140 232 140 264Z" },
+  coda: { d:"M937 400L818 400C808 588 668 739 506 752L506 881C506 894 495 898 482 898C469 898 458 894 458 881L458 752C296 739 157 589 146 400L14 400C0 400 -4 389 -4 376C-4 363 0 352 14 352L146 352C157 165 296 13 458 0L458 -140C458 -154 469 -158 482 -158C495 -158 506 -154 506 -140L506 0C668 13 808 165 818 352L937 352C951 352 955 363 955 376C955 389 951 400 937 400ZM653 400L506 400L506 696C646 684 653 562 653 400ZM458 696L458 400L316 400C316 562 316 684 458 696ZM316 352L458 352L458 48C329 63 317 198 316 352ZM506 48L506 352L653 352C650 199 631 63 506 48Z" },
 };
 
 const STEM_UP     = { x:84, y:94 }; // where the stem meets noteheadSlashFilled's upper end, font units
@@ -310,6 +299,23 @@ function glyphSvg(name, tx, ty, baseX, baseY){
 function rectSvg(x0, y0, w, h, baseX, baseY){
   return '<rect x="'+(baseX+x0)+'" y="'+(baseY-y0-h)+'" width="'+w+'" height="'+h+'" fill="#000000"/>';
 }
+
+// Segno and Coda, standalone icons (not part of the rhythm-notation grid
+// above) — a single Bravura glyph placed in its own tightly-cropped SVG.
+// baseX/baseY are chosen so the glyph's own bounding box (measured via
+// opentype.js against the actual font, not eyeballed) sits inset by
+// `pad` units inside a viewBox of exactly (bbox size + 2*pad).
+function singleGlyphSvg(name, bbox, pad, w){
+  const vbW = (bbox.x2-bbox.x1) + pad*2, vbH = (bbox.y2-bbox.y1) + pad*2;
+  const baseX = -bbox.x1 + pad, baseY = bbox.y2 + pad;
+  w = w || 18;
+  const h = w * vbH / vbW;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${vbW} ${vbH}" style="display:block;">${glyphSvg(name, 0, 0, baseX, baseY)}</svg>`;
+}
+const SEGNO_BBOX = {x1:4, y1:-27, x2:550, y2:759};
+const CODA_BBOX = {x1:-4, y1:-158, x2:955, y2:898};
+function segnoSvg(w){ return singleGlyphSvg('segno', SEGNO_BBOX, 40, w); }
+function codaSvg(w){ return singleGlyphSvg('coda', CODA_BBOX, 40, w); }
 
 function noteGlyph(sym){
   if(sym.rest){
@@ -813,47 +819,52 @@ function renderBarEl(item){
 // Shared between the chart's own border-line rendering and the Bar line
 // picker sheet, so both draw the exact same glyph for a given type. Segno
 // and Coda don't change the barline stroke itself in real notation — they're
-// separate icons placed near a plain barline — so they keep the thin line
-// and add the icon beside it, sized to itself (align-self:center) rather
-// than stretching full bar height like the line divs do.
+// icons shown above the bar line instead (see renderLabelSlot), so here they
+// fall through to a plain line like a normal border.
 function borderGlyphHtml(type){
   if(type==='repeatStart') return `<div class="ln-thick"></div><div class="ln-thin"></div><div class="dots"><span></span><span></span></div>`;
   if(type==='repeatEnd') return `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div>`;
   if(type==='end') return `<div class="ln-thin"></div><div class="ln-thick"></div>`;
   if(type==='double') return `<div class="ln-thin"></div><div class="ln-thin"></div>`;
-  if(type==='segno') return `<div class="ln-thin"></div><div style="align-self:center;">${segnoSvg(18)}</div>`;
-  if(type==='coda') return `<div class="ln-thin"></div><div style="align-self:center;">${codaSvg(18)}</div>`;
   return `<div class="ln-thin"></div>`;
 }
 
 // At a row wrap there's only one border object for the gap, but it's drawn
 // twice — as the trailing edge of the row above and the leading edge of the
 // row below — so the row visually looks closed on both sides. Directional
-// glyphs (repeat/end/segno/coda marks) only belong on the edge matching
-// their meaning; showing e.g. "End ||" at the START of the next row would
-// falsely suggest the piece stops there, so the other edge falls back to a
-// plain line instead of duplicating the full glyph. Segno and Coda mark the
-// START of what follows (like Repeat Start), not the close of what came
-// before. `edge` is 'full' (not a wrap — mid-row, or the song's true
-// first/last border), 'trailing' (this row's own closing edge) or 'leading'
-// (this row's own opening edge).
+// glyphs (repeat/end marks) only belong on the edge matching their meaning;
+// showing e.g. "End ||" at the START of the next row would falsely suggest
+// the piece stops there, so the other edge falls back to a plain line
+// instead of duplicating the full glyph. `edge` is 'full' (not a wrap —
+// mid-row, or the song's true first/last border), 'trailing' (this row's
+// own closing edge) or 'leading' (this row's own opening edge).
 function renderBorderEl(border, idx, edge){
   const div = document.createElement('div');
   div.className='border-line';
   div.dataset.borderIdx = idx;
   div.onclick=()=>openBorderEdit(idx);
-  const downgrade = (edge==='trailing' && (border.type==='repeatStart' || border.type==='segno' || border.type==='coda'))
+  const downgrade = (edge==='trailing' && border.type==='repeatStart')
     || (edge==='leading' && (border.type==='end' || border.type==='repeatEnd'));
   div.innerHTML = borderGlyphHtml(downgrade ? 'normal' : border.type);
   return div;
 }
 
+// A border needs the label row shown at all if it has a section label OR a
+// Segno/Coda mark — both render as a badge/icon sitting above the bar line,
+// at the position where the marked bar begins.
+function borderWantsLabelRow(b){
+  return !!(b && (b.label || b.type==='segno' || b.type==='coda'));
+}
 function renderLabelSlot(idx, allow){
   const div = document.createElement('div');
   div.className='label-slot';
   const b = song.borders[idx];
-  if(allow && b && b.label){
-    div.innerHTML = `<span class="sec-badge">${escapeHtml(b.label)}</span>`;
+  if(allow && b){
+    let html = '';
+    if(b.label) html += `<span class="sec-badge">${escapeHtml(b.label)}</span>`;
+    if(b.type==='segno') html += segnoSvg(16);
+    if(b.type==='coda') html += codaSvg(16);
+    div.innerHTML = html;
   }
   return div;
 }
@@ -872,7 +883,14 @@ function renderTimeSigEl(showDigits){
 // ending brackets don't cross a row wrap in this implementation — a run
 // always starts fresh at the top of each row, even if the same ending
 // number continues from the previous row's bars).
-function voltaRunsForRow(row){
+// A run is "open" (no closing tick, matching standard engraving for the
+// last ending in a set) when nothing continues the sequence right after it
+// — checked against the actual next bar in the whole song (not just this
+// row), so a run ending at a row's last bar still looks ahead correctly.
+// The check requires a strictly HIGHER number, not just any volta, so an
+// unrelated later "1." (a second, separate repeated passage) doesn't
+// wrongly suppress this run's closing tick.
+function voltaRunsForRow(row, rowStart){
   const runs = [];
   let i = 0;
   while(i < row.length){
@@ -880,7 +898,9 @@ function voltaRunsForRow(row){
     if(!n){ i++; continue; }
     let j = i;
     while(j+1 < row.length && row[j+1].volta === n) j++;
-    runs.push({start:i, end:j, number:n});
+    const nextBar = song.items[rowStart+j+1];
+    const isOpen = !(nextBar && nextBar.volta > n);
+    runs.push({start:i, end:j, number:n, isOpen});
     i = j+1;
   }
   return runs;
@@ -890,38 +910,66 @@ function voltaRunsForRow(row){
 // which itself hugs the bars), drawing a bracket — top line + end ticks +
 // number label — over each run of consecutively-numbered volta (1st/2nd/3rd
 // ending) bars. Collapses to nothing when the row has no voltas.
-function renderVoltaRowEl(row){
+//
+// The line/ticks are built from row.length+1 "gap" positions (mirroring the
+// border-lines: gap[k] sits at the actual bar line before bar k, gap[row.
+// length] is the trailing one) plus row.length "slot" positions (one per
+// bar, matching .bar's own width). A tick sits at the gap's own center — the
+// real bar line position, since .border-line's stroke is centered in that
+// same column — and each flanking gap's line only spans the HALF between
+// its tick and the neighboring slot, not the gap's full width, so the
+// bracket doesn't overshoot past the bar line it's anchored to. The number
+// label lives in the start gap too, right next to its tick, instead of
+// being offset into the bar — text is left un-clipped (no overflow:hidden
+// on the gap itself) so it can spill rightward over the bar below it.
+function renderVoltaRowEl(row, rowStart){
   const div = document.createElement('div');
   div.className = 'volta-row';
   const hasAny = row.some(item=>item.volta);
   if(hasAny) div.classList.add('has-volta');
 
+  const runs = voltaRunsForRow(row, rowStart);
+  const gapInfo = Array.from({length: row.length+1}, ()=>({leftHalf:false, rightHalf:false, tick:false, label:null}));
+  runs.forEach(run=>{
+    gapInfo[run.start].rightHalf = true;
+    gapInfo[run.start].tick = true;
+    gapInfo[run.start].label = run.number;
+    for(let g=run.start+1; g<=run.end; g++){ gapInfo[g].leftHalf = true; gapInfo[g].rightHalf = true; }
+    if(!run.isOpen){
+      gapInfo[run.end+1].leftHalf = true;
+      gapInfo[run.end+1].tick = true;
+    }
+  });
+  function gapHtml(info){
+    let html = '';
+    if(info.leftHalf && info.rightHalf) html += '<div class="volta-line"></div>';
+    else if(info.leftHalf) html += '<div class="volta-line volta-line-left"></div>';
+    else if(info.rightHalf) html += '<div class="volta-line volta-line-right"></div>';
+    if(info.tick) html += '<div class="volta-tick"></div>';
+    if(info.label) html += `<span class="volta-label">${info.label}.</span>`;
+    return html;
+  }
+
   const tsSpacer = document.createElement('div');
   tsSpacer.className = 'ts-spacer';
   div.appendChild(tsSpacer);
 
-  const runs = voltaRunsForRow(row);
-
   row.forEach((item, i)=>{
     const gap = document.createElement('div');
     gap.className = 'volta-gap';
+    gap.innerHTML = gapHtml(gapInfo[i]);
     div.appendChild(gap);
 
     const slot = document.createElement('div');
     slot.className = 'volta-slot';
     const run = runs.find(r=>i>=r.start && i<=r.end);
-    if(run){
-      const isStart = run.start===i, isEnd = run.end===i;
-      slot.innerHTML = '<div class="volta-line"></div>'
-        + (isStart ? '<div class="volta-tick left"></div>' : '')
-        + (isEnd ? '<div class="volta-tick right"></div>' : '')
-        + (isStart ? `<span class="volta-label">${run.number}.</span>` : '');
-    }
+    if(run) slot.innerHTML = '<div class="volta-line"></div>';
     div.appendChild(slot);
   });
 
   const trailingGap = document.createElement('div');
   trailingGap.className = 'volta-gap';
+  trailingGap.innerHTML = gapHtml(gapInfo[row.length]);
   div.appendChild(trailingGap);
 
   return div;
@@ -1010,9 +1058,9 @@ function render(){
     const isLastRow = (rIdx === rows.length-1);
     let needsLabelRow = false;
     for(let k=rowStart;k<rowStart+row.length;k++){
-      if(song.borders[k] && song.borders[k].label){ needsLabelRow=true; break; }
+      if(borderWantsLabelRow(song.borders[k])){ needsLabelRow=true; break; }
     }
-    if(!needsLabelRow && isLastRow && song.borders[rowStart+row.length] && song.borders[rowStart+row.length].label){
+    if(!needsLabelRow && isLastRow && borderWantsLabelRow(song.borders[rowStart+row.length])){
       needsLabelRow = true;
     }
     if(needsLabelRow){
@@ -1033,7 +1081,7 @@ function render(){
       songBlock.appendChild(labelRow);
     }
 
-    songBlock.appendChild(renderVoltaRowEl(row));
+    songBlock.appendChild(renderVoltaRowEl(row, rowStart));
     songBlock.appendChild(renderRhythmRowEl(row, slotMap));
 
     const barRow = document.createElement('div');

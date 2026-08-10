@@ -166,6 +166,7 @@ body{
   display:flex;
   align-items:flex-end;
   justify-content:center;
+  gap:4px;
 }
 .sec-badge{
   background:transparent;
@@ -196,23 +197,35 @@ body{
   overflow:hidden;
   transition:height .18s ease;
 }
-.volta-row.has-volta{ height:20px; }
+.volta-row.has-volta{ height:26px; }
 /* Mirrors the bar-row's own spacer widths, same technique as the rhythm row
-   below, so a bracket lines up exactly with the bars it spans. */
+   below, so a bracket lines up exactly with the bars it spans. Gaps mirror
+   .border-line's width (the actual bar line), so a run's line/tick drawn
+   through a gap lines up with the real bar line instead of a bar's own
+   edge. */
 .volta-row .ts-spacer{ flex:0 0 12px; }
-.volta-row .volta-gap{ flex:0 0 auto; min-width:13px; }
+.volta-row .volta-gap{ flex:0 0 auto; min-width:13px; position:relative; height:24px; }
 .volta-row .volta-slot{
   flex:0 1 var(--bar-w);
   min-width:56px;
   position:relative;
-  height:18px;
+  height:24px;
 }
-.volta-line{ position:absolute; top:2px; left:0; right:0; border-top:1.6px solid var(--ink); }
-.volta-tick{ position:absolute; top:2px; height:10px; border-left:1.6px solid var(--ink); }
-.volta-tick.left{ left:0; }
-.volta-tick.right{ right:0; }
+/* Line sits well below the label (top:0) so the two don't crowd each other,
+   and ends close to the bar row below it. The left/right variants are for a
+   gap holding a tick: the line only needs to reach from the tick (centered
+   in the gap) to whichever neighboring slot it's connecting to, not the
+   gap's full width. */
+.volta-line{ position:absolute; top:14px; left:0; right:0; border-top:1.6px solid var(--ink); }
+.volta-line-left{ left:0; right:50%; }
+.volta-line-right{ left:50%; right:0; }
+.volta-tick{ position:absolute; top:14px; left:50%; height:9px; border-left:1.6px solid var(--ink); transform:translateX(-50%); }
+/* Sits in the gap next to its tick (not offset into the bar), starting
+   right at the tick and spilling rightward over the bar below — nothing
+   here clips it (only .volta-row itself has overflow:hidden). */
 .volta-label{
-  position:absolute; top:0; left:3px;
+  position:absolute; top:0; left:50%; margin-left:2px;
+  white-space:nowrap;
   font-family:var(--ui-font); font-weight:700; font-size:11px; color:var(--ink);
 }
 
