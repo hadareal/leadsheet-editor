@@ -13,10 +13,8 @@ const CHORD_KB_SYMBOLS = [
   {ch:'alt', sup:true,  label:'alt'},
   {ch:'add', sup:true,  label:'add'},
   {ch:'no',  sup:true,  label:'omit'},
-  {ch:'(',   sup:true,  label:''},
-  {ch:')',   sup:true,  label:''},
 ];
-const CHORD_KB_NUMBERS = ['1','2','3','4','5','6','7','9'];
+const CHORD_KB_NUMBERS = ['2','3','4','5','6','7','9','11','13'];
 const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
 const SECTION_LETTERS = ['A','B','C','D','E','F','G','H'];
 const NAMED_SECTIONS = ['Verse','Pre-Chorus','Chorus','Interlude','Solo'];
@@ -166,23 +164,24 @@ function escapeHtml(s){
 function rootHtml(r){
   if(r.length===2 && r[1]==='b') return escapeHtml(r[0])+'<span class="acc">♭</span>';
   if(r.length===2 && r[1]==='#') return escapeHtml(r[0])+'<span class="acc">♯</span>';
+  if(r.length===2 && r[1]==='n') return escapeHtml(r[0])+'<span class="acc">♮</span>';
   return escapeHtml(r);
 }
-function wholeRestSvg(w){
+// The "simile" mark: real notation for "repeat the previous bar" — a
+// diagonal slash with a dot above-left and a dot below-right. Hand-drawn
+// with plain SVG primitives (not lifted from Bravura, unlike the note
+// glyphs below) since it's simple enough to get right without the font.
+function repeatBarSvg(w){
   w = w||22;
-  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="4" x2="22" y2="4" stroke="#000000" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#000000"/></svg>`;
-}
-function halfRestSvg(w){
-  w = w||22;
-  return `<svg width="${w}" height="16" viewBox="0 0 22 16" style="display:block;"><line x1="0" y1="10" x2="22" y2="10" stroke="#000000" stroke-width="1.6"/><rect x="3" y="4" width="13" height="6" fill="#000000"/></svg>`;
+  const h = w*16/22;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 22 16" style="display:block;"><circle cx="6" cy="4.5" r="2" fill="#000000"/><line x1="18" y1="0" x2="4" y2="16" stroke="#000000" stroke-width="1.8"/><circle cx="16" cy="11.5" r="2" fill="#000000"/></svg>`;
 }
 /* ============ Rhythm: note/rest symbols ============
    Flag and rest outlines are lifted from Bravura (SIL Open Font License,
    steinbergmedia/bravura). Coordinates are the font's own design units
    (1000/em); glyphSvg()/rectSvg() place them by flipping font Y-up into
-   SVG Y-down. Fills are hardcoded #000000 (not var(--ink)) to match
-   wholeRestSvg/halfRestSvg above, which print more reliably than
-   CSS-driven color on some PDF/print engines.
+   SVG Y-down. Fills are hardcoded #000000 (not var(--ink)), which prints
+   more reliably than CSS-driven color on some PDF/print engines.
    This is rhythm/"kick" notation, the jazz/big-band convention for marking
    rhythmic hits: duration reads from the stem/flag/beam, not the head
    shape. noteheadSlashFilled (a diagonal slash, custom-drawn — Bravura has
@@ -729,12 +728,7 @@ function renderBarEl(item){
   div.dataset.id=item.id;
 
   if(item.kind==='repeat'){
-    div.innerHTML = '<span class="bar-glyph">%</span>';
-    div.onclick=()=>handleBarTap(item, 0);
-    return div;
-  }
-  if(item.kind==='rest'){
-    div.innerHTML = `<span class="bar-glyph" style="font-size:0;">${wholeRestSvg()}</span>`;
+    div.innerHTML = `<span class="bar-glyph" style="font-size:0;">${repeatBarSvg(26)}</span>`;
     div.onclick=()=>handleBarTap(item, 0);
     return div;
   }
@@ -750,13 +744,10 @@ function renderBarEl(item){
     const slot = document.createElement('div');
     slot.className='slot';
     const chord = item.chords.find(c=>c.beat===beatIdx);
-    if(chord && chord.rest){
-      slot.innerHTML = halfRestSvg(14);
-      slot.addEventListener('pointerdown', (e)=>slotPointerDown(e, item, beatIdx, div));
-    } else if(chord){
+    if(chord){
       const c = document.createElement('span');
       c.className='chord'+denseCls;
-      c.innerHTML = chordInnerHtml(chord);
+      c.innerHTML = chord.nc ? 'N.C.' : chordInnerHtml(chord);
       slot.appendChild(c);
       slot.addEventListener('pointerdown', (e)=>slotPointerDown(e, item, beatIdx, div));
     }
@@ -958,26 +949,12 @@ function render(){
   renderInfoPanel();
 }
 
-/* ============ Bar content (chord / % / rest / half-rest) ============ */
+/* ============ Bar content (chord / %) ============ */
 function setBarKind(barId, kind){
   pushSongUndo();
   const b = findBarById(barId);
   if(!b) return closeSheet();
   b.kind=kind; b.chords=[];
-  closeSheet();
-  render();
-}
-function setHalfRest(barId){
-  pushSongUndo();
-  const b = findBarById(barId);
-  if(!b) return closeSheet();
-  b.kind='chords';
-  if(pickerTarget.mode==='edit'){
-    const c = b.chords.find(c=>c.beat===pickerTarget.beat);
-    if(c){ c.rest=true; delete c.root; delete c.tokens; delete c.bass; }
-  } else {
-    addChordWithReflow(b, {rest:true});
-  }
   closeSheet();
   render();
 }
