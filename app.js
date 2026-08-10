@@ -992,8 +992,10 @@ function openBorderEdit(idx){
     <div class="root-grid" style="grid-template-columns:repeat(3,1fr);">
       ${SECTION_LETTERS.map(l=>`<button onclick="setLabel(${idx},'${l}')">${l}</button>`).join('')}
     </div>
+    <div class="symbol-grid" style="margin-top:8px;">
+      <button class="clear-label-btn" onclick="setLabel(${idx},null)">⌫ Clear label</button>
+    </div>
     <div class="symbol-grid two-col" style="margin-top:8px;">
-      <button onclick="setLabel(${idx},null)">⌫ Clear label</button>
       ${NAMED_SECTIONS.map(n=>`<button onclick="setLabel(${idx},'${n}')">${n}</button>`).join('')}
       <button onclick="openCustomLabelEdit(${idx})">Custom…</button>
     </div>

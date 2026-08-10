@@ -632,6 +632,10 @@ body{
 .symbol-grid{grid-template-columns:repeat(1,1fr);}
 .symbol-grid button{font-family:var(--ui-font);font-weight:700;font-size:14px;padding:14px 6px;text-align:left;}
 .symbol-grid button.warn{ color:var(--danger); }
+/* Same warm rust ink used for hand-drawn annotations (PEN_COLOR in app.js) —
+   sets this apart from the plain black section-label buttons as a lighter,
+   reversible "clear" action rather than picking a label. */
+.symbol-grid button.clear-label-btn{ color:#8a3b2c; border-color:#8a3b2c; }
 .symbol-grid.two-col{ grid-template-columns:repeat(2,1fr); }
 .symbol-grid.two-col button{
   padding:10px 6px;
