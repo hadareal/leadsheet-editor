@@ -654,6 +654,10 @@ body{
 .sheet-actions{margin-top:14px;display:flex;gap:8px;}
 .sheet-actions button{
   flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
   padding:11px;
   border-radius:8px;
   border:none;
@@ -666,6 +670,7 @@ body{
 .sheet-actions button.neutral{ background:#eeeeee; color:var(--ink-soft); }
 .sheet-actions button.danger{ background:#eeeeee; color:var(--danger); }
 .sheet-actions button:disabled{ opacity:.35; cursor:not-allowed; }
+.sheet-actions button.compact{ padding:11px 4px; gap:4px; font-size:12px; }
 .sheet-actions button.neutral.tie-armed{ background:var(--ink); color:var(--paper); }
 
 /* ===== Chord keyboard ===== */

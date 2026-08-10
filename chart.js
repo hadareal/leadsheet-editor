@@ -176,6 +176,16 @@ function repeatBarSvg(w){
   const h = w*16/22;
   return `<svg width="${w}" height="${h}" viewBox="0 0 22 16" style="display:block;"><circle cx="6" cy="4.5" r="2" fill="#000000"/><line x1="18" y1="0" x2="4" y2="16" stroke="#000000" stroke-width="1.8"/><circle cx="16" cy="11.5" r="2" fill="#000000"/></svg>`;
 }
+// Small UI icons for the chord keyboard's action buttons (Clear/Duplicate) —
+// same hand-drawn-with-primitives approach as repeatBarSvg above.
+function clearIconSvg(w){
+  w = w||16;
+  return `<svg width="${w}" height="${w}" viewBox="0 0 20 20" style="display:block;"><rect x="2" y="2" width="16" height="16" rx="4" fill="none" stroke="#000000" stroke-width="1.6"/><line x1="6.5" y1="6.5" x2="13.5" y2="13.5" stroke="#000000" stroke-width="1.6"/><line x1="13.5" y1="6.5" x2="6.5" y2="13.5" stroke="#000000" stroke-width="1.6"/></svg>`;
+}
+function duplicateIconSvg(w){
+  w = w||16;
+  return `<svg width="${w}" height="${w}" viewBox="0 0 20 20" style="display:block;"><rect x="6" y="2" width="12" height="12" rx="2" fill="none" stroke="#000000" stroke-width="1.5"/><rect x="2" y="6" width="12" height="12" rx="2" fill="#eeeeee" stroke="#000000" stroke-width="1.5"/></svg>`;
+}
 /* ============ Rhythm: note/rest symbols ============
    Flag and rest outlines are lifted from Bravura (SIL Open Font License,
    steinbergmedia/bravura). Coordinates are the font's own design units
