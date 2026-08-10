@@ -564,7 +564,7 @@ function barActionsHtml(){
   return `
     ${wholeBarIcons}
     <div class="sheet-actions">
-      <button class="neutral compact" onclick="cbClearBar()">${clearIconSvg(13)}Clear Bar</button>
+      <button class="neutral compact" onclick="cbClearBar()"><span class="btn-icon">⌫</span>Clear Bar</button>
       <button class="neutral compact" onclick="duplicateBar('${pickerTarget.barId}')">${duplicateIconSvg(13)}Duplicate</button>
       <button class="danger compact" onclick="deleteBar('${pickerTarget.barId}')">🗑️ Delete Bar</button>
     </div>
@@ -608,10 +608,10 @@ function renderChordKeyboard(){
     <div class="kb-grid" style="grid-template-columns:repeat(11,1fr);">${row3}</div>
     <div class="sheet-actions">
       <button class="neutral" onclick="cbClearChord()">${clearIconSvg(15)}Clear Chord</button>
-      <button class="neutral" ${doneNextDisabled} onclick="cbNextBeat()">Next Beat →</button>
+      <button class="neutral" ${doneNextDisabled} onclick="cbNextBeat()">Next Beat<span class="btn-arrow">→</span></button>
     </div>
     <div class="sheet-actions">
-      <button class="neutral" ${doneNextDisabled} onclick="cbNextBar()">Next Bar →</button>
+      <button class="neutral" ${doneNextDisabled} onclick="cbNextBar()">Next Bar<span class="btn-arrow">→</span></button>
       <button class="primary" ${doneNextDisabled} onclick="cbDone()">Done</button>
     </div>
   `);
