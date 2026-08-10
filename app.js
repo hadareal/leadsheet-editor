@@ -3,7 +3,8 @@ const ICON_PATHS = {
   cursor: '<path d="M5 3l6.5 16 2-6.3 6.3-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>',
   pencil: '<path d="M4 20l0.8-4L14.5 6.3l3.2 3.2L8 19.2 4 20z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M13 7.8l3.2 3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
   eraser: '<g transform="rotate(-35 12 12)"><rect x="6" y="8.5" width="12" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="6" y1="13" x2="18" y2="13" stroke="currentColor" stroke-width="1.6"/></g>',
-  undo: '<path d="M7.5 7.5L3.3 11.7l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.3 11.7h10.4a6.3 6.3 0 1 1 0 12.6h-1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  undo: '<path d="M7.5 3.6L3.3 7.8l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.3 7.8h10.4a6.3 6.3 0 1 1 0 12.6h-1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  redo: '<path d="M16.5 3.6L20.7 7.8l-4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.7 7.8h-10.4a6.3 6.3 0 1 0 0 12.6h1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
   droplet: '<path d="M12 3.2s6.3 7.4 6.3 11.8a6.3 6.3 0 1 1-12.6 0C5.7 10.6 12 3.2 12 3.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
   rhythm: '<ellipse cx="7" cy="18.2" rx="2.3" ry="1.7" fill="currentColor"/><ellipse cx="15.5" cy="15.6" rx="2.3" ry="1.7" fill="currentColor"/><line x1="9.2" y1="18.2" x2="9.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="17.7" y1="15.6" x2="17.7" y2="5.4" stroke="currentColor" stroke-width="1.4"/><path d="M9.2 5l8.5 0.4" fill="none" stroke="currentColor" stroke-width="1.4"/>',
   page: '<path d="M6.5 3.5h7l4 4v13h-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
@@ -93,29 +94,38 @@ function openMoreSheet(){
   `);
 }
 
-/* ============ Undo stack ============ */
+/* ============ Undo / redo stacks ============ */
 let undoStack = [];
+let redoStack = [];
 function snapshotSongStr(){ return JSON.stringify(song); }
-function pushSongUndo(){
-  undoStack.push({type:'song', data:snapshotSongStr()});
-  if(undoStack.length>60) undoStack.shift();
-}
-function pushInkUndo(){
+function captureEntry(type){
   const canvas = document.getElementById('inkCanvas');
-  if(canvas.width>0 && canvas.height>0){
-    undoStack.push({type:'ink', data:canvas.toDataURL(), w:canvas.width, h:canvas.height});
-    if(undoStack.length>60) undoStack.shift();
-  }
-}
-function pushFullUndo(){
-  const canvas = document.getElementById('inkCanvas');
-  undoStack.push({
+  if(type==='song') return {type:'song', data:snapshotSongStr()};
+  if(type==='ink') return {type:'ink', data:canvas.toDataURL(), w:canvas.width, h:canvas.height};
+  return {
     type:'full',
     songData: snapshotSongStr(),
     inkData: canvas.width>0 ? canvas.toDataURL() : null,
     w:canvas.width, h:canvas.height
-  });
+  };
+}
+function pushSongUndo(){
+  undoStack.push(captureEntry('song'));
   if(undoStack.length>60) undoStack.shift();
+  redoStack.length = 0;
+}
+function pushInkUndo(){
+  const canvas = document.getElementById('inkCanvas');
+  if(canvas.width>0 && canvas.height>0){
+    undoStack.push(captureEntry('ink'));
+    if(undoStack.length>60) undoStack.shift();
+    redoStack.length = 0;
+  }
+}
+function pushFullUndo(){
+  undoStack.push(captureEntry('full'));
+  if(undoStack.length>60) undoStack.shift();
+  redoStack.length = 0;
 }
 function restoreInkFromDataUrl(dataUrl, w, h){
   const canvas = document.getElementById('inkCanvas');
@@ -141,9 +151,7 @@ function restoreInkFromDataUrl(dataUrl, w, h){
   };
   img.src = dataUrl;
 }
-function undo(){
-  const entry = undoStack.pop();
-  if(!entry){ showToast('Nothing to undo'); return; }
+function applyEntry(entry){
   if(entry.type==='song'){
     song = JSON.parse(entry.data);
     updateHeader();
@@ -158,6 +166,20 @@ function undo(){
     render();
     requestAnimationFrame(()=>restoreInkFromDataUrl(entry.inkData, entry.w, entry.h));
   }
+}
+function undo(){
+  const entry = undoStack.pop();
+  if(!entry){ showToast('Nothing to undo'); return; }
+  redoStack.push(captureEntry(entry.type));
+  if(redoStack.length>60) redoStack.shift();
+  applyEntry(entry);
+}
+function redo(){
+  const entry = redoStack.pop();
+  if(!entry){ showToast('Nothing to redo'); return; }
+  undoStack.push(captureEntry(entry.type));
+  if(undoStack.length>60) undoStack.shift();
+  applyEntry(entry);
 }
 
 /* ============ Desktop info panel ============ */
@@ -1172,6 +1194,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('welcomeGlyph').innerHTML = svgIcon('staffPen', 38);
   document.getElementById('backIcon').innerHTML = svgIcon('chevron', 15) + '<span>Back</span>';
   document.getElementById('topUndoIcon').innerHTML = svgIcon('undo');
+  document.getElementById('topRedoIcon').innerHTML = svgIcon('redo');
   renderToolbars();
 
   syncTitleDisplay();
