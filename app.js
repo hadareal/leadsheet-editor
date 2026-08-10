@@ -591,7 +591,7 @@ function renderChordKeyboard(){
     + `<button ${ncDisabled?'disabled':''} onclick="cbPickNC()">N.C.</button>`
     + `<button ${cbNC?'disabled':''} onclick="cbPickToken('${nextParen}',true)">()</button>`;
   const row3 = CHORD_KB_NUMBERS.map(n=>`<button ${cbNC?'disabled':''} onclick="cbPickToken('${n}',true)">${n}</button>`).join('')
-    + `<button ${(cbInBass||cbNC)?'disabled':''} onclick="cbSlash()">/</button>`
+    + `<button ${(!cbRoot||cbInBass||cbNC)?'disabled':''} onclick="cbSlash()">/</button>`
     + `<button ${cbHistory.length===0?'disabled':''} onclick="cbBackspace()">⌫</button>`;
   const doneNextDisabled = (pickerTarget.mode!=='edit' && !cbRoot && !cbNC) ? 'disabled' : '';
 
