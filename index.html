@@ -26,9 +26,12 @@
   <div class="welcome-card">
     <div class="app-glyph" id="welcomeGlyph"></div>
     <h1>Lead Sheet Editor</h1>
+    <button class="welcome-google" onclick="attemptGoogleSignIn()">Sign in with Google</button>
+    <div class="welcome-divider"><span class="ln"></span><span>or</span><span class="ln"></span></div>
     <div class="welcome-field"><input type="email" id="welcomeEmail" placeholder="Email" autocomplete="email"></div>
     <div class="welcome-field"><input type="password" id="welcomePassword" placeholder="Password" autocomplete="current-password"></div>
     <button class="welcome-signin" onclick="attemptSignIn()">Sign In</button>
+    <button class="welcome-signup" onclick="attemptSignUp()">New here? Create an account</button>
     <div class="welcome-divider"><span class="ln"></span><span>or</span><span class="ln"></span></div>
     <button class="welcome-guest" onclick="continueAsGuest()">Continue as Guest</button>
     <div class="welcome-msg" id="welcomeMsg"></div>

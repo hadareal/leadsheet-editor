@@ -1251,7 +1251,30 @@ function showEditor(){
 function continueAsGuest(){ showEditor(); }
 function attemptSignIn(){
   const msg = document.getElementById('welcomeMsg');
-  msg.textContent = 'Accounts are coming soon — continue as guest for now.';
+  if(!navigator.onLine){ msg.textContent = "You're offline — sign in once you have a connection."; return; }
+  const email = document.getElementById('welcomeEmail').value.trim();
+  const password = document.getElementById('welcomePassword').value;
+  if(!email || !password){ msg.textContent = 'Enter your email and password.'; return; }
+  msg.textContent = 'Signing in…';
+  signInWithPassword(email, password).then(({error})=>{
+    if(error) msg.textContent = error.message;
+  });
+}
+function attemptSignUp(){
+  const msg = document.getElementById('welcomeMsg');
+  if(!navigator.onLine){ msg.textContent = "You're offline — sign in once you have a connection."; return; }
+  const email = document.getElementById('welcomeEmail').value.trim();
+  const password = document.getElementById('welcomePassword').value;
+  if(!email || !password){ msg.textContent = 'Enter an email and password to create an account.'; return; }
+  msg.textContent = 'Creating account…';
+  signUpWithPassword(email, password).then(({error})=>{
+    msg.textContent = error ? error.message : 'Check your email to confirm your account, then sign in.';
+  });
+}
+function attemptGoogleSignIn(){
+  const msg = document.getElementById('welcomeMsg');
+  if(!navigator.onLine){ msg.textContent = "You're offline — sign in once you have a connection."; return; }
+  signInWithGoogle();
 }
 
 /* ============ Init ============ */

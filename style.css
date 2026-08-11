@@ -949,6 +949,16 @@ body{
   font-style:italic;
 }
 .welcome-divider .ln{ flex:1 1 auto; height:1px; background:var(--card-border); }
+.welcome-google{
+  width:100%; background:none; border:1px solid var(--card-border); border-radius:9px;
+  padding:12px; font-family:var(--ui-font); font-weight:700; font-size:14.5px;
+  color:var(--ink); cursor:pointer; margin-bottom:20px;
+}
+.welcome-google:hover{ background:var(--card-border); }
+.welcome-signup{
+  width:100%; background:none; border:none; font-family:var(--ui-font); font-size:12.5px;
+  color:var(--ink-soft); text-decoration:underline; padding:0 0 22px; cursor:pointer;
+}
 .welcome-guest{
   width:100%;
   background:var(--ink);
