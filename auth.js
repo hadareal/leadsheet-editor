@@ -23,5 +23,26 @@ function signOutUser(){
     currentUser = null;
     closeSheet();
     showWelcome();
+    if(typeof renderToolbars==='function') renderToolbars();
   });
 }
+
+/* ============ Routing after sign-in ============ */
+async function handleSignedIn(session){
+  currentUser = session.user;
+  const lastUserId = await dbGetMeta('lastSignedInUserId');
+  if(lastUserId && lastUserId !== session.user.id){
+    const staleSongs = await dbGetAllSongs();
+    for(const rec of staleSongs) await dbDeleteSong(rec.id);
+    await dbSetMeta('lastSyncedAt', 0);
+  }
+  await dbSetMeta('lastSignedInUserId', session.user.id);
+  showEditor();
+  if(typeof renderToolbars==='function') renderToolbars();
+  openMySongsSheet();
+  if(typeof requestSync==='function') requestSync();
+}
+
+sb.auth.onAuthStateChange((event, session)=>{
+  if(session) handleSignedIn(session);
+});

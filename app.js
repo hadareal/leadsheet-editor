@@ -29,8 +29,13 @@ const TOOLBAR_OVERFLOW = [
   {action:'clearPage', label:'Clear Page', icon:'page', warn:true},
   {action:'export',    label:'Export',     icon:'export'},
 ];
-const PHONE_TOOLBAR_BUTTONS   = [...TOOLBAR_PRIMARY, {action:'more', label:'More', icon:'more'}];
-const SIDEBAR_TOOLBAR_BUTTONS = [...TOOLBAR_PRIMARY, ...TOOLBAR_OVERFLOW];
+function authToolbarButtons(){
+  if(typeof isSignedIn!=='function' || !isSignedIn()) return [];
+  return [
+    {action:'mysongs', label:'My Songs', icon:'page'},
+    {action:'signout',  label:'Sign Out', icon:null, text:'⎋'},
+  ];
+}
 function iconOrAaHtml(icon, text, size){
   return icon ? svgIcon(icon, size) : `<span class="sg-aa" style="font-size:${size?size-3:16}px;">${text}</span>`;
 }
@@ -41,8 +46,10 @@ function toolbarButtonHtml(btn){
   return `<button class="${cls}" ${dataAttr}>${inner}<span>${btn.label}</span></button>`;
 }
 function renderToolbars(){
-  document.getElementById('bottomToolbar').innerHTML  = PHONE_TOOLBAR_BUTTONS.map(toolbarButtonHtml).join('');
-  document.getElementById('sidebarToolbar').innerHTML = SIDEBAR_TOOLBAR_BUTTONS.map(toolbarButtonHtml).join('');
+  const phoneButtons = [...TOOLBAR_PRIMARY, {action:'more', label:'More', icon:'more'}];
+  const sidebarButtons = [...TOOLBAR_PRIMARY, ...TOOLBAR_OVERFLOW, ...authToolbarButtons()];
+  document.getElementById('bottomToolbar').innerHTML  = phoneButtons.map(toolbarButtonHtml).join('');
+  document.getElementById('sidebarToolbar').innerHTML = sidebarButtons.map(toolbarButtonHtml).join('');
   [document.getElementById('bottomToolbar'), document.getElementById('sidebarToolbar')].forEach(container=>{
     container.addEventListener('click', onToolbarClick);
   });
@@ -59,6 +66,8 @@ function onToolbarClick(e){
   else if(action==='font') openFontPicker();
   else if(action==='clearPage') confirmClearPage();
   else if(action==='export') openExportSheet();
+  else if(action==='mysongs') openMySongsSheet();
+  else if(action==='signout') signOutUser();
 }
 function syncModeButtons(){
   document.querySelectorAll('.tbtn[data-tb-mode]').forEach(btn=>{
@@ -90,6 +99,10 @@ function openMoreSheet(){
       <button class="icon-row" onclick="openFontPicker()">${iconOrAaHtml(null,'Aa',18)}<span>Font</span></button>
       <button class="icon-row warn" onclick="confirmClearPage()">${svgIcon('page',18)}<span>Clear Page</span></button>
       <button class="icon-row" onclick="openExportSheet()">${svgIcon('export',18)}<span>Export</span></button>
+      ${isSignedIn() ? `
+        <button class="icon-row" onclick="openMySongsSheet()">${svgIcon('page',18)}<span>My Songs</span></button>
+        <button onclick="signOutUser()">Sign Out</button>
+      ` : ''}
     </div>
   `);
 }
