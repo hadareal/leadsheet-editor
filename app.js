@@ -339,6 +339,34 @@ function downloadBlob(blob, filename){
   a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
+function openMySongsSheet(){
+  dbGetAllSongs().then(songs=>{
+    const sorted = songs.slice().sort((a,b)=>b.updatedAt-a.updatedAt);
+    const rows = sorted.map(s=>`
+      <div class="song-row">
+        <button class="song-row-open" onclick="loadSongIntoEditor('${s.id}').then(closeSheet)">${escapeHtml(s.title)}</button>
+        <button class="song-row-delete" onclick="confirmDeleteSong('${s.id}')">Delete</button>
+      </div>
+    `).join('');
+    showSheet(`
+      <div class="sheet-header"><span>My Songs</span><button onclick="closeSheet()">✕</button></div>
+      <div class="symbol-grid">
+        <button onclick="createNewSongAndOpen().then(closeSheet)">+ New Song</button>
+      </div>
+      <div class="song-list">${rows || '<div class="sheet-body-text">No songs yet — tap New Song to start your first chart.</div>'}</div>
+    `);
+  });
+}
+function confirmDeleteSong(id){
+  showSheet(`
+    <div class="sheet-header"><span>Delete song?</span><button onclick="closeSheet()">✕</button></div>
+    <div class="sheet-body-text">This can't be undone.</div>
+    <div class="sheet-actions">
+      <button class="neutral" onclick="openMySongsSheet()">Cancel</button>
+      <button class="danger" onclick="deleteSongFromLibrary('${id}').then(openMySongsSheet)">Delete</button>
+    </div>
+  `);
+}
 function openExportSheet(){
   showSheet(`
     <div class="sheet-header"><span>Export</span><button onclick="closeSheet()">✕</button></div>

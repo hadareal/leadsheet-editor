@@ -92,3 +92,38 @@ function persistCurrentSong(){
     if(typeof requestSync==='function') requestSync();
   });
 }
+
+/* ============ Song library actions ============ */
+function loadSongIntoEditor(id){
+  return dbGetSong(id).then(record=>{
+    if(!record) return;
+    song = JSON.parse(record.data);
+    currentSongId = record.id;
+    updateHeader();
+    syncTitleDisplay();
+    clearInkRaw();
+    render();
+    showEditor();
+  });
+}
+
+function createNewSongAndOpen(){
+  const id = crypto.randomUUID();
+  song = blankSong();
+  currentSongId = id;
+  updateHeader();
+  syncTitleDisplay();
+  clearInkRaw();
+  render();
+  showEditor();
+  return persistCurrentSong();
+}
+
+function deleteSongFromLibrary(id){
+  return dbDeleteSong(id).then(async ()=>{
+    const deletedIds = (await dbGetMeta('deletedIds')) || [];
+    deletedIds.push(id);
+    await dbSetMeta('deletedIds', deletedIds);
+    if(typeof requestSync==='function') requestSync();
+  });
+}
