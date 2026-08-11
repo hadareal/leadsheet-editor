@@ -1,10 +1,14 @@
-const CACHE_NAME = 'leadsheet-v43';
+const CACHE_NAME = 'leadsheet-v44';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
   './chart.js',
   './app.js',
+  './config.js',
+  './db.js',
+  './auth.js',
+  './sync.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',

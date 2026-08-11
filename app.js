@@ -1297,6 +1297,8 @@ window.addEventListener('resize', ()=>requestAnimationFrame(()=>{
 }));
 window.addEventListener('beforeprint', applyResponsiveLayout);
 window.addEventListener('afterprint', ()=>requestAnimationFrame(applyResponsiveLayout));
+window.addEventListener('online', ()=>{ if(typeof requestSync==='function') requestSync(); });
+setInterval(()=>{ if(typeof requestSync==='function') requestSync(); }, 60000);
 
 document.addEventListener('DOMContentLoaded', ()=>{
   const canvas = document.getElementById('inkCanvas');
