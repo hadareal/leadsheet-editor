@@ -234,6 +234,18 @@ function arrowRightSvg(w){
   w = w||16;
   return `<svg width="${w}" height="${w}" viewBox="0 0 20 20" style="display:block;"><line x1="2" y1="10" x2="15" y2="10" stroke="#000000" stroke-width="1.8" stroke-linecap="round"/><polyline points="10,4 17,10 10,16" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
+// Rhythm keyboard action-row icons — use currentColor (not a hardcoded
+// fill) so the armed/active background swap (.tie-armed) also flips the
+// icon to the paper color, matching how text buttons invert.
+function tieIconSvg(w){
+  w = w||20;
+  const h = Math.round(w*10/22);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 22 10" style="display:block;"><path d="M2 2 Q11 9 20 2 Q11 7 2 2 Z" fill="currentColor"/></svg>`;
+}
+function dotIconSvg(w){
+  w = w||14;
+  return `<svg width="${w}" height="${w}" viewBox="0 0 20 20" style="display:block;"><circle cx="10" cy="10" r="3" fill="currentColor"/></svg>`;
+}
 /* ============ Rhythm: note/rest symbols ============
    Flag and rest outlines are lifted from Bravura (SIL Open Font License,
    steinbergmedia/bravura). Coordinates are the font's own design units
@@ -309,6 +321,17 @@ const RHYTHM_ROWS = [
   { note:'n_quaver',   rest:'r_quaver'   },
   { note:'n_semi',     rest:'r_semi'     },
 ];
+// The rhythm keyboard's compact palette only picks the plain (undotted)
+// duration — dotting happens afterward via the Dot toggle button.
+const RHYTHM_NOTE_KEYS = RHYTHM_ROWS.map(r=>r.note).filter(k=>!SYMS[k].dotted);
+const RHYTHM_REST_KEYS = RHYTHM_ROWS.map(r=>r.rest).filter(k=>!SYMS[k].dotted);
+// The dotted<->undotted counterpart of a note/rest key (same base, same
+// rest-ness, opposite dotted flag) — null if that duration has no dotted
+// form in SYMS (whole and sixteenth families don't get one).
+function dotToggleKey(key){
+  const sym = SYMS[key];
+  return Object.keys(SYMS).find(k => SYMS[k].base===sym.base && SYMS[k].rest===sym.rest && SYMS[k].dotted!==sym.dotted) || null;
+}
 
 const REST_GLYPH = { whole:'restWhole', half:'restHalf', quarter:'restQuarter', eighth:'rest8th', sixteenth:'rest16th' };
 const REST_ADV   = { whole:283, half:283, quarter:270, eighth:250, sixteenth:320 };

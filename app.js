@@ -882,18 +882,41 @@ function rhythmToggleTie(){
   rhythmBuilding.tieArmed = !rhythmBuilding.tieArmed;
   renderRhythmSheet();
 }
+// Whether the last-placed note/rest in the bar can have its dot toggled —
+// always true when removing an existing dot (that only frees units), but
+// gated on remaining bar space when adding one.
+function rhythmDotAvailable(){
+  const seq = rhythmBuilding.seq;
+  if(seq.length===0) return false;
+  const lastKey = seq[seq.length-1];
+  const toggled = dotToggleKey(lastKey);
+  if(!toggled) return false;
+  if(SYMS[lastKey].dotted) return true;
+  const units = barUnitsFor(song.timeSig);
+  const withoutLast = rhythmUnitsUsed() - SYMS[lastKey].units;
+  return withoutLast + SYMS[toggled].units <= units;
+}
+function rhythmToggleDot(){
+  if(!rhythmDotAvailable()) return;
+  const seq = rhythmBuilding.seq;
+  seq[seq.length-1] = dotToggleKey(seq[seq.length-1]);
+  renderRhythmSheet();
+}
 function rhythmPaletteHtml(units){
   const used = rhythmUnitsUsed();
   const armed = rhythmBuilding.tieArmed;
-  let html = '<span class="pt-head">Name</span><span class="pt-head">Value</span><span class="pt-head">Note</span><span class="pt-head">Rest</span>';
-  RHYTHM_ROWS.forEach(row=>{
-    const n = SYMS[row.note], r = SYMS[row.rest];
-    html += `<span class="pt-name">${n.name}</span>`;
-    html += `<span class="pt-value">${n.value}</span>`;
-    html += `<button type="button" class="pt-btn" ${used+n.units>units?'disabled':''} onclick="rhythmPick('${row.note}')">${iconSvg(row.note,38)}</button>`;
-    html += `<button type="button" class="pt-btn" ${(used+r.units>units || armed)?'disabled':''} onclick="rhythmPick('${row.rest}')">${iconSvg(row.rest,38)}</button>`;
-  });
-  return html;
+  const lastKey = rhythmBuilding.seq[rhythmBuilding.seq.length-1];
+  const dotOn = lastKey!==undefined && SYMS[lastKey].dotted;
+  const noteBtns = RHYTHM_NOTE_KEYS.map(k=>{
+    const n = SYMS[k];
+    return `<button type="button" class="pt-btn" title="${n.name}" ${used+n.units>units?'disabled':''} onclick="rhythmPick('${k}')">${iconSvg(k,28)}</button>`;
+  }).join('');
+  const dotBtn = `<button type="button" class="pt-btn${dotOn?' tie-armed':''}" title="Dot" ${rhythmDotAvailable()?'':'disabled'} onclick="rhythmToggleDot()">${dotIconSvg(14)}</button>`;
+  const restBtns = RHYTHM_REST_KEYS.map(k=>{
+    const r = SYMS[k];
+    return `<button type="button" class="pt-btn" title="${r.name}" ${(used+r.units>units || armed)?'disabled':''} onclick="rhythmPick('${k}')">${iconSvg(k,28)}</button>`;
+  }).join('');
+  return `<div class="palette-row">${noteBtns}${dotBtn}</div><div class="palette-row">${restBtns}</div>`;
 }
 function rhythmSeqBoxHtml(units){
   const groups = groupForBeaming(rhythmBuilding.seq);
@@ -927,16 +950,13 @@ function renderRhythmSheet(){
     <div class="sheet-header"><span>Bar rhythm${label?' · '+label:''}</span><button onclick="closeRhythmSheet()">✕</button></div>
     <div class="seq-box" style="grid-template-columns:repeat(${units},1fr);">${rhythmSeqBoxHtml(units)}</div>
     <div class="seq-caption">${remainingLabel(units-used)}</div>
-    <div class="palette-table">${rhythmPaletteHtml(units)}</div>
+    ${rhythmPaletteHtml(units)}
     <div class="sheet-actions">
-      <button class="neutral${rhythmBuilding.tieArmed?' tie-armed':''}" ${tieAvailable?'':'disabled'} onclick="rhythmToggleTie()">Tie${rhythmBuilding.tieArmed?' ●':''}</button>
-      <button class="neutral" ${rhythmBuilding.seq.length===0?'disabled':''} onclick="rhythmUndo()">Undo</button>
-      <button class="neutral" ${rhythmBuilding.seq.length===0?'disabled':''} onclick="rhythmClear()">Clear</button>
-    </div>
-    <div class="sheet-actions">
-      <button class="neutral" onclick="closeRhythmSheet()">Cancel</button>
-      ${b.rhythm ? '<button class="danger" onclick="rhythmRemove()">Remove</button>' : ''}
-      <button class="primary" ${used!==units?'disabled':''} onclick="rhythmSave()">Done</button>
+      <button class="neutral compact${rhythmBuilding.tieArmed?' tie-armed':''}" title="Tie" ${tieAvailable?'':'disabled'} onclick="rhythmToggleTie()">${tieIconSvg(20)}</button>
+      <button class="neutral compact" title="Undo" ${rhythmBuilding.seq.length===0?'disabled':''} onclick="rhythmUndo()">${svgIcon('undo',18)}</button>
+      <button class="neutral compact" title="Clear" ${rhythmBuilding.seq.length===0?'disabled':''} onclick="rhythmClear()">${svgIcon('eraser',18)}</button>
+      ${b.rhythm ? '<button class="danger compact" title="Remove" onclick="rhythmRemove()">🗑️</button>' : ''}
+      <button class="primary compact" title="Done" ${used!==units?'disabled':''} onclick="rhythmSave()">Done</button>
     </div>
   `);
   render();
