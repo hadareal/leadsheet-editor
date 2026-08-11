@@ -794,7 +794,9 @@ function applyResponsiveLayout(){
 
   if(n !== BARS_PER_ROW){
     BARS_PER_ROW = n;
+    suppressAutosave = true; // pure layout reflow (resize/rotation/keyboard) -- not a real edit
     render();
+    suppressAutosave = false;
   } else if(prevBarW !== bw+'px'){
     // Bar count didn't change, so bars/notes already reflowed for free via
     // CSS — no need to rebuild the DOM, just re-anchor the tie curves to

@@ -101,6 +101,8 @@ function loadSongIntoEditor(id){
     suppressAutosave = true;
     song = JSON.parse(record.data);
     currentSongId = record.id;
+    undoStack.length = 0; // undo history belongs to whichever song was open when it was recorded --
+    redoStack.length = 0; // carrying it across a song switch could apply another song's snapshot here
     updateHeader();
     syncTitleDisplay();
     clearInkRaw();
@@ -114,6 +116,8 @@ function createNewSongAndOpen(){
   const id = crypto.randomUUID();
   song = blankSong();
   currentSongId = id;
+  undoStack.length = 0;
+  redoStack.length = 0;
   updateHeader();
   syncTitleDisplay();
   clearInkRaw();

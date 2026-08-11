@@ -357,8 +357,8 @@ function openMySongsSheet(){
     const sorted = songs.slice().sort((a,b)=>b.updatedAt-a.updatedAt);
     const rows = sorted.map(s=>`
       <div class="song-row">
-        <button class="song-row-open" onclick="loadSongIntoEditor('${s.id}').then(closeSheet)">${escapeHtml(s.title)}</button>
-        <button class="song-row-delete" onclick="confirmDeleteSong('${s.id}')">Delete</button>
+        <button class="song-row-open" onclick="loadSongIntoEditor('${escapeHtml(s.id)}').then(closeSheet)">${escapeHtml(s.title)}</button>
+        <button class="song-row-delete" onclick="confirmDeleteSong('${escapeHtml(s.id)}')">Delete</button>
       </div>
     `).join('');
     showSheet(`
@@ -376,7 +376,7 @@ function confirmDeleteSong(id){
     <div class="sheet-body-text">This can't be undone.</div>
     <div class="sheet-actions">
       <button class="neutral" onclick="openMySongsSheet()">Cancel</button>
-      <button class="danger" onclick="deleteSongFromLibrary('${id}').then(openMySongsSheet)">Delete</button>
+      <button class="danger" onclick="deleteSongFromLibrary('${escapeHtml(id)}').then(openMySongsSheet)">Delete</button>
     </div>
   `);
 }
@@ -1262,6 +1262,10 @@ function showEditor(){
   }
 }
 function continueAsGuest(){ showEditor(); }
+function handleBackButton(){
+  if(typeof isSignedIn==='function' && isSignedIn()) openMySongsSheet();
+  else showWelcome();
+}
 function attemptSignIn(){
   const msg = document.getElementById('welcomeMsg');
   if(!navigator.onLine){ msg.textContent = "You're offline — sign in once you have a connection."; return; }
