@@ -590,11 +590,11 @@ function barActionsHtml(){
   ).join('');
   return `
     ${wholeBarIcons}
-    <div class="sheet-actions">${voltaBtns}</div>
     <div class="sheet-actions">
-      <button class="neutral compact" onclick="cbClearBar()"><span class="btn-icon">⌫</span>Clear Bar</button>
-      <button class="neutral compact" onclick="duplicateBar('${pickerTarget.barId}')">${duplicateIconSvg(13)}Duplicate</button>
-      <button class="danger compact" onclick="deleteBar('${pickerTarget.barId}')">🗑️ Delete Bar</button>
+      ${voltaBtns}
+      <button class="neutral compact" title="Clear Bar" onclick="cbClearBar()"><span class="btn-icon">⌫</span></button>
+      <button class="neutral compact" title="Duplicate Bar" onclick="duplicateBar('${pickerTarget.barId}')">${duplicateIconSvg(15)}</button>
+      <button class="danger compact" title="Delete Bar" onclick="deleteBar('${pickerTarget.barId}')">🗑️</button>
     </div>
   `;
 }
@@ -647,12 +647,10 @@ function renderChordKeyboard(){
     <div class="kb-grid" style="grid-template-columns:repeat(10,1fr);">${row2}</div>
     <div class="kb-grid" style="grid-template-columns:repeat(11,1fr);">${row3}</div>
     <div class="sheet-actions">
-      <button class="neutral" onclick="cbClearChord()"><span class="btn-icon">⌫</span>Clear Chord</button>
-      <button class="neutral" ${doneNextDisabled} onclick="cbNextBeat()">Next Beat${arrowRightSvg(22)}</button>
-    </div>
-    <div class="sheet-actions">
-      <button class="neutral" ${doneNextDisabled} onclick="cbNextBar()">Next Bar${arrowRightSvg(22)}</button>
-      <button class="primary" ${doneNextDisabled} onclick="cbDone()">Done</button>
+      <button class="neutral compact" title="Clear Chord" onclick="cbClearChord()"><span class="btn-icon">⌫</span></button>
+      <button class="neutral compact" ${doneNextDisabled} onclick="cbNextBeat()">Beat${arrowRightSvg(16)}</button>
+      <button class="neutral compact" ${doneNextDisabled} onclick="cbNextBar()">Bar${arrowRightSvg(16)}</button>
+      <button class="primary compact" ${doneNextDisabled} onclick="cbDone()">Done</button>
     </div>
   `);
 }
