@@ -12,9 +12,9 @@ async function runSync(){
   if(!session || !navigator.onLine) return;
   syncInFlight = true;
   try{
+    await pullRemoteChanges(session.user.id);
     await pushDirtySongs(session.user.id);
     await pushPendingDeletes();
-    await pullRemoteChanges(session.user.id);
   } catch(e){
     console.error('sync failed', e);
   } finally {
@@ -66,17 +66,30 @@ async function pullRemoteChanges(userId){
         updatedAt: remoteUpdatedAt, dirty: false
       });
       if(row.id === currentSongId){
+        suppressAutosave = true;
         song = row.data;
         updateHeader();
         syncTitleDisplay();
         render();
+        suppressAutosave = false;
       }
     } else {
-      const copyId = crypto.randomUUID();
+      // Another device already saved this id to the server since we last synced,
+      // and we still have our own unsynced edit sitting on the same id. The
+      // server row is already "claimed" by that other edit, so re-key OUR
+      // not-yet-synced edit onto a brand new id (it'll push cleanly as a new
+      // song next cycle instead of clobbering what the other device just saved),
+      // and adopt the server's version locally under the original id.
+      const forkedId = crypto.randomUUID();
       await dbPutSong({
-        id: copyId, title: row.title + ' (synced copy)', data: JSON.stringify(row.data),
+        id: forkedId, title: localRec.title + ' (unsynced edit)', data: localRec.data,
+        updatedAt: Date.now(), dirty: true
+      });
+      await dbPutSong({
+        id: row.id, title: row.title, data: JSON.stringify(row.data),
         updatedAt: remoteUpdatedAt, dirty: false
       });
+      if(row.id === currentSongId) currentSongId = forkedId; // keep showing the user's own edit, just re-keyed
     }
   }
   await dbSetMeta('lastSyncedAt', Date.now());

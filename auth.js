@@ -18,7 +18,14 @@ function signUpWithPassword(email, password){
 function signInWithPassword(email, password){
   return sb.auth.signInWithPassword({ email, password });
 }
-function signOutUser(){
+async function signOutUser(){
+  if(navigator.onLine && typeof runSync==='function'){
+    await runSync().catch(()=>{});
+  }
+  const dirtySongs = (await dbGetAllSongs()).filter(s=>s.dirty);
+  if(dirtySongs.length && !confirm(`${dirtySongs.length} song(s) haven't finished syncing yet. Sign out anyway? Those changes will be lost from this device.`)){
+    return;
+  }
   return sb.auth.signOut().then(()=>{
     currentUser = null;
     closeSheet();
@@ -44,5 +51,10 @@ async function handleSignedIn(session){
 }
 
 sb.auth.onAuthStateChange((event, session)=>{
-  if(session) handleSignedIn(session);
+  if(!session) return;
+  if(event==='SIGNED_IN' || event==='INITIAL_SESSION'){
+    handleSignedIn(session);
+  } else {
+    currentUser = session.user; // e.g. TOKEN_REFRESHED -- stay current without disrupting whatever the user's doing
+  }
 });

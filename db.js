@@ -72,9 +72,10 @@ function dbSetMeta(key, value){
 /* ============ Current song tracking + local-first save ============ */
 let currentSongId = null;
 let localSaveTimer = null;
+let suppressAutosave = false; // true while programmatically loading a song, so opening/pulling it doesn't mark it dirty
 
 function scheduleLocalSave(){
-  if(!currentSongId) return; // no library song loaded yet — nothing to persist
+  if(!currentSongId || suppressAutosave) return;
   clearTimeout(localSaveTimer);
   localSaveTimer = setTimeout(persistCurrentSong, 400);
 }
@@ -97,12 +98,14 @@ function persistCurrentSong(){
 function loadSongIntoEditor(id){
   return dbGetSong(id).then(record=>{
     if(!record) return;
+    suppressAutosave = true;
     song = JSON.parse(record.data);
     currentSongId = record.id;
     updateHeader();
     syncTitleDisplay();
     clearInkRaw();
     render();
+    suppressAutosave = false;
     showEditor();
   });
 }
@@ -124,6 +127,7 @@ function deleteSongFromLibrary(id){
     const deletedIds = (await dbGetMeta('deletedIds')) || [];
     deletedIds.push(id);
     await dbSetMeta('deletedIds', deletedIds);
+    if(id === currentSongId) currentSongId = null; // stop further edits from resurrecting what was just deleted
     if(typeof requestSync==='function') requestSync();
   });
 }
