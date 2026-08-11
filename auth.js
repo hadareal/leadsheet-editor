@@ -24,7 +24,10 @@ function getSession(){
 /* ============ Sign in / up / out ============ */
 function signInWithGoogle(){
   if(!sb) return Promise.resolve(AUTH_UNAVAILABLE);
-  return sb.auth.signInWithOAuth({ provider: 'google' });
+  // Explicit, not left to the client's default -- avoids depending on
+  // exactly what page/tab state "the current URL" resolves to.
+  const returnTo = window.location.origin + window.location.pathname;
+  return sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: returnTo } });
 }
 function signUpWithPassword(email, password){
   if(!sb) return Promise.resolve(AUTH_UNAVAILABLE);
