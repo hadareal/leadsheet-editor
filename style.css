@@ -79,6 +79,7 @@ body{
 .topbar .titlewrap{flex:1 1 auto;text-align:center;min-width:0;cursor:pointer;}
 .topbar .title{font-family:var(--title-font);font-weight:700;font-size:18px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .topbar .sub{font-family:var(--ui-font);font-size:11px;color:var(--header-sub);margin-top:1px;}
+.topbar .save-status{font-family:var(--ui-font);font-size:10px;color:var(--header-sub);margin-top:1px;font-style:italic;min-height:12px;}
 .topbar .icon{color:var(--ink);flex:0 0 auto;padding:3px 5px;cursor:pointer;display:flex;align-items:center;}
 .topbar .icon svg{width:19px;height:19px;}
 

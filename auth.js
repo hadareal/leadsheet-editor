@@ -53,6 +53,7 @@ async function signOutUser(){
     undoStack.length = 0;
     redoStack.length = 0;
     clearInkRaw();
+    setSaveStatus('');
     updateHeader();
     syncTitleDisplay();
     render();
@@ -81,6 +82,7 @@ async function handleSignedIn(session){
     undoStack.length = 0;
     redoStack.length = 0;
     clearInkRaw();
+    setSaveStatus('');
   }
   currentUser = session.user;
   await dbSetMeta('lastSignedInUserId', session.user.id);

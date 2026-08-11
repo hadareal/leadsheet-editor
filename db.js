@@ -74,8 +74,14 @@ let currentSongId = null;
 let localSaveTimer = null;
 let suppressAutosave = false; // true while programmatically loading a song, so opening/pulling it doesn't mark it dirty
 
+function setSaveStatus(text){
+  const el = document.getElementById('saveStatus');
+  if(el) el.textContent = text;
+}
+
 function scheduleLocalSave(){
   if(!currentSongId || suppressAutosave) return;
+  setSaveStatus('Saving…');
   clearTimeout(localSaveTimer);
   localSaveTimer = setTimeout(persistCurrentSong, 400);
 }
@@ -90,6 +96,7 @@ function persistCurrentSong(){
     dirty: true
   };
   return dbPutSong(record).then(()=>{
+    setSaveStatus('Saved');
     if(typeof requestSync==='function') requestSync();
   });
 }
@@ -108,6 +115,7 @@ function loadSongIntoEditor(id){
     clearInkRaw();
     render();
     suppressAutosave = false;
+    setSaveStatus('Saved');
     showEditor();
   });
 }
