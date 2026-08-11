@@ -1182,6 +1182,7 @@ function render(){
   drawAllTies(slotMap);
   requestAnimationFrame(resizeCanvasPreserving);
   renderInfoPanel();
+  scheduleLocalSave();
 }
 
 /* ============ Bar content (chord / %) ============ */
