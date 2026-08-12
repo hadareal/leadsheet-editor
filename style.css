@@ -215,6 +215,17 @@ body{
   font-size:13px;
   white-space:nowrap;
 }
+/* A text direction (e.g. D.S.) and a label/icon for the section starting
+   right after it, sharing one slot with no row wrap between them: the
+   direction (.direction-badge, above) keeps its normal flush-at-the-bar-line
+   alignment, and the label instead anchors its LEFT edge to that same point
+   (growing rightward only) instead of centering on it -- so the two sit on
+   opposite sides of the bar line rather than overlapping at its center. */
+.label-forward.paired{
+  left:50%;
+  transform:none;
+  margin-left:4px;
+}
 
 .bar-row{
   display:flex;
@@ -746,7 +757,7 @@ body{
 }
 /* Icon-only bar-line type picker — reuses the chart's own .border-line
    glyph markup/CSS so a button shows exactly what it will draw. */
-.barline-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.barline-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}
 .barline-grid button{
   display:flex;align-items:stretch;justify-content:center;
   height:40px;padding:6px 2px;

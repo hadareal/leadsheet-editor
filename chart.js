@@ -25,6 +25,7 @@ const BARLINE_TYPES = [
   {type:'double',      label:'Double bar line'},
   {type:'repeatStart', label:'Repeat start'},
   {type:'repeatEnd',   label:'Repeat end'},
+  {type:'repeatBoth',  label:'Repeat end + start'},
   {type:'end',         label:'End'},
 ];
 // Segno/Coda bookmarks and D.C./D.S./Fine/To Coda text directions all set
@@ -870,6 +871,7 @@ function renderBarEl(item){
 function borderGlyphHtml(type){
   if(type==='repeatStart') return `<div class="ln-thick"></div><div class="ln-thin"></div><div class="dots"><span></span><span></span></div>`;
   if(type==='repeatEnd') return `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div>`;
+  if(type==='repeatBoth') return `<div class="dots"><span></span><span></span></div><div class="ln-thin"></div><div class="ln-thick"></div><div class="ln-thin"></div><div class="dots"><span></span><span></span></div>`;
   if(type==='end') return `<div class="ln-thin"></div><div class="ln-thick"></div>`;
   if(type==='double') return `<div class="ln-thin"></div><div class="ln-thin"></div>`;
   return `<div class="ln-thin"></div>`;
@@ -889,9 +891,19 @@ function renderBorderEl(border, idx, edge){
   div.className='border-line';
   div.dataset.borderIdx = idx;
   div.onclick=()=>openBorderEdit(idx);
-  const downgrade = (edge==='trailing' && border.type==='repeatStart')
-    || (edge==='leading' && (border.type==='end' || border.type==='repeatEnd'));
-  div.innerHTML = borderGlyphHtml(downgrade ? 'normal' : border.type);
+  // repeatBoth carries both meanings at once, so a split edge shows only the
+  // half that belongs to that row (its end-repeat half trailing, its
+  // start-repeat half leading) instead of the other types' plain fallback.
+  let glyphType = border.type;
+  if(border.type==='repeatBoth'){
+    if(edge==='trailing') glyphType='repeatEnd';
+    else if(edge==='leading') glyphType='repeatStart';
+  } else {
+    const downgrade = (edge==='trailing' && border.type==='repeatStart')
+      || (edge==='leading' && (border.type==='end' || border.type==='repeatEnd'));
+    if(downgrade) glyphType='normal';
+  }
+  div.innerHTML = borderGlyphHtml(glyphType);
   return div;
 }
 
@@ -916,17 +928,24 @@ function renderLabelSlot(idx, allow, edge){
   div.className='label-slot';
   const b = song.borders[idx];
   if(allow && b){
-    let html = '';
     const isIcon = b.mark==='segno' || b.mark==='coda';
+    let forward = '';
     if(edge!=='trailing'){
-      let forward = '';
       if(b.label) forward += `<span class="sec-badge">${escapeHtml(b.label)}</span>`;
       if(b.mark==='segno') forward += segnoSvg(16);
       if(b.mark==='coda') forward += codaSvg(16);
-      if(forward) html += `<div class="label-forward">${forward}</div>`;
     }
-    if(edge!=='leading' && b.mark && !isIcon) html += `<span class="direction-badge">${NAV_MARK_LABEL_BY_TYPE[b.mark]}</span>`;
-    div.innerHTML = html;
+    let badge = '';
+    if(edge!=='leading' && b.mark && !isIcon) badge = `<span class="direction-badge">${NAV_MARK_LABEL_BY_TYPE[b.mark]}</span>`;
+    // Segno/Coda never produce both (isIcon marks skip the badge above), so
+    // this only fires for a text direction (e.g. D.S.) landing in the same
+    // slot as a label for the section starting right after it. The direction
+    // always stays flush at the bar line it ends at (unchanged); when a
+    // label shares the slot, shift the label to start just right of that
+    // same point instead of centering on it, so it doesn't overlap the
+    // direction's text.
+    const forwardCls = (forward && badge) ? 'label-forward paired' : 'label-forward';
+    div.innerHTML = (forward ? `<div class="${forwardCls}">${forward}</div>` : '') + badge;
   }
   return div;
 }

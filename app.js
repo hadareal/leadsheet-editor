@@ -1073,12 +1073,13 @@ function openBorderEdit(idx){
       <button class="clear-label-btn" onclick="setLabel(${idx},null)">⌫ Clear</button>
     </div>
     <div class="sheet-subhead">Navigation</div>
-    <div class="symbol-grid compact">
+    <div class="symbol-grid compact six-col">
       ${NAV_MARK_TYPES.map(t=>{
         if(t.type==='segno') return `<button class="icon-only" onclick="setBorderMark(${idx},'segno')">${segnoSvg(18)}</button>`;
         if(t.type==='coda') return `<button class="icon-only" onclick="setBorderMark(${idx},'coda')">${codaSvg(18)}</button>`;
         return `<button onclick="setBorderMark(${idx},'${t.type}')">${t.label}</button>`;
       }).join('')}
+      <button class="clear-label-btn" onclick="setBorderMark(${idx},null)">⌫ Clear</button>
     </div>
   `);
 }
