@@ -800,11 +800,40 @@ body{
   font-family:var(--ui-font);
   font-size:34px;
   color:var(--ink);
-  margin-bottom:2px;
+  margin-top:16px;
+  margin-bottom:16px;
 }
 .kb-preview .suf{ font-size:.5em; vertical-align:top; position:relative; top:2px; margin-left:1px; }
 .kb-preview .acc{ font-size:.6em; margin-left:-1px; position:relative; top:-2px; }
 .kb-placeholder{ color:#c4c4c4; }
+.kb-preview-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  width:70%;
+  font-size:24px;
+  border:1.5px solid var(--ink);
+  border-radius:6px;
+}
+.kb-preview-grid .slot{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:44px;
+  border-right:1px solid var(--card-border);
+}
+.kb-preview-grid .slot:last-child{
+  border-right:none;
+}
+.kb-preview-grid .slot.active{
+  outline:1.5px dashed var(--ink-soft);
+  outline-offset:-4px;
+  border-radius:4px;
+}
+.kb-preview-grid .chord.dense{
+  font-size:20px;
+  display:inline-block;
+  transform:scaleX(0.8);
+}
 .kb-grid{ display:grid; gap:6px; margin-bottom:8px; }
 .kb-grid button{
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;

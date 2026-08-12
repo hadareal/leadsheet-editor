@@ -647,12 +647,46 @@ function setBarVolta(barId, n){
   renderChordKeyboard();
 }
 
+// Renders every beat of the bar being edited, not just the chord currently
+// being typed -- so you can see the whole bar taking shape as you go. In
+// "add" mode this simulates the reflow addChordWithReflow() will actually
+// perform (defaultBeats() shifts earlier chords once a new one is added),
+// so the preview always matches what Done/Beat->/Bar-> will save. In "edit"
+// mode the chord count isn't changing, so existing chords just stay put.
+function barPreviewGridHtml(b){
+  let activeBeat, existingEntries;
+  if(pickerTarget.mode==='edit'){
+    activeBeat = pickerTarget.beat;
+    existingEntries = b.chords.filter(c=>c.beat!==activeBeat).map(c=>({beat:c.beat, chord:c}));
+  } else {
+    const positions = defaultBeats(b.chords.length+1);
+    const sorted = b.chords.slice().sort((x,y)=>x.beat-y.beat);
+    existingEntries = sorted.map((c,i)=>({beat:positions[i], chord:c}));
+    activeBeat = positions[positions.length-1];
+  }
+  const finalCount = pickerTarget.mode==='edit' ? b.chords.length : b.chords.length+1;
+  const denseCls = finalCount>=4 ? ' dense' : '';
+  const activeInner = cbNC ? 'N.C.' : (cbRoot ? chordInnerHtml({root:cbRoot, tokens:cbTokens, bass:cbBass}) : null);
+  const activeContent = activeInner!==null ? `<span class="chord${denseCls}">${activeInner}</span>` : '<span class="kb-placeholder">–</span>';
+  let slots = '';
+  for(let i=0;i<4;i++){
+    if(i===activeBeat){
+      slots += `<div class="slot active">${activeContent}</div>`;
+    } else {
+      const found = existingEntries.find(e=>e.beat===i);
+      const content = found ? `<span class="chord${denseCls}">${found.chord.nc ? 'N.C.' : chordInnerHtml(found.chord)}</span>` : '';
+      slots += `<div class="slot">${content}</div>`;
+    }
+  }
+  return `<div class="kb-preview-grid">${slots}</div>`;
+}
+
 function renderChordKeyboard(){
   const b = findBarById(pickerTarget.barId);
   if(!b) return closeSheet();
 
   const barLocked = b.kind==='repeat';
-  const previewHtml = barLocked ? repeatBarSvg(32) : cbNC ? 'N.C.' : (cbRoot ? chordInnerHtml({root:cbRoot, tokens:cbTokens, bass:cbBass}) : '<span class="kb-placeholder">–</span>');
+  const previewHtml = barLocked ? repeatBarSvg(32) : barPreviewGridHtml(b);
   const locked = cbNC || barLocked;
   const letterLocked = (cbInBass ? !!cbBass : !!cbRoot) || locked;
   const row1 = ROOT_LETTERS.map(l=>`<button ${letterLocked?'disabled':''} onclick="cbPickLetter('${l}')">${l}</button>`).join('')
@@ -689,7 +723,6 @@ function renderChordKeyboard(){
     <div class="kb-grid" style="grid-template-columns:repeat(11,1fr);">${row2}</div>
     <div class="kb-grid" style="grid-template-columns:repeat(11,1fr);">${row3}</div>
     <div class="sheet-actions">
-      <button class="neutral compact" title="Clear Chord" onclick="cbClearChord()"><span class="btn-icon">⌫</span></button>
       <button class="neutral compact" ${doneNextDisabled} onclick="cbNextBeat()">Beat${arrowRightSvg(16)}</button>
       <button class="neutral compact" onclick="cbNextBar()">Bar${arrowRightSvg(16)}</button>
       <button class="primary compact" ${doneNextDisabled} onclick="cbDone()">Done</button>
@@ -774,11 +807,6 @@ function cbBackspace(){
   else if(last.t==='bassLetter') cbBass = null;
   else if(last.t==='bassAcc') cbBass = cbBass.slice(0,1);
   else if(last.t==='nc') cbNC = false;
-  renderChordKeyboard();
-}
-
-function cbClearChord(){
-  resetBuilderState();
   renderChordKeyboard();
 }
 
