@@ -6,7 +6,6 @@ const ICON_PATHS = {
   undo: '<path d="M7.5 3.6L3.3 7.8l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.3 7.8h10.4a6.3 6.3 0 1 1 0 12.6h-1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
   redo: '<path d="M16.5 3.6L20.7 7.8l-4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.7 7.8h-10.4a6.3 6.3 0 1 0 0 12.6h1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
   droplet: '<path d="M12 3.2s6.3 7.4 6.3 11.8a6.3 6.3 0 1 1-12.6 0C5.7 10.6 12 3.2 12 3.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
-  rhythm: '<ellipse cx="7" cy="18.2" rx="2.3" ry="1.7" fill="currentColor"/><ellipse cx="15.5" cy="15.6" rx="2.3" ry="1.7" fill="currentColor"/><line x1="9.2" y1="18.2" x2="9.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="17.7" y1="15.6" x2="17.7" y2="5.4" stroke="currentColor" stroke-width="1.4"/><path d="M9.2 5l8.5 0.4" fill="none" stroke="currentColor" stroke-width="1.4"/>',
   page: '<path d="M6.5 3.5h7l4 4v13h-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
   export: '<path d="M12 3.3v11.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7.8 7.5L12 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.3 15v3.7a2 2 0 0 0 2 2h11.4a2 2 0 0 0 2-2V15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
   chevron: '<path d="M15.5 4.5l-8 7.5 8 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -22,7 +21,6 @@ function svgIcon(name, size){
 const TOOLBAR_PRIMARY = [
   {mode:'chords',     label:'Edit',       icon:'cursor'},
   {action:'annotate', label:'Annotate',   icon:'pencil'},
-  {mode:'rhythm',     label:'Rhythm',     icon:'rhythm'},
 ];
 const TOOLBAR_OVERFLOW = [
   {action:'font',      label:'Font',       icon:null, text:'Aa'},
@@ -240,7 +238,6 @@ function toggleMode(m){
   const scroll = document.getElementById('chartScroll');
   scroll.classList.toggle('draw-mode', mode==='draw');
   scroll.classList.toggle('erase-mode', mode==='erase');
-  if(mode==='rhythm') showToast('Tap any bar to add a rhythm above it');
 }
 
 /* ============ Toast ============ */
@@ -586,10 +583,6 @@ function rebuildHistory(){
 
 function handleBarTap(item, beatIdx){
   hideOnboardTip();
-  if(mode==='rhythm'){
-    if(item.kind==='chords') openRhythmBuilder(item.id);
-    return;
-  }
   if(mode!=='chords') return;
   if(item.kind!=='chords' || item.chords.length===0){
     pickerTarget = {barId:item.id, mode:'add'};
@@ -933,11 +926,6 @@ function barLabelHtml(item){
 function openRhythmBuilder(barId){
   const b = findBarById(barId);
   if(!b) return;
-  const units = barUnitsFor(song.timeSig);
-  if(units===null){
-    showToast(`Rhythm isn't available yet for ${song.timeSig.num}/${song.timeSig.den}`);
-    return;
-  }
   // A saved bar's rhythm is always either empty or completely full (Done is
   // disabled otherwise), so seq.length===0 unambiguously means "reopening a
   // fresh bar" (start edge, inherit tiedFromPrevBar) vs "reopening a full
