@@ -792,10 +792,13 @@ body{
 .sheet-actions button.neutral.tie-armed{ background:var(--ink); color:var(--paper); }
 
 /* ===== Chord keyboard ===== */
+/* Deliberately uses --ui-font, not --chord-font: the keyboard is a tool for
+   input, not a preview of the printed chart, and stays legible no matter
+   which chord font is selected. */
 .kb-preview{
   min-height:44px;
   display:flex;align-items:center;justify-content:center;
-  font-family:var(--chord-font);
+  font-family:var(--ui-font);
   font-size:34px;
   color:var(--ink);
   margin-bottom:2px;
@@ -810,7 +813,7 @@ body{
   border-radius:8px;
   border:1px solid var(--card-border);
   background:var(--paper);
-  font-family:var(--chord-font);
+  font-family:var(--ui-font);
   font-size:15px;
   color:var(--ink);
   cursor:pointer;
