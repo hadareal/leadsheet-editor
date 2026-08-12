@@ -959,6 +959,15 @@ function closeRhythmSheet(){
   closeSheet();
   render();
 }
+function switchToChordTab(){
+  const barId = rhythmBuilding.barId;
+  const b = findBarById(barId);
+  rhythmBuilding = null;
+  pickerTarget = {barId, mode:'add'};
+  pickerWholeBarOptions = (b.chords.length===0);
+  resetBuilderState();
+  renderChordKeyboard();
+}
 function rhythmUnitsUsed(){
   return rhythmBuilding.seq.reduce((s,k)=>s+SYMS[k].units, 0);
 }
@@ -1046,7 +1055,13 @@ function renderRhythmSheet(){
   const label = barLabelHtml(b);
   const tieAvailable = rhythmTieAvailable();
   showSheet(`
-    <div class="sheet-header"><span>Bar rhythm${label?' · '+label:''}</span><button onclick="closeRhythmSheet()">✕</button></div>
+    <div class="sheet-header">
+      <div class="sheet-header-title">
+        <span>Bar rhythm${label?' · '+label:''}</span>
+        <button class="tab-switch" onclick="switchToChordTab()">Chord</button>
+      </div>
+      <button onclick="closeRhythmSheet()">✕</button>
+    </div>
     <div class="seq-box" style="grid-template-columns:repeat(${units},1fr);">${rhythmSeqBoxHtml(units)}</div>
     <div class="seq-caption">${remainingLabel(units-used)}</div>
     ${rhythmPaletteHtml(units)}
