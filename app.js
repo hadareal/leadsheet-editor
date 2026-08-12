@@ -620,17 +620,12 @@ function handleBarTap(item, beatIdx){
 }
 
 function barActionsHtml(){
-  const wholeBarIcons = pickerWholeBarOptions ? `
-    <div class="sheet-actions">
-      <button class="icon-btn" onclick="setBarKind('${pickerTarget.barId}','repeat')">${repeatBarSvg(20)}</button>
-    </div>` : '';
   const b = findBarById(pickerTarget.barId);
   const volta = b ? b.volta : null;
   const voltaBtns = [1,2,3].map(n=>
     `<button class="neutral compact${volta===n?' tie-armed':''}" onclick="setBarVolta('${pickerTarget.barId}',${n})">${n}.</button>`
   ).join('');
   return `
-    ${wholeBarIcons}
     <div class="sheet-actions">
       ${voltaBtns}
       <button class="neutral compact" title="Clear Bar" onclick="cbClearBar()"><span class="btn-icon">⌫</span></button>
@@ -656,24 +651,27 @@ function renderChordKeyboard(){
   const b = findBarById(pickerTarget.barId);
   if(!b) return closeSheet();
 
-  const previewHtml = cbNC ? 'N.C.' : (cbRoot ? chordInnerHtml({root:cbRoot, tokens:cbTokens, bass:cbBass}) : '<span class="kb-placeholder">–</span>');
-  const letterLocked = (cbInBass ? !!cbBass : !!cbRoot) || cbNC;
+  const barLocked = b.kind==='repeat';
+  const previewHtml = barLocked ? repeatBarSvg(32) : cbNC ? 'N.C.' : (cbRoot ? chordInnerHtml({root:cbRoot, tokens:cbTokens, bass:cbBass}) : '<span class="kb-placeholder">–</span>');
+  const locked = cbNC || barLocked;
+  const letterLocked = (cbInBass ? !!cbBass : !!cbRoot) || locked;
   const row1 = ROOT_LETTERS.map(l=>`<button ${letterLocked?'disabled':''} onclick="cbPickLetter('${l}')">${l}</button>`).join('')
-    + `<button ${cbNC?'disabled':''} onclick="cbAccidental('flat')">♭</button>`
-    + `<button ${cbNC?'disabled':''} onclick="cbAccidental('sharp')">♯</button>`
-    + `<button ${cbNC?'disabled':''} onclick="cbAccidental('natural')">♮</button>`;
+    + `<button ${locked?'disabled':''} onclick="cbAccidental('flat')">♭</button>`
+    + `<button ${locked?'disabled':''} onclick="cbAccidental('sharp')">♯</button>`
+    + `<button ${locked?'disabled':''} onclick="cbAccidental('natural')">♮</button>`;
   const openParens = cbTokens.filter(t=>t.ch==='(').length;
   const closeParens = cbTokens.filter(t=>t.ch===')').length;
   const nextParen = openParens>closeParens ? ')' : '(';
-  const ncDisabled = cbNC || cbRoot || cbInBass || cbTokens.length>0;
+  const ncDisabled = cbNC || cbRoot || cbInBass || cbTokens.length>0 || barLocked;
   const row2 = CHORD_KB_SYMBOLS.map(s=>
-    `<button ${cbNC?'disabled':''} onclick="cbPickToken('${s.ch}',${s.sup})">${s.ch}${s.label?`<span class="kb-sub">${s.label}</span>`:''}</button>`
+    `<button ${locked?'disabled':''} onclick="cbPickToken('${s.ch}',${s.sup})">${s.ch}${s.label?`<span class="kb-sub">${s.label}</span>`:''}</button>`
   ).join('')
     + `<button ${ncDisabled?'disabled':''} onclick="cbPickNC()">N.C.</button>`
-    + `<button ${cbNC?'disabled':''} onclick="cbPickToken('${nextParen}',true)">()</button>`;
-  const row3 = CHORD_KB_NUMBERS.map(n=>`<button ${cbNC?'disabled':''} onclick="cbPickToken('${n}',true)">${n}</button>`).join('')
-    + `<button ${(!cbRoot||cbInBass||cbNC)?'disabled':''} onclick="cbSlash()">/</button>`
-    + `<button ${cbHistory.length===0?'disabled':''} onclick="cbBackspace()">⌫</button>`;
+    + `<button ${pickerWholeBarOptions?'':'disabled'} onclick="setBarKind('${pickerTarget.barId}','repeat')">${repeatBarSvg(16)}</button>`
+    + `<button ${locked?'disabled':''} onclick="cbPickToken('${nextParen}',true)">()</button>`;
+  const row3 = CHORD_KB_NUMBERS.map(n=>`<button ${locked?'disabled':''} onclick="cbPickToken('${n}',true)">${n}</button>`).join('')
+    + `<button ${(!cbRoot||cbInBass||locked)?'disabled':''} onclick="cbSlash()">/</button>`
+    + `<button ${(cbHistory.length===0 && !barLocked)?'disabled':''} onclick="cbBackspace()">⌫</button>`;
   const doneNextDisabled = (pickerTarget.mode!=='edit' && !cbRoot && !cbNC) ? 'disabled' : '';
   // Bar-> always stays enabled, even with nothing typed -- skipping an
   // empty bar to keep moving is fine (cbCommit is a safe no-op with
@@ -688,7 +686,7 @@ function renderChordKeyboard(){
     <div class="kb-preview">${previewHtml}</div>
     <div class="sheet-body-text" style="text-align:center;">Tap a key to build the chord</div>
     <div class="kb-grid" style="grid-template-columns:repeat(10,1fr);">${row1}</div>
-    <div class="kb-grid" style="grid-template-columns:repeat(10,1fr);">${row2}</div>
+    <div class="kb-grid" style="grid-template-columns:repeat(11,1fr);">${row2}</div>
     <div class="kb-grid" style="grid-template-columns:repeat(11,1fr);">${row3}</div>
     <div class="sheet-actions">
       <button class="neutral compact" title="Clear Chord" onclick="cbClearChord()"><span class="btn-icon">⌫</span></button>
@@ -756,7 +754,19 @@ function cbPickNC(){
 // across root, tokens, and bass, not a per-field rule.
 function cbBackspace(){
   const last = cbHistory.pop();
-  if(!last) return;
+  if(!last){
+    // Nothing in the builder history to undo -- if the bar itself is
+    // marked "%", treat backspace as undoing that (same effect as Clear
+    // Bar), same as how it undoes any other typed content.
+    const b = findBarById(pickerTarget.barId);
+    if(b && b.kind==='repeat'){
+      pushSongUndo();
+      b.kind = 'chords';
+      render();
+    }
+    renderChordKeyboard();
+    return;
+  }
   if(last.t==='root') cbRoot = null;
   else if(last.t==='rootAcc') cbRoot = cbRoot.slice(0,1);
   else if(last.t==='token') cbTokens.pop();
