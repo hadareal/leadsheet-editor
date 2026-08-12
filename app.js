@@ -101,7 +101,7 @@ function openMoreSheet(){
       <button class="icon-row" onclick="openExportSheet()">${svgIcon('export',18)}<span>Export</span></button>
       ${isSignedIn() ? `
         <button class="icon-row" onclick="openMySongsSheet()">${svgIcon('page',18)}<span>My Songs</span></button>
-        <button onclick="signOutUser()">Sign Out</button>
+        <button class="icon-row" onclick="signOutUser()">${iconOrAaHtml(null,'⎋',18)}<span>Sign Out</span></button>
       ` : ''}
     </div>
   `);
