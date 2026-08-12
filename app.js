@@ -710,10 +710,15 @@ function renderChordKeyboard(){
   // Bar-> always stays enabled, even with nothing typed -- skipping an
   // empty bar to keep moving is fine (cbCommit is a safe no-op with
   // nothing typed), unlike Done/Beat which are about finishing THIS bar.
+  const rhythmDisabled = barLocked || barUnitsFor(song.timeSig)===null;
+  const hasRhythmMark = b.rhythm && b.rhythm.length>0;
 
   showSheet(`
     <div class="sheet-header">
-      <span>Chord</span>
+      <div class="sheet-header-title">
+        <span>Chord</span>
+        <button class="tab-switch${hasRhythmMark?' has-mark':''}" ${rhythmDisabled?'disabled':''} onclick="switchToRhythmTab()">Rhythm</button>
+      </div>
       <button onclick="cbCancel()">✕</button>
     </div>
     ${barActionsHtml()}
@@ -728,6 +733,11 @@ function renderChordKeyboard(){
       <button class="primary compact" ${doneNextDisabled} onclick="cbDone()">Done</button>
     </div>
   `);
+}
+
+function switchToRhythmTab(){
+  cbCommit();
+  openRhythmBuilder(pickerTarget.barId);
 }
 
 function cbPickLetter(letter){

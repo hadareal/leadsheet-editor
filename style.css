@@ -695,6 +695,24 @@ body{
 .sheet-header button{
   background:none;border:none;font-size:16px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;
 }
+.sheet-header-title{display:flex;align-items:center;gap:8px;}
+.sheet-header-title .tab-switch{
+  font-family:var(--ui-font);
+  font-size:12px;font-weight:700;
+  padding:5px 10px;
+  border-radius:12px;
+  background:#eeeeee;
+  color:var(--ink-soft);
+}
+.sheet-header-title .tab-switch:disabled{opacity:.35;cursor:not-allowed;}
+.sheet-header-title .tab-switch.has-mark{position:relative;}
+.sheet-header-title .tab-switch.has-mark::after{
+  content:'';
+  position:absolute;top:3px;right:3px;
+  width:5px;height:5px;
+  border-radius:50%;
+  background:var(--ink);
+}
 .sheet-subhead{
   font-family:var(--ui-font);
   font-size:12px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;
