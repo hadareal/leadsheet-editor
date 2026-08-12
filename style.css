@@ -701,8 +701,8 @@ body{
   font-size:12px;font-weight:700;
   padding:5px 10px;
   border-radius:12px;
-  background:#eeeeee;
-  color:var(--ink-soft);
+  background:var(--ink);
+  color:var(--paper);
 }
 .sheet-header-title .tab-switch:disabled{opacity:.35;cursor:not-allowed;}
 .sheet-header-title .tab-switch.has-mark{position:relative;}
@@ -711,7 +711,7 @@ body{
   position:absolute;top:3px;right:3px;
   width:5px;height:5px;
   border-radius:50%;
-  background:var(--ink);
+  background:var(--paper);
 }
 .sheet-subhead{
   font-family:var(--ui-font);
