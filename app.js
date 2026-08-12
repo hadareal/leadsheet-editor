@@ -1246,6 +1246,10 @@ function showWelcome(){
 function showEditor(){
   document.getElementById('welcomeScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  // Signed-in users have no "back" destination other than the editor
+  // itself -- My Songs opens as a sheet from here, it isn't a separate
+  // screen -- so the icon only makes sense for guests leaving to Welcome.
+  document.getElementById('backIcon').style.display = (typeof isSignedIn==='function' && isSignedIn()) ? 'none' : '';
   requestAnimationFrame(()=>{
     applyResponsiveLayout();
     resizeCanvasPreserving();
@@ -1263,8 +1267,7 @@ function showEditor(){
 }
 function continueAsGuest(){ showEditor(); }
 function handleBackButton(){
-  if(typeof isSignedIn==='function' && isSignedIn()) openMySongsSheet();
-  else showWelcome();
+  showWelcome();
 }
 function attemptSignIn(){
   const msg = document.getElementById('welcomeMsg');
