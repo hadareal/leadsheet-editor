@@ -695,23 +695,32 @@ body{
 .sheet-header button{
   background:none;border:none;font-size:16px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;
 }
-.sheet-header-title{display:flex;align-items:center;gap:8px;}
-.sheet-header-title .tab-switch{
+.sheet-header-title{display:flex;align-items:center;gap:8px;min-width:0;}
+.tab-toggle{display:flex;gap:6px;flex:0 0 auto;}
+.tab-toggle .tab-seg{
   font-family:var(--ui-font);
   font-size:12px;font-weight:700;
   padding:5px 10px;
   border-radius:12px;
+  background:#eeeeee;
+  color:var(--ink-soft);
+}
+.tab-toggle .tab-seg.active{
   background:var(--ink);
   color:var(--paper);
 }
-.sheet-header-title .tab-switch:disabled{opacity:.35;cursor:not-allowed;}
-.sheet-header-title .tab-switch.has-mark{position:relative;}
-.sheet-header-title .tab-switch.has-mark::after{
+.tab-toggle .tab-seg:disabled{opacity:.35;cursor:not-allowed;}
+.tab-toggle .tab-seg.has-mark{position:relative;}
+.tab-toggle .tab-seg.has-mark::after{
   content:'';
   position:absolute;top:3px;right:3px;
   width:5px;height:5px;
   border-radius:50%;
-  background:var(--paper);
+  background:var(--ink);
+}
+.sheet-header-sub{
+  font-size:13px;color:var(--ink-soft);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
 }
 .sheet-subhead{
   font-family:var(--ui-font);

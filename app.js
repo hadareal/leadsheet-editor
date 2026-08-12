@@ -709,8 +709,10 @@ function renderChordKeyboard(){
   showSheet(`
     <div class="sheet-header">
       <div class="sheet-header-title">
-        <span>Chord</span>
-        <button class="tab-switch${hasRhythmMark?' has-mark':''}" ${rhythmDisabled?'disabled':''} onclick="switchToRhythmTab()">Rhythm</button>
+        <div class="tab-toggle">
+          <button class="tab-seg active">Chord</button>
+          <button class="tab-seg${hasRhythmMark?' has-mark':''}" ${rhythmDisabled?'disabled':''} onclick="switchToRhythmTab()">Rhythm</button>
+        </div>
       </div>
       <button onclick="cbCancel()">✕</button>
     </div>
@@ -1045,8 +1047,11 @@ function renderRhythmSheet(){
   showSheet(`
     <div class="sheet-header">
       <div class="sheet-header-title">
-        <span>Bar rhythm${label?' · '+label:''}</span>
-        <button class="tab-switch" onclick="switchToChordTab()">Chord</button>
+        <div class="tab-toggle">
+          <button class="tab-seg" onclick="switchToChordTab()">Chord</button>
+          <button class="tab-seg active">Rhythm</button>
+        </div>
+        ${label ? `<span class="sheet-header-sub">${label}</span>` : ''}
       </div>
       <button onclick="closeRhythmSheet()">✕</button>
     </div>
