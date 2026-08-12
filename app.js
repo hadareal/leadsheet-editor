@@ -675,6 +675,9 @@ function renderChordKeyboard(){
     + `<button ${(!cbRoot||cbInBass||cbNC)?'disabled':''} onclick="cbSlash()">/</button>`
     + `<button ${cbHistory.length===0?'disabled':''} onclick="cbBackspace()">⌫</button>`;
   const doneNextDisabled = (pickerTarget.mode!=='edit' && !cbRoot && !cbNC) ? 'disabled' : '';
+  // Bar-> always stays enabled, even with nothing typed -- skipping an
+  // empty bar to keep moving is fine (cbCommit is a safe no-op with
+  // nothing typed), unlike Done/Beat which are about finishing THIS bar.
 
   showSheet(`
     <div class="sheet-header">
@@ -690,7 +693,7 @@ function renderChordKeyboard(){
     <div class="sheet-actions">
       <button class="neutral compact" title="Clear Chord" onclick="cbClearChord()"><span class="btn-icon">⌫</span></button>
       <button class="neutral compact" ${doneNextDisabled} onclick="cbNextBeat()">Beat${arrowRightSvg(16)}</button>
-      <button class="neutral compact" ${doneNextDisabled} onclick="cbNextBar()">Bar${arrowRightSvg(16)}</button>
+      <button class="neutral compact" onclick="cbNextBar()">Bar${arrowRightSvg(16)}</button>
       <button class="primary compact" ${doneNextDisabled} onclick="cbDone()">Done</button>
     </div>
   `);
@@ -773,8 +776,12 @@ function cbClearBar(){
   pushSongUndo();
   const b = findBarById(pickerTarget.barId);
   if(b){ b.kind = 'chords'; b.chords = []; }
-  closeSheet();
   render();
+  // Stays open on the same (now empty) bar instead of closing, so clearing
+  // a bar flows straight into typing its replacement chord.
+  pickerWholeBarOptions = true;
+  resetBuilderState();
+  renderChordKeyboard();
 }
 
 function cbCancel(){
@@ -784,20 +791,23 @@ function cbCancel(){
 // Writes the builder state into the target bar/beat. If nothing was typed
 // (neither cbRoot nor cbNC is set), this means "remove the chord at this
 // slot" in edit mode — the same effect the old per-slot Clear had — and is
-// a no-op in add mode (unreachable via the UI: Done/Next are disabled in
-// that state).
+// a no-op in add mode. Reachable via Bar-> (always enabled, even with
+// nothing typed, so you can skip a bar you'll fill in later) — Done/Beat
+// stay disabled in that state since they're about finishing THIS bar.
 function cbCommit(){
   pushSongUndo();
   const b = findBarById(pickerTarget.barId);
   if(!b) return;
-  b.kind = 'chords';
   if(!cbRoot && !cbNC){
     if(pickerTarget.mode==='edit'){
       const idx = b.chords.findIndex(c=>c.beat===pickerTarget.beat);
       if(idx>=0){ b.chords.splice(idx,1); reflowBeats(b); }
     }
+    // Nothing to commit or remove -- leave the bar's kind alone instead of
+    // clobbering e.g. a freshly-set "%" bar back to 'chords'.
     return;
   }
+  b.kind = 'chords';
   const chordData = cbNC ? {nc:true} : { root:cbRoot, tokens:cbTokens.map(t=>({...t})), bass:cbBass };
   if(pickerTarget.mode==='edit'){
     const c = b.chords.find(c=>c.beat===pickerTarget.beat);

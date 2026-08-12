@@ -1212,8 +1212,12 @@ function setBarKind(barId, kind){
   const b = findBarById(barId);
   if(!b) return closeSheet();
   b.kind=kind; b.chords=[];
-  closeSheet();
   render();
+  // Stays open on the same (now chordless) bar instead of closing, so
+  // marking a run of bars as "%" doesn't require reopening the keyboard
+  // from the chart for every single one.
+  resetBuilderState();
+  renderChordKeyboard();
 }
 function duplicateBar(barId){
   pushSongUndo();
