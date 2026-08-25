@@ -810,9 +810,18 @@ function applyResponsiveLayout(){
 function chunkRows(items, barsPerRow){
   barsPerRow = barsPerRow || BARS_PER_ROW;
   const rows=[];
-  for(let i=0;i<items.length;i+=barsPerRow){
-    rows.push(items.slice(i, i+barsPerRow));
-  }
+  let current=[];
+  items.forEach((item, i)=>{
+    current.push(item);
+    const border = song.borders[i+1];
+    const atCap = current.length>=barsPerRow;
+    const atBreak = !!(border && border.breakAfter);
+    if(atCap || atBreak){
+      rows.push(current);
+      current=[];
+    }
+  });
+  if(current.length>0) rows.push(current);
   if(rows.length===0) rows.push([]);
   return rows;
 }
