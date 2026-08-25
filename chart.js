@@ -897,7 +897,7 @@ function borderGlyphHtml(type){
 // own closing edge) or 'leading' (this row's own opening edge).
 function renderBorderEl(border, idx, edge){
   const div = document.createElement('div');
-  div.className='border-line';
+  div.className='border-line' + (border.breakAfter ? ' row-break' : '');
   div.dataset.borderIdx = idx;
   div.onclick=()=>openBorderEdit(idx);
   // repeatBoth carries both meanings at once, so a split edge shows only the

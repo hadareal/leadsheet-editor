@@ -490,6 +490,17 @@ body{
 .border-line .ln-thick{ border-left:2.4px solid var(--ink); align-self:stretch; }
 .border-line .dots{ display:flex; flex-direction:column; justify-content:center; gap:2px; }
 .border-line .dots span{ width:4px;height:4px;border-radius:50%;background:var(--ink);display:block;-webkit-print-color-adjust:exact;print-color-adjust:exact; }
+.border-line.row-break::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  bottom:-7px;
+  transform:translateX(-50%);
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:var(--ink-soft);
+}
 
 /* ===== Toolbar (phone: bottom bar / tablet+: left sidebar) ===== */
 .toolbar{
@@ -1058,6 +1069,7 @@ body{
   .chart-scroll{ overflow:visible !important; padding:0; height:auto !important; }
   .chart-card{ border:none; box-shadow:none; max-width:none; margin:0; min-height:auto !important; }
   .add-bar, .empty-hint{ display:none !important; }
+  .border-line.row-break::after{ display:none !important; }
 }
 body.exporting .add-bar,
 body.exporting .empty-hint{
