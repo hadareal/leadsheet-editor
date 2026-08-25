@@ -618,11 +618,16 @@ function barActionsHtml(){
   const voltaBtns = [1,2,3].map(n=>
     `<button class="neutral compact${volta===n?' tie-armed':''}" onclick="setBarVolta('${pickerTarget.barId}',${n})">${n}.</button>`
   ).join('');
+  const idx = song.items.findIndex(it=>it.id===pickerTarget.barId);
+  const isLastBar = idx===song.items.length-1;
+  const hasBreak = idx>=0 && !!song.borders[idx+1] && !!song.borders[idx+1].breakAfter;
+  const rowBreakBtn = isLastBar ? '' : `<button class="neutral compact${hasBreak?' tie-armed':''}" title="${hasBreak?'Remove row break':'Start new row after this bar'}" onclick="toggleRowBreak('${pickerTarget.barId}')"><span class="btn-icon">↵</span></button>`;
   return `
     <div class="sheet-actions">
       ${voltaBtns}
       <button class="neutral compact" title="Clear Bar" onclick="cbClearBar()"><span class="btn-icon">⌫</span></button>
       <button class="neutral compact" title="Duplicate Bar" onclick="duplicateBar('${pickerTarget.barId}')">${duplicateIconSvg(15)}</button>
+      ${rowBreakBtn}
       <button class="danger compact" title="Delete Bar" onclick="deleteBar('${pickerTarget.barId}')">🗑️</button>
     </div>
   `;
