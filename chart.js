@@ -194,12 +194,14 @@ function defaultDemoSong(){
 }
 
 // song.items is a flat list of bars.
-// song.borders[i] = {type, label, mark} is the border BEFORE items[i];
+// song.borders[i] = {type, label, mark, breakAfter} is the border BEFORE items[i];
 // song.borders[items.length] is the trailing (final) border. `type` is the
 // barline stroke (normal/double/repeatStart/repeatEnd/end), independent of
 // `mark` since a stroke change should never affect a navigation mark. `mark`
 // is one of NAV_MARK_TYPES (Segno, Coda, D.C., D.S., ...) or null — a single
-// field because a bar line carries at most one of these at a time.
+// field because a bar line carries at most one of these at a time. `breakAfter`
+// is an optional boolean forcing a manual row wrap after the bar this border
+// precedes — never valid on borders[0] or borders[items.length].
 let song = defaultDemoSong();
 
 /* ============ Helpers ============ */
@@ -807,6 +809,8 @@ function applyResponsiveLayout(){
 }
 
 /* ============ Rendering ============ */
+// items is always song.items (single call site: render()) — index i here
+// aligns with song.borders[i+1], read directly off the global below.
 function chunkRows(items, barsPerRow){
   barsPerRow = barsPerRow || BARS_PER_ROW;
   const rows=[];
@@ -1254,9 +1258,10 @@ function deleteBar(barId){
   const kept = song.borders[idx];
   if(kept.type==='normal' && removed.type!=='normal') kept.type = removed.type;
   if(!kept.label && removed.label) kept.label = removed.label;
-  if(removed.breakAfter) kept.breakAfter = true;
+  if(removed.breakAfter && idx>0) kept.breakAfter = true;
   song.items.splice(idx,1);
   song.borders.splice(idx+1,1);
+  delete song.borders[song.items.length].breakAfter;
   closeSheet();
   render();
 }

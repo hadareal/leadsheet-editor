@@ -1072,6 +1072,7 @@ body{
   .border-line.row-break::after{ display:none !important; }
 }
 body.exporting .add-bar,
-body.exporting .empty-hint{
+body.exporting .empty-hint,
+body.exporting .border-line.row-break::after{
   display:none !important;
 }
