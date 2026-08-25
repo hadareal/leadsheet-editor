@@ -1254,6 +1254,7 @@ function deleteBar(barId){
   const kept = song.borders[idx];
   if(kept.type==='normal' && removed.type!=='normal') kept.type = removed.type;
   if(!kept.label && removed.label) kept.label = removed.label;
+  if(removed.breakAfter) kept.breakAfter = true;
   song.items.splice(idx,1);
   song.borders.splice(idx+1,1);
   closeSheet();

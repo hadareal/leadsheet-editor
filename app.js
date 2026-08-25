@@ -640,6 +640,20 @@ function setBarVolta(barId, n){
   renderChordKeyboard();
 }
 
+// Row-break flag lives on the border right after this bar (song.borders is
+// indexed one ahead of song.items — see chart.js's border-indexing comment
+// above `let song = defaultDemoSong();`). No-op on the song's last bar,
+// since there's nothing after it to push to a new row.
+function toggleRowBreak(barId){
+  pushSongUndo();
+  const idx = song.items.findIndex(it=>it.id===barId);
+  if(idx<0 || idx===song.items.length-1) return;
+  const border = song.borders[idx+1];
+  border.breakAfter = !border.breakAfter;
+  render();
+  renderChordKeyboard();
+}
+
 // Renders every beat of the bar being edited, not just the chord currently
 // being typed -- so you can see the whole bar taking shape as you go. In
 // "add" mode this simulates the reflow addChordWithReflow() will actually
