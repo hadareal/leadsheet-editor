@@ -66,6 +66,9 @@ function bar(chords){ return {type:'bar', id:genId(), kind:'chords', chords: cho
 // Appends a new empty chords bar to the end of the song, correctly handling
 // the trailing "end" border and inheriting an unresolved tie from the
 // previous bar. Caller is responsible for pushSongUndo() and render().
+// song.borders[lastIdx] becomes an internal border here; safe re: breakAfter
+// only because a trailing border can never carry that flag going in (see
+// deleteBar's cleanup and toggleRowBreak's last-bar guard).
 function appendNewBar(){
   const lastIdx = song.items.length;
   const wasEnd = song.borders[lastIdx].type === 'end';
@@ -194,12 +197,14 @@ function defaultDemoSong(){
 }
 
 // song.items is a flat list of bars.
-// song.borders[i] = {type, label, mark} is the border BEFORE items[i];
+// song.borders[i] = {type, label, mark, breakAfter} is the border BEFORE items[i];
 // song.borders[items.length] is the trailing (final) border. `type` is the
 // barline stroke (normal/double/repeatStart/repeatEnd/end), independent of
 // `mark` since a stroke change should never affect a navigation mark. `mark`
 // is one of NAV_MARK_TYPES (Segno, Coda, D.C., D.S., ...) or null — a single
-// field because a bar line carries at most one of these at a time.
+// field because a bar line carries at most one of these at a time. `breakAfter`
+// is an optional boolean forcing a manual row wrap after the bar this border
+// precedes — never valid on borders[0] or borders[items.length].
 let song = defaultDemoSong();
 
 /* ============ Helpers ============ */
@@ -750,6 +755,14 @@ function redrawTies(){
 }
 
 function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
+// The border governing breakAfter for a bar is the one right after it
+// (song.borders is indexed one ahead of song.items). Returns null if barId
+// isn't found.
+function borderAfterBar(barId){
+  const idx = song.items.findIndex(it=>it.id===barId);
+  if(idx<0) return null;
+  return {idx, border: song.borders[idx+1]};
+}
 function updateHeader(){
   const sub = song.key ? `${song.timeSig.num}/${song.timeSig.den} · ${song.key}` : `${song.timeSig.num}/${song.timeSig.den}`;
   document.getElementById('subText').textContent = sub;
@@ -807,12 +820,21 @@ function applyResponsiveLayout(){
 }
 
 /* ============ Rendering ============ */
-function chunkRows(items, barsPerRow){
+function chunkRows(barsPerRow){
   barsPerRow = barsPerRow || BARS_PER_ROW;
   const rows=[];
-  for(let i=0;i<items.length;i+=barsPerRow){
-    rows.push(items.slice(i, i+barsPerRow));
-  }
+  let current=[];
+  song.items.forEach((item, i)=>{
+    current.push(item);
+    const border = song.borders[i+1];
+    const atCap = current.length>=barsPerRow;
+    const atBreak = !!(border && border.breakAfter);
+    if(atCap || atBreak){
+      rows.push(current);
+      current=[];
+    }
+  });
+  if(current.length>0) rows.push(current);
   if(rows.length===0) rows.push([]);
   return rows;
 }
@@ -888,7 +910,7 @@ function borderGlyphHtml(type){
 // own closing edge) or 'leading' (this row's own opening edge).
 function renderBorderEl(border, idx, edge){
   const div = document.createElement('div');
-  div.className='border-line';
+  div.className='border-line' + (border.breakAfter ? ' row-break' : '');
   div.dataset.borderIdx = idx;
   div.onclick=()=>openBorderEdit(idx);
   // repeatBoth carries both meanings at once, so a split edge shows only the
@@ -1123,7 +1145,7 @@ function render(){
   inner.querySelectorAll('.song-block').forEach(e=>e.remove());
   const canvas = document.getElementById('inkCanvas');
 
-  const rows = chunkRows(song.items, BARS_PER_ROW);
+  const rows = chunkRows(BARS_PER_ROW);
   const songBlock = document.createElement('div');
   songBlock.className='song-block';
   const slotMap = new Map();
@@ -1245,8 +1267,10 @@ function deleteBar(barId){
   const kept = song.borders[idx];
   if(kept.type==='normal' && removed.type!=='normal') kept.type = removed.type;
   if(!kept.label && removed.label) kept.label = removed.label;
+  if(removed.breakAfter && idx>0) kept.breakAfter = true;
   song.items.splice(idx,1);
   song.borders.splice(idx+1,1);
+  delete song.borders[song.items.length].breakAfter;
   closeSheet();
   render();
 }
