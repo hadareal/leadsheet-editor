@@ -66,6 +66,9 @@ function bar(chords){ return {type:'bar', id:genId(), kind:'chords', chords: cho
 // Appends a new empty chords bar to the end of the song, correctly handling
 // the trailing "end" border and inheriting an unresolved tie from the
 // previous bar. Caller is responsible for pushSongUndo() and render().
+// song.borders[lastIdx] becomes an internal border here; safe re: breakAfter
+// only because a trailing border can never carry that flag going in (see
+// deleteBar's cleanup and toggleRowBreak's last-bar guard).
 function appendNewBar(){
   const lastIdx = song.items.length;
   const wasEnd = song.borders[lastIdx].type === 'end';
@@ -752,6 +755,14 @@ function redrawTies(){
 }
 
 function findBarById(id){ return song.items.find(it=>it.id===id) || null; }
+// The border governing breakAfter for a bar is the one right after it
+// (song.borders is indexed one ahead of song.items). Returns null if barId
+// isn't found.
+function borderAfterBar(barId){
+  const idx = song.items.findIndex(it=>it.id===barId);
+  if(idx<0) return null;
+  return {idx, border: song.borders[idx+1]};
+}
 function updateHeader(){
   const sub = song.key ? `${song.timeSig.num}/${song.timeSig.den} · ${song.key}` : `${song.timeSig.num}/${song.timeSig.den}`;
   document.getElementById('subText').textContent = sub;
@@ -809,13 +820,11 @@ function applyResponsiveLayout(){
 }
 
 /* ============ Rendering ============ */
-// items is always song.items (single call site: render()) — index i here
-// aligns with song.borders[i+1], read directly off the global below.
-function chunkRows(items, barsPerRow){
+function chunkRows(barsPerRow){
   barsPerRow = barsPerRow || BARS_PER_ROW;
   const rows=[];
   let current=[];
-  items.forEach((item, i)=>{
+  song.items.forEach((item, i)=>{
     current.push(item);
     const border = song.borders[i+1];
     const atCap = current.length>=barsPerRow;
@@ -1136,7 +1145,7 @@ function render(){
   inner.querySelectorAll('.song-block').forEach(e=>e.remove());
   const canvas = document.getElementById('inkCanvas');
 
-  const rows = chunkRows(song.items, BARS_PER_ROW);
+  const rows = chunkRows(BARS_PER_ROW);
   const songBlock = document.createElement('div');
   songBlock.className='song-block';
   const slotMap = new Map();

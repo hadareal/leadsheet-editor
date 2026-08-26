@@ -613,14 +613,14 @@ function handleBarTap(item, beatIdx){
 }
 
 function barActionsHtml(){
-  const b = findBarById(pickerTarget.barId);
+  const found = borderAfterBar(pickerTarget.barId);
+  const b = found ? song.items[found.idx] : null;
   const volta = b ? b.volta : null;
   const voltaBtns = [1,2,3].map(n=>
     `<button class="neutral compact${volta===n?' tie-armed':''}" onclick="setBarVolta('${pickerTarget.barId}',${n})">${n}.</button>`
   ).join('');
-  const idx = song.items.findIndex(it=>it.id===pickerTarget.barId);
-  const isLastBar = idx===song.items.length-1;
-  const hasBreak = idx>=0 && !!song.borders[idx+1] && !!song.borders[idx+1].breakAfter;
+  const isLastBar = !!found && found.idx===song.items.length-1;
+  const hasBreak = !!(found && found.border && found.border.breakAfter);
   const rowBreakBtn = isLastBar ? '' : `<button class="neutral compact${hasBreak?' tie-armed':''}" title="${hasBreak?'Remove row break':'Start new row after this bar'}" onclick="toggleRowBreak('${pickerTarget.barId}')"><span class="btn-icon">↵</span></button>`;
   return `
     <div class="sheet-actions">
@@ -651,10 +651,9 @@ function setBarVolta(barId, n){
 // since there's nothing after it to push to a new row.
 function toggleRowBreak(barId){
   pushSongUndo();
-  const idx = song.items.findIndex(it=>it.id===barId);
-  if(idx<0 || idx===song.items.length-1) return;
-  const border = song.borders[idx+1];
-  border.breakAfter = !border.breakAfter;
+  const found = borderAfterBar(barId);
+  if(!found || found.idx===song.items.length-1) return;
+  found.border.breakAfter = !found.border.breakAfter;
   render();
   renderChordKeyboard();
 }
