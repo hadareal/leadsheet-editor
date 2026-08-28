@@ -712,13 +712,21 @@ function tiedFromPrevBarFor(item){
   if(rhythmBuilding && rhythmBuilding.barId===item.id) return !!rhythmBuilding.tiedFromPrevBar;
   return !!item.tiedFromPrevBar;
 }
-// Whether this bar's last note ties forward, authored from this bar's own
-// side (as opposed to tiedFromPrevBarFor, authored from the receiving bar).
-// Asymmetric with tiedFromPrevBarFor on purpose: there's simply no
-// rhythmBuilding-aware branch here, so while the builder is open a not-yet-
-// saved tiedToNextBar previews in the sequence box but not on the chart
-// behind it.
-function tiedToNextBarFor(item){ return !!item.tiedToNextBar; }
+// Whether this bar's last note ties forward across the barline. While the
+// builder is open on THIS bar, that's the not-yet-saved state: an explicit
+// tiedToNextBar, or a forward tie (marks[last].tie) sitting on a last mark
+// that fills the bar — rhythmSave folds the latter into tiedToNextBar, and
+// this mirrors that so the chart preview matches.
+function tiedToNextBarFor(item){
+  if(rhythmBuilding && rhythmBuilding.barId === item.id){
+    const marks = rhythmBuilding.marks || [];
+    const last = marks[marks.length-1];
+    const fills = last && !SYMS[last.sym].rest
+      && last.at + SYMS[last.sym].units === (barUnitsFor(song.timeSig) || 16);
+    return !!fills && (!!rhythmBuilding.tiedToNextBar || !!last.tie);
+  }
+  return !!item.tiedToNextBar;
+}
 
 // Finds where the notehead at flat sequence index `seqIndex` actually landed
 // on screen, in viewport pixels. `slotEl` is the already-rendered
@@ -788,10 +796,11 @@ function drawAllTies(slotMap){
   const depth = SIZE*TIE_DEPTH_PER_SIZE, thick = SIZE*TIE_THICK_PER_SIZE;
 
   // Within-bar ties.
+  const barTotal = barUnitsFor(song.timeSig) || 16;
   song.items.forEach(item=>{
     if(item.kind!=='chords') return;
     const rh = rhythmForBar(item);
-    if(!rh || rh.length<2) return;
+    if(!rh || !rh.length) return;
     const info = slotMap.get(item.id);
     if(!info) return;
     const groups = groupForBeaming(rh);
@@ -802,6 +811,15 @@ function drawAllTies(slotMap){
       const a1 = tieAnchorForIndex(groups, i, info.slotEl, SIZE);
       const a2 = tieAnchorForIndex(groups, i+1, info.slotEl, SIZE);
       if(a1 && a2) addShape(info.rowEl, a1.x, a1.y, a2.x, a2.y, depth, thick);
+    }
+    // A forward tie on the last mark with no in-bar note after it and not yet
+    // filling the bar (the fills-the-bar case is a cross-barline tie, handled
+    // below) — an open-ended stub, same as an unresolved cross-bar tie, so the
+    // intent stays visible until the next mark lands.
+    const last = rh[rh.length-1];
+    if(last.tie && !SYMS[last.sym].rest && last.at + SYMS[last.sym].units < barTotal){
+      const a = tieAnchorForIndex(groups, rh.length-1, info.slotEl, SIZE);
+      if(a){ const STUB = 20; addShape(info.rowEl, a.x, a.y, a.x+STUB, a.y, depth*0.8, thick*0.8); }
     }
   });
 

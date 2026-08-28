@@ -1089,30 +1089,25 @@ function rhythmLastReachesEnd(){
   if(!m || SYMS[m.sym].rest) return false;
   return m.at + SYMS[m.sym].units === (barUnitsFor(song.timeSig) || 16);
 }
-// The single Tie control, keyed to the selected mark:
-//  - a note with an adjacent following note  -> marks[selected].tie
-//  - the last mark, a note ending at the barline -> tiedToNextBar
-//  - the first mark, a note at at:0, prev bar exists -> tiedFromPrevBar
+// The Tie control is forward-only: a selected non-rest note ties to whatever
+// comes AFTER it — never to something before it. An incoming tie is authored
+// from the previous bar's last note, not from this bar's first note.
+//  - last mark that fills the bar  -> tiedToNextBar (connects to the next bar's
+//    first note, or shows an open-ended stub until one lands)
+//  - any other non-rest note        -> marks[i].tie (connects to the next mark
+//    in this bar, or stays pending — stub — until that mark is placed)
 function rhythmTieState(){
   const b = rhythmBuilding, i = b.selected;
   if(i == null) return null;
-  const m = b.marks[i];
-  if(SYMS[m.sym].rest) return null;
-  const next = b.marks[i+1];
-  if(next && m.at + SYMS[m.sym].units === next.at && !SYMS[next.sym].rest) return 'next';
+  if(SYMS[b.marks[i].sym].rest) return null;
   if(i === b.marks.length-1 && rhythmLastReachesEnd()) return 'toNextBar';
-  if(i === 0 && rhythmFirstAtStart()){
-    const idx = song.items.findIndex(it => it.id === b.barId);
-    if(idx > 0 && song.items[idx-1].kind === 'chords') return 'fromPrevBar';
-  }
-  return null;
+  return 'next';
 }
 function rhythmTieAvailable(){ return rhythmTieState() != null; }
 function rhythmTieActive(){
   const s = rhythmTieState(), b = rhythmBuilding;
   if(s === 'next') return !!b.marks[b.selected].tie;
   if(s === 'toNextBar') return !!b.tiedToNextBar;
-  if(s === 'fromPrevBar') return !!b.tiedFromPrevBar;
   return false;
 }
 function rhythmToggleTie(){
@@ -1122,7 +1117,6 @@ function rhythmToggleTie(){
     else b.marks[b.selected].tie = true;
   }
   else if(s === 'toNextBar') b.tiedToNextBar = !b.tiedToNextBar;
-  else if(s === 'fromPrevBar') b.tiedFromPrevBar = !b.tiedFromPrevBar;
   else return;
   renderRhythmSheet();
 }
@@ -1159,7 +1153,6 @@ function rhythmToggleDot(){
 function rhythmPaletteHtml(){
   const b = rhythmBuilding;
   const gap = b.selected != null ? rhythmSlotGap(b.selected) : rhythmGapAt(b.cursor);
-  const selSym = b.selected != null ? b.marks[b.selected].sym : null;
   // "dot is on" tracks whichever mark the Dot button would actually act on
   // (rhythmActiveMarkIndex), so the highlight can't disagree with the button's
   // enabled state — e.g. after the cursor moves off a just-placed dotted mark.
@@ -1167,8 +1160,7 @@ function rhythmPaletteHtml(){
   const dotOn = dotIdx >= 0 && SYMS[b.marks[dotIdx].sym].dotted;
   const noteBtns = RHYTHM_NOTE_KEYS.map(k=>{
     const n = SYMS[k];
-    const on = selSym && SYMS[k].base===SYMS[selSym].base && !SYMS[k].dotted ? ' tie-armed' : '';
-    return `<button type="button" class="pt-btn${on}" title="${n.name}" ${n.units>gap?'disabled':''} onclick="rhythmPick('${k}')">${iconSvg(k,28)}</button>`;
+    return `<button type="button" class="pt-btn" title="${n.name}" ${n.units>gap?'disabled':''} onclick="rhythmPick('${k}')">${iconSvg(k,28)}</button>`;
   }).join('');
   const dotBtn = `<button type="button" class="pt-btn${dotOn?' tie-armed':''}" title="Dot" ${rhythmDotAvailable()?'':'disabled'} onclick="rhythmToggleDot()">${dotIconSvg(14)}</button>`;
   const restBtns = RHYTHM_REST_KEYS.map(k=>{
@@ -1313,11 +1305,21 @@ function rhythmSave(){
       b.tiedFromPrevBar = false;
       b.tiedToNextBar = false;
     } else {
-      b.rhythm = rhythmBuilding.marks.map(m => ({...m}));
+      const marks = rhythmBuilding.marks.map(m => ({...m}));
+      const lastM = marks[marks.length-1];
+      // A forward tie on the last mark, once that mark fills the bar, IS a
+      // cross-bar tie — fold marks[last].tie into tiedToNextBar so the
+      // renderer's cross-barline path handles it. A forward tie on a last mark
+      // that does NOT fill the bar stays as marks[last].tie (pending — it
+      // connects to whatever mark is placed after it in this bar).
+      const lastFills = rhythmLastReachesEnd();
+      const tieToNext = rhythmBuilding.tiedToNextBar || (lastM && !!lastM.tie && lastFills);
+      if(lastM && lastFills) delete lastM.tie;
+      b.rhythm = marks;
       // Re-validate the cross-bar flags against the boundary marks — a shrink/
       // delete/dot since the flag was set may have made them meaningless.
       b.tiedFromPrevBar = rhythmBuilding.tiedFromPrevBar && rhythmFirstAtStart();
-      b.tiedToNextBar = rhythmBuilding.tiedToNextBar && rhythmLastReachesEnd();
+      b.tiedToNextBar = tieToNext && lastFills;
     }
     if('rhythmTies' in b) delete b.rhythmTies;
   }
