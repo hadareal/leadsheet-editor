@@ -992,11 +992,15 @@ function firstBlankUnit(marks){
   }
   return total;
 }
-// Units free from `unit` up to the next mark's start (or the bar end).
+// Units free from `unit` up to the next mark's start (or the bar end); 0 if
+// `unit` lands inside a mark that already covers it.
 function rhythmGapAt(unit){
   const total = barUnitsFor(song.timeSig) || 16;
   let next = total;
-  rhythmBuilding.marks.forEach(m => { if(m.at >= unit && m.at < next) next = m.at; });
+  for(const m of rhythmBuilding.marks){
+    if(unit >= m.at && unit < m.at + SYMS[m.sym].units) return 0;
+    if(m.at >= unit && m.at < next) next = m.at;
+  }
   return next - unit;
 }
 // Units a mark at index i is allowed to grow into (its own start -> next mark / bar end).
@@ -1042,6 +1046,22 @@ function switchToChordTab(){
 function rhythmUnitsUsed(){
   return rhythmBuilding.marks.reduce((s,m)=>s+SYMS[m.sym].units, 0);
 }
+// A cross-bar tie is only meaningful at a real boundary note: tiedFromPrevBar
+// needs marks[0] to be a non-rest starting at at:0; tiedToNextBar needs the
+// last mark to be a non-rest whose span reaches the barline. Shrinking,
+// deleting, dotting or replacing a boundary mark can break that — these two
+// predicates are the single source of truth, reused by rhythmTieState (set-
+// time), rhythmSeqBoxHtml (render-time) and rhythmSave (persist-time).
+function rhythmFirstAtStart(){
+  const m = rhythmBuilding.marks[0];
+  return !!m && m.at === 0 && !SYMS[m.sym].rest;
+}
+function rhythmLastReachesEnd(){
+  const marks = rhythmBuilding.marks;
+  const m = marks[marks.length-1];
+  if(!m || SYMS[m.sym].rest) return false;
+  return m.at + SYMS[m.sym].units === (barUnitsFor(song.timeSig) || 16);
+}
 // The single Tie control, keyed to the selected mark:
 //  - a note with an adjacent following note  -> marks[selected].tie
 //  - the last mark, a note ending at the barline -> tiedToNextBar
@@ -1051,11 +1071,10 @@ function rhythmTieState(){
   if(i == null) return null;
   const m = b.marks[i];
   if(SYMS[m.sym].rest) return null;
-  const total = barUnitsFor(song.timeSig) || 16;
   const next = b.marks[i+1];
   if(next && m.at + SYMS[m.sym].units === next.at && !SYMS[next.sym].rest) return 'next';
-  if(i === b.marks.length-1 && m.at + SYMS[m.sym].units === total) return 'toNextBar';
-  if(i === 0 && m.at === 0){
+  if(i === b.marks.length-1 && rhythmLastReachesEnd()) return 'toNextBar';
+  if(i === 0 && rhythmFirstAtStart()){
     const idx = song.items.findIndex(it => it.id === b.barId);
     if(idx > 0 && song.items[idx-1].kind === 'chords') return 'fromPrevBar';
   }
@@ -1098,9 +1117,10 @@ function rhythmToggleDot(){
   if(!rhythmDotAvailable()) return;
   const i = rhythmActiveMarkIndex();
   rhythmBuilding.marks[i].sym = dotToggleKey(rhythmBuilding.marks[i].sym);
+  delete rhythmBuilding.marks[i].tie;   // duration changed — drop a now-maybe-invalid tie
   renderRhythmSheet();
 }
-function rhythmPaletteHtml(units){
+function rhythmPaletteHtml(){
   const b = rhythmBuilding;
   const gap = b.selected != null ? rhythmSlotGap(b.selected) : rhythmGapAt(b.cursor);
   const selSym = b.selected != null ? b.marks[b.selected].sym : null;
@@ -1129,9 +1149,11 @@ function rhythmSeqBoxHtml(units){
     const g = groups.find(gr => gr.start === u);
     if(g){
       const lastIdx = g.type==='beam' ? g.seqStart + g.keys.length - 1 : g.seqStart;
-      const tiedIn = g.seqStart>0 ? !!b.marks[g.seqStart-1].tie : !!b.tiedFromPrevBar;
+      const tiedIn = g.seqStart>0 ? !!b.marks[g.seqStart-1].tie : (rhythmFirstAtStart() && !!b.tiedFromPrevBar);
       const isLastGroup = g.start === lastGroupStart;
-      const tiedOut = (isLastGroup && !b.marks[lastIdx].tie) ? !!b.tiedToNextBar : !!b.marks[lastIdx].tie;
+      const tiedOut = (isLastGroup && !b.marks[lastIdx].tie)
+        ? (rhythmLastReachesEnd() && !!b.tiedToNextBar)
+        : !!b.marks[lastIdx].tie;
       const sel = (b.selected!=null && b.selected>=g.seqStart && b.selected<=lastIdx) ? ' selected' : '';
       const cls = 'seq-cell filled' + sel + (tiedIn?' tied-in':'') + (tiedOut?' tied-out':'');
       html += `<div class="${cls}" style="grid-column:${g.start+1} / span ${g.units}" onclick="rhythmSelectMark(${g.seqStart})">`
@@ -1168,7 +1190,7 @@ function renderRhythmSheet(){
     </div>
     <div class="seq-box" style="grid-template-columns:repeat(${units},1fr);">${rhythmSeqBoxHtml(units)}</div>
     <div class="seq-caption">${remainingLabel(units-used)}</div>
-    ${rhythmPaletteHtml(units)}
+    ${rhythmPaletteHtml()}
     <div class="sheet-actions">
       <button class="neutral compact${rhythmTieActive()?' tie-armed':''}" title="Tie" ${tieAvailable?'':'disabled'} onclick="rhythmToggleTie()">${tieIconSvg(20)}</button>
       <button class="neutral compact" title="Delete" ${canDelete?'':'disabled'} onclick="rhythmDelete()">${svgIcon('eraser',18)}</button>
@@ -1186,7 +1208,9 @@ function rhythmPick(key){
   if(b.selected != null){
     if(units > rhythmSlotGap(b.selected)) return;
     b.marks[b.selected].sym = key;
-    delete b.marks[b.selected].tie;   // duration changed — drop a now-maybe-invalid tie
+    delete b.marks[b.selected].tie;   // duration changed — drop a now-maybe-invalid outgoing tie
+    // …and if it's now a rest, the previous note can't tie into it either.
+    if(SYMS[key].rest && b.selected > 0) delete b.marks[b.selected-1].tie;
     renderRhythmSheet();
     return;
   }
@@ -1211,11 +1235,9 @@ function firstBlankUnitFrom(from){
 function rhythmUndo(){
   const marks = rhythmBuilding.marks;
   if(!marks.length) return;
-  let li = 0;
-  for(let i=1;i<marks.length;i++) if(marks[i].at > marks[li].at) li = i;
-  const removedAt = marks[li].at;
-  marks.splice(li, 1);
-  if(li>0 && marks[li-1]) delete marks[li-1].tie;
+  const removedAt = marks[marks.length-1].at;   // marks are kept sorted ascending by rhythmPick
+  marks.pop();
+  if(marks.length) delete marks[marks.length-1].tie;
   rhythmBuilding.selected = null;
   rhythmBuilding.cursor = removedAt;
   if(marks.length===0) rhythmBuilding.tiedFromPrevBar = false;
@@ -1239,8 +1261,10 @@ function rhythmSave(){
       b.tiedToNextBar = false;
     } else {
       b.rhythm = rhythmBuilding.marks.map(m => ({...m}));
-      b.tiedFromPrevBar = rhythmBuilding.tiedFromPrevBar;
-      b.tiedToNextBar = rhythmBuilding.tiedToNextBar;
+      // Re-validate the cross-bar flags against the boundary marks — a shrink/
+      // delete/dot since the flag was set may have made them meaningless.
+      b.tiedFromPrevBar = rhythmBuilding.tiedFromPrevBar && rhythmFirstAtStart();
+      b.tiedToNextBar = rhythmBuilding.tiedToNextBar && rhythmLastReachesEnd();
     }
     if('rhythmTies' in b) delete b.rhythmTies;
   }
