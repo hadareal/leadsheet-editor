@@ -80,11 +80,14 @@ function appendNewBar(){
   return newBar;
 }
 
-// Sixteenth-note units per bar for a given time signature, or null if
-// that meter isn't supported by the rhythm feature yet (compound/odd
-// meters beam in groups of 3, not 2, so they need their own logic later).
+// Sixteenth-note units in one bar of the given meter. /4 meters count
+// quarters (4 units each), /8 meters count eighths (2 units each).
+// TIME_SIGS is the closed set of meters, so a missing timeSig is the only
+// case that yields null.
 function barUnitsFor(timeSig){
-  if(timeSig && timeSig.den===4 && [2,3,4].includes(timeSig.num)) return timeSig.num*4;
+  if(!timeSig) return null;
+  if(timeSig.den === 4) return timeSig.num * 4;
+  if(timeSig.den === 8) return timeSig.num * 2;
   return null;
 }
 
@@ -108,6 +111,37 @@ function beatGroupStarts(timeSig){
     return out;
   }
   return null;
+}
+
+// Unit span of each beat group in a bar, in sixteenth-units, summing to
+// barUnitsFor(timeSig). Beams and beat-group dividers break at these
+// boundaries. Derived from beatGroupStarts (cell indices) so it always
+// matches the chord grid's grouping:
+//   4/4 -> [4,4,4,4]   6/8 -> [6,6]   9/8 -> [6,6,6]
+//   12/8 -> [6,6,6,6]  7/8 -> [4,4,6]  5/4 -> [4,4,4,4,4]
+function beatGroupUnits(timeSig){
+  if(!timeSig) return null;
+  const cellUnits = timeSig.den === 8 ? 2 : 4;
+  const starts = beatGroupStarts(timeSig);            // cell indices, or null
+  if(!starts) return Array(timeSig.num).fill(cellUnits);
+  const spans = [];
+  for(let i = 0; i < starts.length; i++){
+    const nextCell = i + 1 < starts.length ? starts[i + 1] : timeSig.num;
+    spans.push((nextCell - starts[i]) * cellUnits);
+  }
+  return spans;
+}
+
+// The same spans as running totals — the unit offsets where a beat group
+// ENDS. 4/4 -> [4,8,12,16]; 6/8 -> [6,12]; 7/8 -> [4,8,14]. Shared by the
+// beamer and the builder's beat-group dividers so they never drift apart.
+// Falls back to a plain 4-unit grid if timeSig is missing (should not
+// happen — TIME_SIGS is closed).
+function beatGroupBounds(timeSig){
+  const spans = beatGroupUnits(timeSig) || [4,4,4,4,4,4,4,4];
+  const bounds = [];
+  spans.reduce((acc, u) => { bounds.push(acc + u); return acc + u; }, 0);
+  return bounds;
 }
 
 // One label per chord cell for the editor preview's beat-number row. 9/8 and
@@ -486,24 +520,30 @@ function tieShapeSvg(x1, y1, x2, y2, depth, thick){
 // are grouped so they render as one beamed figure instead of separately
 // flagged notes — e.g. two quavers become a beamed pair, and a dotted
 // quaver + semiquaver (as in "tim-ka") beam together too.
+// Consecutive quavers/semiquavers (plain or dotted) within the same beat
+// GROUP are gathered so they render as one beamed figure instead of
+// separately flagged notes. Beat-group boundaries come from
+// beatGroupBounds(song.timeSig): quarter groups for /4, dotted-quarter
+// groups for 6/8·9/8·12/8, 2+2+3 for 7/8.
 function groupForBeaming(seq){
+  const bounds = beatGroupBounds(song && song.timeSig);
+  const lastBound = bounds[bounds.length - 1];
   const groups = [];
   let i = 0, pos = 0;
   while(i < seq.length){
     const seqStart = i;
     const key = seq[i], def = SYMS[key];
-    const beamable = !def.rest && def.units<4;
+    const beamable = !def.rest && def.units < 4;
     if(beamable){
-      const beatStart = Math.floor(pos/4);
-      let run = [key], units = def.units, p = pos+def.units, j = i+1;
+      const groupEnd = bounds.find(b => b > pos) || lastBound;
+      let run = [key], units = def.units, p = pos + def.units, j = i + 1;
       while(j < seq.length){
         const k2 = seq[j], d2 = SYMS[k2];
-        const beamable2 = !d2.rest && d2.units<4;
-        if(!beamable2) break;
-        if(p + d2.units > (beatStart+1)*4) break; // don't cross a beat boundary
+        if(d2.rest || d2.units >= 4) break;
+        if(p + d2.units > groupEnd) break;   // don't cross a beat-group boundary
         run.push(k2); units += d2.units; p += d2.units; j++;
       }
-      if(run.length>=2){
+      if(run.length >= 2){
         groups.push({ type:'beam', keys:run, units, start:pos, seqStart });
         pos += units; i = j;
       } else {
