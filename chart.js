@@ -644,14 +644,20 @@ function sequenceHtml(seq, size){
   }).join('');
 }
 
+// The rhythm builder's "N beats left" caption. Counts in the meter's
+// denominator note: quarters for /4 (¼/½/¾ sub-beats), eighths for /8
+// (½ sub-beat). With tap-to-place the bar need not be filled, so this is
+// just a running tally of blank space, not a completion gate.
 function remainingLabel(units){
-  if(units<=0) return 'Bar complete';
-  const whole = Math.floor(units/4);
-  const frac = units%4;
-  const fracStr = frac===1 ? '¼' : frac===2 ? '½' : frac===3 ? '¾' : '';
-  let s = (whole>0 ? String(whole) : '') + fracStr;
-  if(!s) s = '0';
-  return s + (units===4 ? ' beat left' : ' beats left');
+  if(units <= 0) return 'Bar complete';
+  const per = (song && song.timeSig && song.timeSig.den === 8) ? 2 : 4;
+  const whole = Math.floor(units / per);
+  const frac = units % per;
+  const fracStr = per === 4
+    ? (frac === 1 ? '¼' : frac === 2 ? '½' : frac === 3 ? '¾' : '')
+    : (frac === 1 ? '½' : '');
+  const s = ((whole > 0 ? String(whole) : '') + fracStr) || '0';
+  return s + (whole === 1 && !fracStr ? ' beat left' : ' beats left');
 }
 
 // Rhythm shown for a bar: the live in-progress sentence if it's the one
@@ -1167,6 +1173,7 @@ function renderRhythmRowEl(row, slotMap){
 
     const slot = document.createElement('div');
     slot.className = 'rhythm-slot';
+    slot.style.gridTemplateColumns = 'repeat(' + (barUnitsFor(song.timeSig) || 16) + ', 1fr)';
     const rh = rhythmForBar(item);
     if(rh && rh.length){
       slot.innerHTML = sequenceHtml(rh, 32);

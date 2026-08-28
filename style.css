@@ -304,7 +304,7 @@ body{
   min-width:56px;
   padding:0 4px; /* matches .bar's horizontal padding, so both grids divide the same content width */
   display:grid;
-  grid-template-columns:repeat(16,1fr);
+  grid-template-columns:repeat(16,1fr); /* fallback; renderRhythmRowEl sets the real count inline per meter */
   align-items:end;
   cursor:pointer;
 }
