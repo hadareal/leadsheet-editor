@@ -975,7 +975,8 @@ function openRhythmBuilder(barId){
   rhythmBuilding = {
     barId,
     marks,
-    cursor: firstBlankUnit(marks),
+    // runs before rhythmBuilding is assigned, so pass the array explicitly
+    cursor: firstBlankUnitFrom(0, marks),
     selected: null,
     tiedFromPrevBar: !!b.tiedFromPrevBar,
     tiedToNextBar: !!b.tiedToNextBar
@@ -983,10 +984,10 @@ function openRhythmBuilder(barId){
   renderRhythmSheet();
 }
 
-// Lowest unit index 0..barUnits not covered by any mark.
-function firstBlankUnit(marks){
+// First unit index >= `from` (clamped to barUnits) not covered by any mark.
+function firstBlankUnitFrom(from, marks = rhythmBuilding.marks){
   const total = barUnitsFor(song.timeSig) || 16;
-  for(let u = 0; u < total; u++){
+  for(let u = Math.min(from, total); u < total; u++){
     const covered = marks.some(m => u >= m.at && u < m.at + SYMS[m.sym].units);
     if(!covered) return u;
   }
@@ -1027,6 +1028,9 @@ function rhythmDelete(){
   rhythmBuilding.marks.splice(i, 1);
   rhythmBuilding.selected = null;
   rhythmBuilding.cursor = removedAt;
+  // a boundary mark just changed — drop both cross-bar ties, user re-taps Tie if wanted
+  rhythmBuilding.tiedFromPrevBar = false;
+  rhythmBuilding.tiedToNextBar = false;
   renderRhythmSheet();
 }
 function closeRhythmSheet(){
@@ -1118,6 +1122,8 @@ function rhythmToggleDot(){
   const i = rhythmActiveMarkIndex();
   rhythmBuilding.marks[i].sym = dotToggleKey(rhythmBuilding.marks[i].sym);
   delete rhythmBuilding.marks[i].tie;   // duration changed — drop a now-maybe-invalid tie
+  if(i === 0) rhythmBuilding.tiedFromPrevBar = false;
+  if(i === rhythmBuilding.marks.length-1) rhythmBuilding.tiedToNextBar = false;
   renderRhythmSheet();
 }
 function rhythmPaletteHtml(){
@@ -1211,6 +1217,8 @@ function rhythmPick(key){
     delete b.marks[b.selected].tie;   // duration changed — drop a now-maybe-invalid outgoing tie
     // …and if it's now a rest, the previous note can't tie into it either.
     if(SYMS[key].rest && b.selected > 0) delete b.marks[b.selected-1].tie;
+    if(b.selected === 0) b.tiedFromPrevBar = false;
+    if(b.selected === b.marks.length-1) b.tiedToNextBar = false;
     renderRhythmSheet();
     return;
   }
@@ -1219,18 +1227,9 @@ function rhythmPick(key){
   let ins = b.marks.findIndex(m => m.at > b.cursor);
   if(ins < 0) ins = b.marks.length;
   b.marks.splice(ins, 0, mark);
-  b.selected = ins;
+  b.selected = null;   // like the chord grid: advance the cursor, don't select — tap the mark to edit it
   b.cursor = firstBlankUnitFrom(b.cursor + units);
   renderRhythmSheet();
-}
-// First blank unit at or after `from` (clamped to barUnits).
-function firstBlankUnitFrom(from){
-  const total = barUnitsFor(song.timeSig) || 16;
-  for(let u = Math.min(from, total); u < total; u++){
-    const covered = rhythmBuilding.marks.some(m => u >= m.at && u < m.at + SYMS[m.sym].units);
-    if(!covered) return u;
-  }
-  return total;
 }
 function rhythmUndo(){
   const marks = rhythmBuilding.marks;
@@ -1240,7 +1239,9 @@ function rhythmUndo(){
   if(marks.length) delete marks[marks.length-1].tie;
   rhythmBuilding.selected = null;
   rhythmBuilding.cursor = removedAt;
-  if(marks.length===0) rhythmBuilding.tiedFromPrevBar = false;
+  // symmetric with rhythmClear/rhythmDelete: a boundary mark changed, drop both cross-bar ties
+  rhythmBuilding.tiedFromPrevBar = false;
+  rhythmBuilding.tiedToNextBar = false;
   renderRhythmSheet();
 }
 function rhythmClear(){
