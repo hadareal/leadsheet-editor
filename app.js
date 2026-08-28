@@ -997,6 +997,7 @@ function openRhythmBuilder(barId){
     // runs before rhythmBuilding is assigned, so pass the array explicitly
     cursor: firstBlankUnitFrom(0, marks),
     selected: null,
+    selEdit: false,   // true only when `selected` came from tapping a mark to edit it
     tiedFromPrevBar: !!b.tiedFromPrevBar,
     tiedToNextBar: !!b.tiedToNextBar
   };
@@ -1034,11 +1035,13 @@ function rhythmSetCursor(u){
   if(u === rhythmBuilding.cursor && rhythmBuilding.selected == null) return;
   rhythmBuilding.cursor = u;
   rhythmBuilding.selected = null;
+  rhythmBuilding.selEdit = false;
   renderRhythmSheet();
 }
 function rhythmSelectMark(i){
-  if(i === rhythmBuilding.selected) return;
+  if(i === rhythmBuilding.selected && rhythmBuilding.selEdit) return;
   rhythmBuilding.selected = i;
+  rhythmBuilding.selEdit = true;   // tapped an existing mark to edit it -> a note tap now replaces
   renderRhythmSheet();
 }
 function rhythmDelete(){
@@ -1048,6 +1051,7 @@ function rhythmDelete(){
   if(i>0) delete rhythmBuilding.marks[i-1].tie;
   rhythmBuilding.marks.splice(i, 1);
   rhythmBuilding.selected = null;
+  rhythmBuilding.selEdit = false;
   rhythmBuilding.cursor = removedAt;
   // Only clear the cross-bar flag whose boundary mark actually moved: deleting
   // mark 0 disturbs the tie-in, deleting the last mark disturbs the tie-out.
@@ -1152,7 +1156,9 @@ function rhythmToggleDot(){
 }
 function rhythmPaletteHtml(){
   const b = rhythmBuilding;
-  const gap = b.selected != null ? rhythmSlotGap(b.selected) : rhythmGapAt(b.cursor);
+  // Editing a tapped mark: a note tap grows it in place (its own slot). Placing
+  // (fresh, or after a just-placed mark): a note tap appends at the cursor.
+  const gap = (b.selected != null && b.selEdit) ? rhythmSlotGap(b.selected) : rhythmGapAt(b.cursor);
   // "dot is on" tracks whichever mark the Dot button would actually act on
   // (rhythmActiveMarkIndex), so the highlight can't disagree with the button's
   // enabled state — e.g. after the cursor moves off a just-placed dotted mark.
@@ -1251,7 +1257,11 @@ function renderRhythmSheet(){
 function rhythmPick(key){
   const b = rhythmBuilding;
   const units = SYMS[key].units;
-  if(b.selected != null){
+  // b.selEdit means the selection came from tapping an existing mark to change
+  // it — a note tap replaces it in place. A just-placed mark is selected too
+  // (so Tie/Dot act on it) but with selEdit false, so the NEXT note tap lands
+  // in the following slot instead of overwriting it.
+  if(b.selected != null && b.selEdit){
     if(units > rhythmSlotGap(b.selected)) return;
     b.marks[b.selected].sym = key;
     delete b.marks[b.selected].tie;   // duration changed — drop a now-maybe-invalid outgoing tie
@@ -1270,7 +1280,8 @@ function rhythmPick(key){
   let ins = b.marks.findIndex(m => m.at > b.cursor);
   if(ins < 0) ins = b.marks.length;
   b.marks.splice(ins, 0, mark);
-  b.selected = null;   // like the chord grid: advance the cursor, don't select — tap the mark to edit it
+  b.selected = ins;      // keep the just-placed mark current for Tie/Dot…
+  b.selEdit = false;     // …but a further note tap appends, it doesn't replace
   b.cursor = firstBlankUnitFrom(b.cursor + units);
   renderRhythmSheet();
 }
@@ -1281,6 +1292,7 @@ function rhythmUndo(){
   marks.pop();
   if(marks.length) delete marks[marks.length-1].tie;
   rhythmBuilding.selected = null;
+  rhythmBuilding.selEdit = false;
   rhythmBuilding.cursor = removedAt;
   // pop() only ever removes the last mark, so only the tie-out is at risk —
   // unless the bar is now empty, which invalidates the tie-in too.
@@ -1294,6 +1306,7 @@ function rhythmClear(){
   rhythmBuilding.tiedToNextBar = false;
   rhythmBuilding.cursor = 0;
   rhythmBuilding.selected = null;
+  rhythmBuilding.selEdit = false;
   renderRhythmSheet();
 }
 function rhythmSave(){
