@@ -48,7 +48,6 @@ const NAV_MARK_TYPES = [
   {type:'ToCoda',    label:'To Coda'},
 ];
 const NAV_MARK_LABEL_BY_TYPE = Object.fromEntries(NAV_MARK_TYPES.map(d=>[d.type, d.label]));
-const MAX_CHORDS_PER_BAR = 4;
 const FONT_OPTIONS = [
   {id:'simple', label:'Simple', sample:'Db7', family:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"},
   {id:'garamond', label:'Classic', sample:'Db7', family:"'EB Garamond', 'Lora', Georgia, serif"},
@@ -89,26 +88,46 @@ function barUnitsFor(timeSig){
   return null;
 }
 
-// Default beat layout (0-indexed, 4 beats per bar) for a given chord count.
-// 1 chord: |X   |   2 chords: |X X |   3 chords: |XXX |   4 chords: |XXXX|
-function defaultBeats(n){
-  if(n<=0) return [];
-  if(n===1) return [0];
-  if(n===2) return [0,2];
-  if(n===3) return [0,1,2];
-  return [0,1,2,3];
+// Number of chord cells in a bar for a given time signature: the meter's
+// numerator (quarter-note cells for /4, eighth-note cells for /8). TIME_SIGS
+// is the closed set of meters, so the only fallback needed is a missing timeSig.
+// A chord's `beat` is a 0-indexed cell in `0 .. barSlots(timeSig) - 1`.
+function barSlots(timeSig){
+  return (timeSig && timeSig.num) || 4;
 }
-function reflowBeats(b){
-  const positions = defaultBeats(b.chords.length);
-  const sorted = b.chords.slice().sort((x,y)=>x.beat-y.beat);
-  sorted.forEach((c,i)=>{ c.beat = positions[i]; });
+
+// Cell indices that begin a beat group, for the editor preview's bolder group
+// dividers — or null for meters that don't need them (every /4 cell is already
+// a downbeat). Compound /8 meters group in 3s; 7/8 groups 2 + 2 + 3.
+function beatGroupStarts(timeSig){
+  if(!timeSig || timeSig.den!==8) return null;
+  if(timeSig.num===7) return [0,2,4];
+  if(timeSig.num%3===0){
+    const out=[];
+    for(let i=0;i<timeSig.num;i+=3) out.push(i);
+    return out;
+  }
+  return null;
 }
-function addChordWithReflow(b, newChordPartial){
-  const positions = defaultBeats(b.chords.length + 1);
-  const sorted = b.chords.slice().sort((x,y)=>x.beat-y.beat);
-  sorted.forEach((c,i)=>{ c.beat = positions[i]; });
-  newChordPartial.beat = positions[positions.length-1];
-  b.chords.push(newChordPartial);
+
+// One label per chord cell for the editor preview's beat-number row. 9/8 and
+// 12/8 count in compound beats that reset per group of 3 ("1 & a"): the beat
+// digit on the group start, then "&" / "a" (sub:true, rendered faint). Every
+// other meter counts straight — "1 2 3 …", one number per cell.
+function beatCellLabels(timeSig){
+  const n = barSlots(timeSig);
+  const out = [];
+  if(timeSig && timeSig.den===8 && (timeSig.num===9 || timeSig.num===12)){
+    for(let i=0;i<n;i++){
+      const within = i%3;
+      out.push(within===0
+        ? {text:String(i/3+1), sub:false}
+        : {text: within===1 ? '&' : 'a', sub:true});
+    }
+    return out;
+  }
+  for(let i=0;i<n;i++) out.push({text:String(i+1), sub:false});
+  return out;
 }
 
 function blankSong(){
@@ -171,7 +190,7 @@ function defaultDemoSong(){
   items[13].rhythm = HIT.slice();
   items[14].rhythm = HIT.slice();
   items[21].rhythm = HIT.slice();
-  // give single-chord bars an explicit beat 0 (addChordWithReflow isn't used here; set directly)
+  // give single-chord bars an explicit beat 0 (set directly)
   items.forEach(it=>{
     if(it.kind==='chords' && it.chords.length===1 && it.chords[0].beat===undefined){
       it.chords[0].beat = 0;
@@ -196,7 +215,10 @@ function defaultDemoSong(){
   };
 }
 
-// song.items is a flat list of bars.
+// song.items is a flat list of bars. A chords bar holds
+// `chords: [{root, tokens, bass, beat} | {nc:true, beat}]`; `beat` is a
+// 0-indexed cell index in `0 .. barSlots(song.timeSig) - 1` (was always 0..3
+// before meters other than 4/4 got a full-width grid).
 // song.borders[i] = {type, label, mark, breakAfter} is the border BEFORE items[i];
 // song.borders[items.length] is the trailing (final) border. `type` is the
 // barline stroke (normal/double/repeatStart/repeatEnd/end), independent of
@@ -866,8 +888,10 @@ function renderBarEl(item){
     return div;
   }
 
-  const denseCls = item.chords.length>=4 ? ' dense' : '';
-  for(let beatIdx=0; beatIdx<4; beatIdx++){
+  const n = barSlots(song.timeSig);
+  div.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
+  const denseCls = (item.chords.length>=4 || n>=5) ? ' dense' : '';
+  for(let beatIdx=0; beatIdx<n; beatIdx++){
     const slot = document.createElement('div');
     slot.className='slot';
     const chord = item.chords.find(c=>c.beat===beatIdx);
@@ -1279,10 +1303,10 @@ function deleteBar(barId){
 let chordDrag = null;
 let suppressNextClick = false;
 
-function beatFromClientX(clientX, rect){
+function beatFromClientX(clientX, rect, n){
   let rel = (clientX - rect.left) / rect.width;
   rel = Math.max(0, Math.min(0.999, rel));
-  return Math.floor(rel*4);
+  return Math.floor(rel*n);
 }
 function clearBeatHighlight(){
   document.querySelectorAll('.slot.drop-target').forEach(el=>el.classList.remove('drop-target'));
@@ -1302,6 +1326,7 @@ function slotPointerDown(e, item, beatIdx, barEl){
     barId:item.id,
     fromBeat:beatIdx,
     targetBeat:beatIdx,
+    n: barSlots(song.timeSig),
     startX:e.clientX,
     startY:e.clientY,
     dragging:false,
@@ -1333,7 +1358,7 @@ function onChordDragMove(e){
   }
 
   e.preventDefault();
-  const beat = beatFromClientX(e.clientX, chordDrag.rect);
+  const beat = beatFromClientX(e.clientX, chordDrag.rect, chordDrag.n);
   if(beat !== chordDrag.targetBeat){
     chordDrag.targetBeat = beat;
     highlightBeatTarget(beat);

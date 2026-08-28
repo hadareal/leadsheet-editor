@@ -480,9 +480,20 @@ function openTimeSigEdit(){
 function setTimeSig(n,d){
   pushSongUndo();
   song.timeSig = {num:n, den:d};
+  // Shrinking the meter can strand chords past the new last cell — drop them
+  // (chords still in range keep their exact beats, no re-spacing). One
+  // pushSongUndo above covers the whole thing, so undo restores both.
+  let dropped = 0;
+  song.items.forEach(it=>{
+    if(it.kind!=='chords' || !it.chords) return;
+    const before = it.chords.length;
+    it.chords = it.chords.filter(c=>c.beat < n);
+    dropped += before - it.chords.length;
+  });
   updateHeader();
   closeSheet();
   render();
+  if(dropped>0) showToast(`${dropped} chord${dropped===1?'':'s'} didn't fit ${n}/${d} and ${dropped===1?'was':'were'} removed`);
 }
 
 /* ============ Font picker ============ */
@@ -538,7 +549,6 @@ function clearPage(){
 
 /* ============ Chord keyboard ============ */
 let pickerTarget = null;
-let pickerWholeBarOptions = false;
 // Builder state for the chord currently being typed. Lives entirely
 // separate from `song` until Done/Next commits it — Cancel (X) needs no
 // song mutation at all, just closeSheet().
@@ -585,30 +595,48 @@ function handleBarTap(item, beatIdx){
   hideOnboardTip();
   if(mode!=='chords') return;
   if(item.kind!=='chords' || item.chords.length===0){
-    pickerTarget = {barId:item.id, mode:'add'};
-    pickerWholeBarOptions = true;
+    pickerTarget = {barId:item.id, mode:'add', beat:0};
     resetBuilderState();
     renderChordKeyboard();
     return;
   }
-  pickerWholeBarOptions = false;
   const existing = item.chords.find(c=>c.beat===beatIdx);
-  if(existing){
-    pickerTarget = {barId:item.id, mode:'edit', beat:beatIdx};
-    resetBuilderState();
-    if(existing.nc){
-      cbNC = true;
-    } else {
-      cbRoot = existing.root;
-      cbTokens = (existing.tokens||[]).map(t=>({...t}));
-      cbBass = existing.bass || null;
-      cbInBass = !!existing.bass;
-    }
-    rebuildHistory();
+  pickerTarget = {barId:item.id, mode: existing ? 'edit' : 'add', beat:beatIdx};
+  resetBuilderState();
+  if(existing) loadChordIntoBuilder(existing);
+  renderChordKeyboard();
+}
+
+// Loads an existing chord's saved shape into the builder so backspace/retype
+// work on it. Assumes resetBuilderState() was just called; rebuildHistory()
+// reconstructs the key-press stack (see its comment).
+function loadChordIntoBuilder(chord){
+  if(chord.nc){
+    cbNC = true;
   } else {
-    pickerTarget = {barId:item.id, mode:'add'};
-    resetBuilderState();
+    cbRoot = chord.root;
+    cbTokens = (chord.tokens||[]).map(t=>({...t}));
+    cbBass = chord.bass || null;
+    cbInBass = !!chord.bass;
   }
+  rebuildHistory();
+}
+
+// Wired to every preview-grid cell. Commits whatever's typed to the current
+// cell, then moves the active spot to `beat` — loading the chord already
+// there (edit) or a blank builder (add). Nothing auto-spaces.
+function cbSelectCell(beat){
+  if(beat===pickerTarget.beat) return;
+  // Flush whatever's typed to the current cell. Add mode with nothing typed
+  // has nothing to flush — skip it (and the no-op undo entry it'd push).
+  if(cbRoot || cbNC || pickerTarget.mode==='edit') cbCommit();
+  const b = findBarById(pickerTarget.barId);
+  render();
+  if(!b) return closeSheet();
+  const existing = b.chords.find(c=>c.beat===beat);
+  pickerTarget = {barId:b.id, mode: existing ? 'edit' : 'add', beat};
+  resetBuilderState();
+  if(existing) loadChordIntoBuilder(existing);
   renderChordKeyboard();
 }
 
@@ -658,38 +686,43 @@ function toggleRowBreak(barId){
   renderChordKeyboard();
 }
 
-// Renders every beat of the bar being edited, not just the chord currently
-// being typed -- so you can see the whole bar taking shape as you go. In
-// "add" mode this simulates the reflow addChordWithReflow() will actually
-// perform (defaultBeats() shifts earlier chords once a new one is added),
-// so the preview always matches what Done/Beat->/Bar-> will save. In "edit"
-// mode the chord count isn't changing, so existing chords just stay put.
+// Renders every cell of the bar being edited so you see the whole bar taking
+// shape. The active cell (pickerTarget.beat) shows the live builder chord, or
+// a "–" placeholder when nothing's typed yet; every other cell shows whatever
+// chord actually sits there. Tapping a cell moves the active spot
+// (cbSelectCell) — nothing auto-spaces. Below the grid, a beat-number row
+// labels the cells (beatCellLabels), and /8 meters get bolder group dividers
+// (beatGroupStarts). Both are keyed to the meter's cell count, barSlots().
 function barPreviewGridHtml(b){
-  let activeBeat, existingEntries;
-  if(pickerTarget.mode==='edit'){
-    activeBeat = pickerTarget.beat;
-    existingEntries = b.chords.filter(c=>c.beat!==activeBeat).map(c=>({beat:c.beat, chord:c}));
-  } else {
-    const positions = defaultBeats(b.chords.length+1);
-    const sorted = b.chords.slice().sort((x,y)=>x.beat-y.beat);
-    existingEntries = sorted.map((c,i)=>({beat:positions[i], chord:c}));
-    activeBeat = positions[positions.length-1];
-  }
-  const finalCount = pickerTarget.mode==='edit' ? b.chords.length : b.chords.length+1;
-  const denseCls = finalCount>=4 ? ' dense' : '';
+  const n = barSlots(song.timeSig);
+  const groups = beatGroupStarts(song.timeSig);
+  const activeBeat = pickerTarget.beat;
+  // Same rule as the chart's own bars: a busy bar, or any high-numerator
+  // meter whose cells are inherently narrow, shrinks its chords to fit.
+  const denseCls = (b.chords.length>=4 || n>=5) ? ' dense' : '';
   const activeInner = cbNC ? 'N.C.' : (cbRoot ? chordInnerHtml({root:cbRoot, tokens:cbTokens, bass:cbBass}) : null);
   const activeContent = activeInner!==null ? `<span class="chord${denseCls}">${activeInner}</span>` : '<span class="kb-placeholder">–</span>';
   let slots = '';
-  for(let i=0;i<4;i++){
+  for(let i=0;i<n;i++){
+    const cls = 'slot'
+      + (i===activeBeat ? ' active' : '')
+      + (groups && i>0 && groups.includes(i) ? ' downbeat' : '');
+    let content;
     if(i===activeBeat){
-      slots += `<div class="slot active">${activeContent}</div>`;
+      content = activeContent;
     } else {
-      const found = existingEntries.find(e=>e.beat===i);
-      const content = found ? `<span class="chord${denseCls}">${found.chord.nc ? 'N.C.' : chordInnerHtml(found.chord)}</span>` : '';
-      slots += `<div class="slot">${content}</div>`;
+      const found = b.chords.find(c=>c.beat===i);
+      content = found ? `<span class="chord${denseCls}">${found.nc ? 'N.C.' : chordInnerHtml(found)}</span>` : '';
     }
+    slots += `<div class="${cls}" onclick="cbSelectCell(${i})">${content}</div>`;
   }
-  return `<div class="kb-preview-grid">${slots}</div>`;
+  const nums = beatCellLabels(song.timeSig)
+    .map(l=>`<span${l.sub ? ' class="sub"' : ''}>${escapeHtml(l.text)}</span>`).join('');
+  const gridStyle = `grid-template-columns:repeat(${n},1fr);width:${n>=5 ? '96%' : '70%'}`;
+  return `<div class="kb-preview-cells">`
+    + `<div class="kb-preview-grid" style="${gridStyle}">${slots}</div>`
+    + `<div class="kb-beatnums" style="${gridStyle}">${nums}</div>`
+    + `</div>`;
 }
 
 function renderChordKeyboard(){
@@ -708,11 +741,17 @@ function renderChordKeyboard(){
   const closeParens = cbTokens.filter(t=>t.ch===')').length;
   const nextParen = openParens>closeParens ? ')' : '(';
   const ncDisabled = cbNC || cbRoot || cbInBass || cbTokens.length>0 || barLocked;
+  // "%" (repeat bar) replaces the whole bar, so it's offered only when the bar
+  // holds no chords — including when the lone chord being edited has been
+  // backspaced to empty, i.e. committing right now would leave the bar blank.
+  const clearingLoneChord = pickerTarget.mode==='edit' && !cbRoot && !cbNC
+    && b.chords.length===1 && b.chords[0].beat===pickerTarget.beat;
+  const canMakeRepeatBar = b.kind==='chords' && (b.chords.length===0 || clearingLoneChord);
   const row2 = CHORD_KB_SYMBOLS.map(s=>
     `<button ${locked?'disabled':''} onclick="cbPickToken('${s.ch}',${s.sup})">${s.ch}${s.label?`<span class="kb-sub">${s.label}</span>`:''}</button>`
   ).join('')
     + `<button ${ncDisabled?'disabled':''} onclick="cbPickNC()">N.C.</button>`
-    + `<button ${pickerWholeBarOptions?'':'disabled'} onclick="setBarKind('${pickerTarget.barId}','repeat')">${repeatBarSvg(16)}</button>`
+    + `<button ${canMakeRepeatBar?'':'disabled'} onclick="setBarKind('${pickerTarget.barId}','repeat')">${repeatBarSvg(16)}</button>`
     + `<button ${locked?'disabled':''} onclick="cbPickToken('${nextParen}',true)">()</button>`;
   const row3 = CHORD_KB_NUMBERS.map(n=>`<button ${locked?'disabled':''} onclick="cbPickToken('${n}',true)">${n}</button>`).join('')
     + `<button ${(!cbRoot||cbInBass||locked)?'disabled':''} onclick="cbSlash()">/</button>`
@@ -720,7 +759,7 @@ function renderChordKeyboard(){
   const doneNextDisabled = (pickerTarget.mode!=='edit' && !cbRoot && !cbNC) ? 'disabled' : '';
   // Bar-> always stays enabled, even with nothing typed -- skipping an
   // empty bar to keep moving is fine (cbCommit is a safe no-op with
-  // nothing typed), unlike Done/Beat which are about finishing THIS bar.
+  // nothing typed), unlike Done which is about finishing THIS bar.
   const rhythmDisabled = barLocked || barUnitsFor(song.timeSig)===null;
   const hasRhythmMark = b.rhythm && b.rhythm.length>0;
 
@@ -741,7 +780,6 @@ function renderChordKeyboard(){
     <div class="kb-grid" style="grid-template-columns:repeat(11,1fr);">${row2}</div>
     <div class="kb-grid" style="grid-template-columns:repeat(11,1fr);">${row3}</div>
     <div class="sheet-actions">
-      <button class="neutral compact" ${doneNextDisabled} onclick="cbNextBeat()">Beat${arrowRightSvg(16)}</button>
       <button class="neutral compact" onclick="cbNextBar()">Bar${arrowRightSvg(16)}</button>
       <button class="primary compact" ${doneNextDisabled} onclick="cbDone()">Done</button>
     </div>
@@ -839,8 +877,9 @@ function cbClearBar(){
   if(b){ b.kind = 'chords'; b.chords = []; }
   render();
   // Stays open on the same (now empty) bar instead of closing, so clearing
-  // a bar flows straight into typing its replacement chord.
-  pickerWholeBarOptions = true;
+  // a bar flows straight into typing its replacement chord. Active cell goes
+  // back to the first, wherever it was.
+  pickerTarget.beat = 0;
   resetBuilderState();
   renderChordKeyboard();
 }
@@ -849,40 +888,37 @@ function cbCancel(){
   closeSheet();
 }
 
-// Writes the builder state into the target bar/beat. If nothing was typed
-// (neither cbRoot nor cbNC is set), this means "remove the chord at this
-// slot" in edit mode — the same effect the old per-slot Clear had — and is
-// a no-op in add mode. Reachable via Bar-> (always enabled, even with
-// nothing typed, so you can skip a bar you'll fill in later) — Done/Beat
-// stay disabled in that state since they're about finishing THIS bar.
+// Writes the builder state into the target bar at pickerTarget.beat — exactly
+// there, nothing else moves. If nothing was typed (neither cbRoot nor cbNC),
+// this means "remove the chord at this cell" in edit mode — the same effect
+// the old per-slot Clear had — and is a no-op in add mode. Reachable via
+// Bar-> (always enabled, even with nothing typed, so you can skip a bar
+// you'll fill in later) — Done stays disabled in that state.
 function cbCommit(){
   pushSongUndo();
   const b = findBarById(pickerTarget.barId);
   if(!b) return;
+  const beat = pickerTarget.beat;
   if(!cbRoot && !cbNC){
     if(pickerTarget.mode==='edit'){
-      const idx = b.chords.findIndex(c=>c.beat===pickerTarget.beat);
-      if(idx>=0){ b.chords.splice(idx,1); reflowBeats(b); }
+      const idx = b.chords.findIndex(c=>c.beat===beat);
+      if(idx>=0) b.chords.splice(idx,1);   // no re-spacing of the rest
     }
     // Nothing to commit or remove -- leave the bar's kind alone instead of
     // clobbering e.g. a freshly-set "%" bar back to 'chords'.
     return;
   }
   b.kind = 'chords';
-  const chordData = cbNC ? {nc:true} : { root:cbRoot, tokens:cbTokens.map(t=>({...t})), bass:cbBass };
-  if(pickerTarget.mode==='edit'){
-    const c = b.chords.find(c=>c.beat===pickerTarget.beat);
-    if(c){
-      delete c.root; delete c.tokens; delete c.bass; delete c.nc;
-      Object.assign(c, chordData);
-    }
-  } else {
-    addChordWithReflow(b, chordData);
-  }
+  const chordData = cbNC
+    ? {nc:true, beat}
+    : {root:cbRoot, tokens:cbTokens.map(t=>({...t})), bass:cbBass, beat};
+  const idx = b.chords.findIndex(c=>c.beat===beat);
+  if(idx>=0) b.chords.splice(idx,1,chordData);
+  else b.chords.push(chordData);
 }
 
-function firstEmptyBeat(b){
-  for(let i=0;i<4;i++){
+function firstEmptyBeat(b, n){
+  for(let i=0;i<n;i++){
     if(!b.chords.find(c=>c.beat===i)) return i;
   }
   return null;
@@ -901,19 +937,6 @@ function cbDone(){
   }
 }
 
-// Fills more of the SAME bar, if there's room — falls back to Done if not.
-function cbNextBeat(){
-  cbCommit();
-  const b = findBarById(pickerTarget.barId);
-  render();
-  const beat = b ? firstEmptyBeat(b) : null;
-  if(beat===null){ closeSheet(); return; }
-  pickerTarget = {barId: pickerTarget.barId, mode:'add'};
-  pickerWholeBarOptions = false;
-  resetBuilderState();
-  renderChordKeyboard();
-}
-
 // Always advances to the NEXT bar, regardless of room left in this one —
 // creates a new bar if this is already the last one, and otherwise falls
 // back to Done if the next bar isn't a chords bar or it's already full.
@@ -924,10 +947,9 @@ function cbNextBar(){
   if(!nextBar) nextBar = appendNewBar();
   render();
   if(!nextBar || nextBar.kind!=='chords'){ closeSheet(); return; }
-  const beat = firstEmptyBeat(nextBar);
+  const beat = firstEmptyBeat(nextBar, barSlots(song.timeSig));
   if(beat===null){ closeSheet(); return; }
-  pickerTarget = {barId: nextBar.id, mode:'add'};
-  pickerWholeBarOptions = nextBar.chords.length===0;
+  pickerTarget = {barId: nextBar.id, mode:'add', beat};
   resetBuilderState();
   renderChordKeyboard();
 }
@@ -971,8 +993,8 @@ function switchToChordTab(){
   const barId = rhythmBuilding.barId;
   const b = findBarById(barId);
   rhythmBuilding = null;
-  pickerTarget = {barId, mode:'add'};
-  pickerWholeBarOptions = (b.chords.length===0);
+  const fb = firstEmptyBeat(b, barSlots(song.timeSig));
+  pickerTarget = {barId, mode:'add', beat: fb===null ? 0 : fb};
   resetBuilderState();
   renderChordKeyboard();
 }

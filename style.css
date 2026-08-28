@@ -844,6 +844,15 @@ body{
 .kb-preview .suf{ font-size:.5em; vertical-align:top; position:relative; top:2px; margin-left:1px; }
 .kb-preview .acc{ font-size:.6em; margin-left:-1px; position:relative; top:-2px; }
 .kb-placeholder{ color:#c4c4c4; }
+/* Column count and width are set inline per meter (barPreviewGridHtml) — the
+   values here are the 4/4 fallback. .kb-preview-cells stacks the grid and its
+   beat-number row and centres both. */
+.kb-preview-cells{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
 .kb-preview-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -858,9 +867,15 @@ body{
   justify-content:center;
   min-height:44px;
   border-right:1px solid var(--card-border);
+  overflow:hidden;
 }
 .kb-preview-grid .slot:last-child{
   border-right:none;
+}
+/* Bolder divider at the start of a beat group (compound /8 meters) — see
+   beatGroupStarts. Never on the first cell (i > 0 guard in the markup). */
+.kb-preview-grid .slot.downbeat{
+  border-left:2px solid var(--ink);
 }
 .kb-preview-grid .slot.active{
   outline:1.5px dashed var(--ink-soft);
@@ -871,6 +886,22 @@ body{
   font-size:20px;
   display:inline-block;
   transform:scaleX(0.8);
+}
+.kb-beatnums{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  width:70%;
+  margin-top:5px;
+  font-family:var(--ui-font);
+  font-size:11px;
+  font-weight:700;
+  color:var(--ink);
+  text-align:center;
+}
+.kb-beatnums .sub{
+  color:var(--ink-soft);
+  font-weight:400;
+  font-size:9px;
 }
 .kb-grid{ display:grid; gap:6px; margin-bottom:8px; }
 .kb-grid button{
