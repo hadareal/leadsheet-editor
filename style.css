@@ -294,11 +294,12 @@ body{
    rhythm grid lines up exactly with the bar grid beneath it. */
 .rhythm-row .ts-spacer{ flex:0 0 12px; }
 .rhythm-row .rhythm-gap{ flex:0 0 auto; min-width:13px; }
-/* 16 columns = one per sixteenth-note unit in a 4/4 bar — 4x finer than
-   the bar's own 4-column (one-per-beat) chord grid, so beat k of the
-   chords always lines up with rhythm columns 4k..4k+3. Each note/rest is
-   placed on this grid by its actual beat position (see sequenceHtml in
-   chart.js) instead of being packed together and centered. */
+/* One column per sixteenth-note unit in the bar; the actual count is set
+   inline per meter by renderRhythmRowEl (barUnitsFor) — the value below is
+   only a fallback. Finer than the bar's own one-column-per-beat chord grid,
+   so each chord cell lines up with a whole beat's worth of rhythm columns.
+   Each note/rest is placed on this grid by its actual beat position (see
+   sequenceHtml in chart.js) instead of being packed together and centered. */
 .rhythm-row .rhythm-slot{
   flex:0 1 var(--bar-w);
   min-width:56px;

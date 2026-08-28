@@ -399,7 +399,9 @@ function dotToggleKey(key){
 // the pre-2026-08 packed rhythm form (b.rhythm = ['n_quarter', ...],
 // b.rhythmTies = [ ,true, ]) to positioned marks
 // (b.rhythm = [{sym, at, tie?}], no rhythmTies). Idempotent: a rhythm that
-// is already marks, empty, or null is left untouched.
+// is already marks, empty, or null is left untouched — except that
+// out-of-range marks are always clamped to the current meter (see below).
+// The `song` parameter deliberately shadows the module-global `song`.
 function normalizeSong(song){
   if(!song || !Array.isArray(song.items)) return song;
   song.items.forEach(it => {
@@ -419,6 +421,15 @@ function normalizeSong(song){
         }
       }
       it.rhythm = marks;
+    }
+    // Drop legacy marks that don't fit the current meter (old setTimeSig never
+    // clamped rhythm, so a 4/4 bar switched to 2/4 kept its full 16-unit
+    // rhythm). Applies to the just-migrated case AND an already-new-format
+    // rhythm synced from a device that hadn't clamped.
+    const total = barUnitsFor(song.timeSig);
+    if(total && Array.isArray(it.rhythm)){
+      it.rhythm = it.rhythm.filter(m => SYMS[m.sym] && m.at + SYMS[m.sym].units <= total);
+      if(!it.rhythm.length) it.rhythm = null;
     }
     if('rhythmTies' in it) delete it.rhythmTies;
   });
@@ -547,10 +558,6 @@ function tieShapeSvg(x1, y1, x2, y2, depth, thick){
 }
 
 // Consecutive quavers/semiquavers (plain or dotted) within the same beat
-// are grouped so they render as one beamed figure instead of separately
-// flagged notes — e.g. two quavers become a beamed pair, and a dotted
-// quaver + semiquaver (as in "tim-ka") beam together too.
-// Consecutive quavers/semiquavers (plain or dotted) within the same beat
 // GROUP are gathered so they render as one beamed figure instead of
 // separately flagged notes. Beat-group boundaries come from
 // beatGroupBounds(song.timeSig): quarter groups for /4, dotted-quarter
@@ -649,11 +656,12 @@ function beamGroupSvg(keys, size){
   return '<svg class="rsym rsym-beam" width="'+w+'" height="'+size+'" preserveAspectRatio="none" viewBox="0 0 '+totalLocalW+' '+VB_H+'">'+out+'</svg>';
 }
 
-// Places each note/rest (or beam group) on a 16-column grid — one column
-// per sixteenth-note unit — so it lands at its actual beat position instead
-// of being packed left and centered. This is 4x finer than the bar's own
-// 4-column chord grid (one column per beat), so beat k of the chords lines
-// up exactly with rhythm columns 4k..4k+3, keeping the two rows in sync.
+// Places each note/rest (or beam group) on a grid of barUnitsFor(song.timeSig)
+// columns — one per sixteenth-note unit — so it lands at its actual beat
+// position instead of being packed left and centered. That's finer than the
+// bar's own barSlots(song.timeSig)-column chord grid (one column per beat):
+// each chord cell spans a whole beat's worth of rhythm columns, so the two
+// rows stay in sync in every meter.
 function sequenceHtml(marks, size){
   return groupForBeaming(marks).map(g=>{
     const html = g.type==='beam' ? beamGroupSvg(g.keys,size) : iconSvg(g.key,size);
@@ -665,8 +673,10 @@ function sequenceHtml(marks, size){
       // not the middle of the full multi-beat span, which would visually
       // drift it away from the beat it actually belongs to. Beam groups
       // are exempt: they always fit within one beat (see groupForBeaming)
-      // and already stretch to fill it edge-to-edge.
-      const centerPct = Math.min(50, 200/g.units);
+      // and already stretch to fill it edge-to-edge. The beat is 4 units in
+      // /4 meters, 2 in /8, so center on 50% of one beat's worth of columns.
+      const beatUnits = (song.timeSig && song.timeSig.den === 8) ? 2 : 4;
+      const centerPct = Math.min(50, beatUnits * 50 / g.units);
       const w = Math.round(size*VB_W/VB_H);
       inner = '<span style="display:inline-block;margin-left:calc('+centerPct+'% - '+(w/2)+'px)">'+html+'</span>';
     }
@@ -704,8 +714,10 @@ function tiedFromPrevBarFor(item){
 }
 // Whether this bar's last note ties forward, authored from this bar's own
 // side (as opposed to tiedFromPrevBarFor, authored from the receiving bar).
-// Never read while this bar's own builder is open — the main chart doesn't
-// re-render until the sheet closes — so no rhythmBuilding-aware branch here.
+// Asymmetric with tiedFromPrevBarFor on purpose: there's simply no
+// rhythmBuilding-aware branch here, so while the builder is open a not-yet-
+// saved tiedToNextBar previews in the sequence box but not on the chart
+// behind it.
 function tiedToNextBarFor(item){ return !!item.tiedToNextBar; }
 
 // Finds where the notehead at flat sequence index `seqIndex` actually landed
@@ -1198,6 +1210,9 @@ function renderRhythmRowEl(row, slotMap){
   tsSpacer.className = 'ts-spacer';
   div.appendChild(tsSpacer);
 
+  // One meter per song — compute the rhythm-grid column count once, not per bar.
+  const slotCols = 'repeat(' + (barUnitsFor(song.timeSig) || 16) + ', 1fr)';
+
   row.forEach(item=>{
     const gap = document.createElement('div');
     gap.className = 'rhythm-gap';
@@ -1205,7 +1220,7 @@ function renderRhythmRowEl(row, slotMap){
 
     const slot = document.createElement('div');
     slot.className = 'rhythm-slot';
-    slot.style.gridTemplateColumns = 'repeat(' + (barUnitsFor(song.timeSig) || 16) + ', 1fr)';
+    slot.style.gridTemplateColumns = slotCols;
     const rh = rhythmForBar(item);
     if(rh && rh.length){
       slot.innerHTML = sequenceHtml(rh, 32);

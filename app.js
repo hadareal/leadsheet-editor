@@ -1031,11 +1031,13 @@ function rhythmSlotGap(i){
   return (nextM ? nextM.at : total) - m.at;
 }
 function rhythmSetCursor(u){
+  if(u === rhythmBuilding.cursor && rhythmBuilding.selected == null) return;
   rhythmBuilding.cursor = u;
   rhythmBuilding.selected = null;
   renderRhythmSheet();
 }
 function rhythmSelectMark(i){
+  if(i === rhythmBuilding.selected) return;
   rhythmBuilding.selected = i;
   renderRhythmSheet();
 }
@@ -1047,9 +1049,11 @@ function rhythmDelete(){
   rhythmBuilding.marks.splice(i, 1);
   rhythmBuilding.selected = null;
   rhythmBuilding.cursor = removedAt;
-  // a boundary mark just changed — drop both cross-bar ties, user re-taps Tie if wanted
-  rhythmBuilding.tiedFromPrevBar = false;
-  rhythmBuilding.tiedToNextBar = false;
+  // Only clear the cross-bar flag whose boundary mark actually moved: deleting
+  // mark 0 disturbs the tie-in, deleting the last mark disturbs the tie-out.
+  // (rhythmSave / rhythmSeqBoxHtml re-validate both against the predicates.)
+  if(i === 0) rhythmBuilding.tiedFromPrevBar = false;
+  if(i === rhythmBuilding.marks.length) rhythmBuilding.tiedToNextBar = false; // i was the last index before splice
   renderRhythmSheet();
 }
 function closeRhythmSheet(){
@@ -1113,19 +1117,24 @@ function rhythmTieActive(){
 }
 function rhythmToggleTie(){
   const s = rhythmTieState(), b = rhythmBuilding;
-  if(s === 'next') b.marks[b.selected].tie = !b.marks[b.selected].tie;
+  if(s === 'next'){
+    if(b.marks[b.selected].tie) delete b.marks[b.selected].tie;  // absent, not false — matches how tie is stored everywhere else
+    else b.marks[b.selected].tie = true;
+  }
   else if(s === 'toNextBar') b.tiedToNextBar = !b.tiedToNextBar;
   else if(s === 'fromPrevBar') b.tiedFromPrevBar = !b.tiedFromPrevBar;
   else return;
   renderRhythmSheet();
 }
-// Whether the note/rest the Dot button acts on (the selected mark, else the
-// last one) can have its dot toggled — always true when removing an existing
-// dot (that only frees units), but gated on the mark's own slot when adding one.
+// The mark the Dot button acts on: the selected mark if there is one, else the
+// mark that ends exactly at the cursor (the one rhythmPick just placed, since
+// it advances the cursor to right after it) — never a distant mark just
+// because nothing is selected. -1 when the cursor isn't immediately after a
+// mark; rhythmDotAvailable / rhythmToggleDot both treat -1 as "unavailable".
 function rhythmActiveMarkIndex(){
   const b = rhythmBuilding;
   if(b.selected != null) return b.selected;
-  return b.marks.length ? b.marks.length-1 : -1;
+  return b.marks.findIndex(m => m.at + SYMS[m.sym].units === b.cursor);
 }
 function rhythmDotAvailable(){
   const i = rhythmActiveMarkIndex();
@@ -1141,7 +1150,9 @@ function rhythmToggleDot(){
   const i = rhythmActiveMarkIndex();
   rhythmBuilding.marks[i].sym = dotToggleKey(rhythmBuilding.marks[i].sym);
   delete rhythmBuilding.marks[i].tie;   // duration changed — drop a now-maybe-invalid tie
-  if(i === 0) rhythmBuilding.tiedFromPrevBar = false;
+  // Dotting preserves the mark's `at` and rest-ness, so mark 0 staying at at:0
+  // keeps tiedFromPrevBar valid — but the last mark's span changes, so its
+  // reach to the barline (tiedToNextBar) may not survive.
   if(i === rhythmBuilding.marks.length-1) rhythmBuilding.tiedToNextBar = false;
   renderRhythmSheet();
 }
@@ -1181,9 +1192,18 @@ function rhythmSeqBoxHtml(units){
         : !!b.marks[lastIdx].tie;
       const sel = (b.selected!=null && b.selected>=g.seqStart && b.selected<=lastIdx) ? ' selected' : '';
       const cls = 'seq-cell filled' + sel + (tiedIn?' tied-in':'') + (tiedOut?' tied-out':'');
-      html += `<div class="${cls}" style="grid-column:${g.start+1} / span ${g.units}" onclick="rhythmSelectMark(${g.seqStart})">`
+      // Tapping a beam group selects its first mark; tapping it again cycles
+      // forward through the group's marks (and wraps) so the 2nd+ notes of a
+      // beamed run are reachable for per-mark palette/Dot/Tie/Delete edits.
+      const groupIdxs = g.type === 'beam'
+        ? Array.from({length: g.keys.length}, (_, k) => g.seqStart + k)
+        : [g.seqStart];
+      const nextSel = (b.selected != null && groupIdxs.includes(b.selected))
+        ? groupIdxs[(groupIdxs.indexOf(b.selected) + 1) % groupIdxs.length]
+        : groupIdxs[0];
+      html += `<div class="${cls}" style="grid-column:${g.start+1} / span ${g.units}" onclick="rhythmSelectMark(${nextSel})">`
             + (g.type==='beam' ? beamGroupSvg(g.keys,28) : iconSvg(g.key,28)) + `</div>`;
-      u += g.units;
+      u += Math.max(1, g.units);   // g.units is 0 for an unknown sym (corrupt data) — never let u stall
     } else {
       const cur = u === b.cursor ? ' cursor' : '';
       const beatEnd = bounds.includes(u+1) ? ' beat-end' : '';
@@ -1225,7 +1245,13 @@ function renderRhythmSheet(){
       <button class="primary compact" title="Done" ${hasMarks?'':'disabled'} onclick="rhythmSave()">Done</button>
     </div>
   `);
-  render();
+  // Navigation taps (rhythmSetCursor / rhythmSelectMark) funnel through here
+  // too, and this render() is purely to preview the in-progress sentence on the
+  // chart behind the sheet — not a content edit. Suppress autosave so a plain
+  // cursor move doesn't mark the song dirty and fork an "(unsynced edit)"
+  // duplicate. The real mutation path (rhythmSave -> closeRhythmSheet) runs its
+  // own unsuppressed render().
+  suppressAutosave = true; render(); suppressAutosave = false;
 }
 function rhythmPick(key){
   const b = rhythmBuilding;
@@ -1236,7 +1262,10 @@ function rhythmPick(key){
     delete b.marks[b.selected].tie;   // duration changed — drop a now-maybe-invalid outgoing tie
     // …and if it's now a rest, the previous note can't tie into it either.
     if(SYMS[key].rest && b.selected > 0) delete b.marks[b.selected-1].tie;
-    if(b.selected === 0) b.tiedFromPrevBar = false;
+    // Replacing mark 0 with another note at at:0 keeps tiedFromPrevBar valid;
+    // only a rest breaks it. The last mark's duration/rest-ness may change
+    // either way, so always re-check tiedToNextBar (rhythmSave re-validates).
+    if(b.selected === 0 && SYMS[key].rest) b.tiedFromPrevBar = false;
     if(b.selected === b.marks.length-1) b.tiedToNextBar = false;
     renderRhythmSheet();
     return;
@@ -1258,9 +1287,10 @@ function rhythmUndo(){
   if(marks.length) delete marks[marks.length-1].tie;
   rhythmBuilding.selected = null;
   rhythmBuilding.cursor = removedAt;
-  // symmetric with rhythmClear/rhythmDelete: a boundary mark changed, drop both cross-bar ties
-  rhythmBuilding.tiedFromPrevBar = false;
+  // pop() only ever removes the last mark, so only the tie-out is at risk —
+  // unless the bar is now empty, which invalidates the tie-in too.
   rhythmBuilding.tiedToNextBar = false;
+  if(!marks.length) rhythmBuilding.tiedFromPrevBar = false;
   renderRhythmSheet();
 }
 function rhythmClear(){
