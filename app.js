@@ -483,20 +483,36 @@ function openTimeSigEdit(){
 function setTimeSig(n,d){
   pushSongUndo();
   song.timeSig = {num:n, den:d};
-  // Shrinking the meter can strand chords past the new last cell — drop them
-  // (chords still in range keep their exact beats, no re-spacing). One
-  // pushSongUndo above covers the whole thing, so undo restores both.
-  let dropped = 0;
+  const newUnits = barUnitsFor({num:n, den:d});
+  let dropped = 0, rhythmDropped = 0;
   song.items.forEach(it=>{
-    if(it.kind!=='chords' || !it.chords) return;
-    const before = it.chords.length;
-    it.chords = it.chords.filter(c=>c.beat < n);
-    dropped += before - it.chords.length;
+    if(it.kind!=='chords') return;
+    if(it.chords){
+      const before = it.chords.length;
+      it.chords = it.chords.filter(c=>c.beat < n);
+      dropped += before - it.chords.length;
+    }
+    if(Array.isArray(it.rhythm)){
+      const before = it.rhythm.length;
+      it.rhythm = it.rhythm.filter(m => SYMS[m.sym] && m.at + SYMS[m.sym].units <= newUnits);
+      rhythmDropped += before - it.rhythm.length;
+      const rhythmChanged = it.rhythm.length !== before;
+      // Update boundary flags if marks were dropped OR if flags are set (they might need clearing)
+      if(rhythmChanged || it.tiedFromPrevBar || it.tiedToNextBar){
+        if(!it.rhythm.length) it.rhythm = null;
+        it.tiedFromPrevBar = !!it.tiedFromPrevBar && !!it.rhythm && it.rhythm[0].at === 0;
+        const last = it.rhythm && it.rhythm[it.rhythm.length-1];
+        it.tiedToNextBar = !!it.tiedToNextBar && !!last && last.at + SYMS[last.sym].units === newUnits;
+      }
+    }
   });
   updateHeader();
   closeSheet();
   render();
-  if(dropped>0) showToast(`${dropped} chord${dropped===1?'':'s'} didn't fit ${n}/${d} and ${dropped===1?'was':'were'} removed`);
+  const bits = [];
+  if(dropped>0) bits.push(`${dropped} chord${dropped===1?'':'s'}`);
+  if(rhythmDropped>0) bits.push(`${rhythmDropped} rhythm mark${rhythmDropped===1?'':'s'}`);
+  if(bits.length) showToast(`${bits.join(' and ')} didn't fit ${n}/${d} and ${bits.length===1 && dropped+rhythmDropped===1 ? 'was' : 'were'} removed`);
 }
 
 /* ============ Font picker ============ */
