@@ -811,7 +811,7 @@ function drawAllTies(slotMap){
     const prevLast = prevRh[prevRh.length-1];
     if(SYMS[prevLast.sym].rest) continue;
     // tiedToNextBar only means something if the last mark actually reaches the barline
-    const prevUnits = barUnitsFor(song.timeSig);
+    const prevUnits = barUnitsFor(song.timeSig) || 16;
     if(prevLast.at + SYMS[prevLast.sym].units !== prevUnits) continue;
     const prevInfo = slotMap.get(prev.id);
     if(!prevInfo) continue;

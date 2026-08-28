@@ -971,12 +971,13 @@ function barLabelHtml(item){
 function openRhythmBuilder(barId){
   const b = findBarById(barId);
   if(!b) return;
-  // A saved bar's rhythm is always either empty or completely full (Done is
-  // disabled otherwise), so marks.length===0 unambiguously means "reopening a
-  // fresh bar" (start edge, inherit tiedFromPrevBar) vs "reopening a full
-  // one" (end edge, inherit tiedToNextBar) — pre-arm Tie to match whichever
-  // edge's saved state, so picking a note right away doesn't silently drop
-  // an already-saved tie the user has to remember to re-confirm.
+  // marks.length===0 means "reopening a fresh bar" (start edge, inherit
+  // tiedFromPrevBar); a non-empty bar is treated as the end edge (inherit
+  // tiedToNextBar) — pre-arm Tie to match whichever edge's saved state, so
+  // picking a note right away doesn't silently drop an already-saved tie the
+  // user has to remember to re-confirm. (Most saved bars are full while the
+  // full-bar Done gate is still in place; partial bars land on the end-edge
+  // branch, which is harmless — pre-arming just mirrors tiedToNextBar.)
   const marks = (b.rhythm || []).map(m => ({...m}));
   const startsEmpty = marks.length === 0;
   rhythmBuilding = {
@@ -1101,7 +1102,7 @@ function rhythmSeqBoxHtml(units){
 function renderRhythmSheet(){
   const b = findBarById(rhythmBuilding.barId);
   if(!b){ closeRhythmSheet(); return; }
-  const units = barUnitsFor(song.timeSig);
+  const units = barUnitsFor(song.timeSig) || 16;
   const used = rhythmUnitsUsed();
   const label = barLabelHtml(b);
   const tieAvailable = rhythmTieAvailable();
