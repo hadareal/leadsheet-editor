@@ -1160,8 +1160,11 @@ function rhythmPaletteHtml(){
   const b = rhythmBuilding;
   const gap = b.selected != null ? rhythmSlotGap(b.selected) : rhythmGapAt(b.cursor);
   const selSym = b.selected != null ? b.marks[b.selected].sym : null;
-  const dotOn = selSym ? SYMS[selSym].dotted
-              : (b.marks.length ? SYMS[b.marks[b.marks.length-1].sym].dotted : false);
+  // "dot is on" tracks whichever mark the Dot button would actually act on
+  // (rhythmActiveMarkIndex), so the highlight can't disagree with the button's
+  // enabled state — e.g. after the cursor moves off a just-placed dotted mark.
+  const dotIdx = rhythmActiveMarkIndex();
+  const dotOn = dotIdx >= 0 && SYMS[b.marks[dotIdx].sym].dotted;
   const noteBtns = RHYTHM_NOTE_KEYS.map(k=>{
     const n = SYMS[k];
     const on = selSym && SYMS[k].base===SYMS[selSym].base && !SYMS[k].dotted ? ' tie-armed' : '';
