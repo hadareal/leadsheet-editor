@@ -500,9 +500,12 @@ function setTimeSig(n,d){
       // Update boundary flags if marks were dropped OR if flags are set (they might need clearing)
       if(rhythmChanged || it.tiedFromPrevBar || it.tiedToNextBar){
         if(!it.rhythm.length) it.rhythm = null;
-        it.tiedFromPrevBar = !!it.tiedFromPrevBar && !!it.rhythm && it.rhythm[0].at === 0;
+        it.tiedFromPrevBar = !!it.tiedFromPrevBar && !!it.rhythm && it.rhythm[0].at === 0
+                             && !!SYMS[it.rhythm[0].sym] && !SYMS[it.rhythm[0].sym].rest;
         const last = it.rhythm && it.rhythm[it.rhythm.length-1];
-        it.tiedToNextBar = !!it.tiedToNextBar && !!last && last.at + SYMS[last.sym].units === newUnits;
+        it.tiedToNextBar = !!it.tiedToNextBar && !!last && !!SYMS[last.sym]
+                           && !SYMS[last.sym].rest
+                           && last.at + SYMS[last.sym].units === newUnits;
       }
     }
   });
