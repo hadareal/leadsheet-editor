@@ -958,7 +958,7 @@ function cbNextBar(){
 }
 
 /* ============ Rhythm builder ============ */
-let rhythmBuilding = null; // { barId, marks:[{sym,at,tie}], cursor, selected, tieArmed, tiedFromPrevBar }
+let rhythmBuilding = null; // { barId, marks:[{sym,at,tie}], cursor, selected, tiedFromPrevBar, tiedToNextBar }
 
 function barLabelHtml(item){
   if(item.kind!=='chords' || item.chords.length===0) return '';
@@ -971,22 +971,14 @@ function barLabelHtml(item){
 function openRhythmBuilder(barId){
   const b = findBarById(barId);
   if(!b) return;
-  // marks.length===0 means "reopening a fresh bar" (start edge, inherit
-  // tiedFromPrevBar); a non-empty bar is treated as the end edge (inherit
-  // tiedToNextBar) — pre-arm Tie to match whichever edge's saved state, so
-  // picking a note right away doesn't silently drop an already-saved tie the
-  // user has to remember to re-confirm. (Most saved bars are full while the
-  // full-bar Done gate is still in place; partial bars land on the end-edge
-  // branch, which is harmless — pre-arming just mirrors tiedToNextBar.)
   const marks = (b.rhythm || []).map(m => ({...m}));
-  const startsEmpty = marks.length === 0;
   rhythmBuilding = {
     barId,
     marks,
     cursor: firstBlankUnit(marks),
     selected: null,
-    tieArmed: startsEmpty ? !!b.tiedFromPrevBar : !!b.tiedToNextBar,
-    tiedFromPrevBar: !!b.tiedFromPrevBar
+    tiedFromPrevBar: !!b.tiedFromPrevBar,
+    tiedToNextBar: !!b.tiedToNextBar
   };
   renderRhythmSheet();
 }
@@ -999,6 +991,39 @@ function firstBlankUnit(marks){
     if(!covered) return u;
   }
   return total;
+}
+// Units free from `unit` up to the next mark's start (or the bar end).
+function rhythmGapAt(unit){
+  const total = barUnitsFor(song.timeSig) || 16;
+  let next = total;
+  rhythmBuilding.marks.forEach(m => { if(m.at >= unit && m.at < next) next = m.at; });
+  return next - unit;
+}
+// Units a mark at index i is allowed to grow into (its own start -> next mark / bar end).
+function rhythmSlotGap(i){
+  const total = barUnitsFor(song.timeSig) || 16;
+  const m = rhythmBuilding.marks[i];
+  const nextM = rhythmBuilding.marks[i+1];
+  return (nextM ? nextM.at : total) - m.at;
+}
+function rhythmSetCursor(u){
+  rhythmBuilding.cursor = u;
+  rhythmBuilding.selected = null;
+  renderRhythmSheet();
+}
+function rhythmSelectMark(i){
+  rhythmBuilding.selected = i;
+  renderRhythmSheet();
+}
+function rhythmDelete(){
+  const i = rhythmBuilding.selected;
+  if(i==null) return;
+  const removedAt = rhythmBuilding.marks[i].at;
+  if(i>0) delete rhythmBuilding.marks[i-1].tie;
+  rhythmBuilding.marks.splice(i, 1);
+  rhythmBuilding.selected = null;
+  rhythmBuilding.cursor = removedAt;
+  renderRhythmSheet();
 }
 function closeRhythmSheet(){
   rhythmBuilding = null;
@@ -1017,85 +1042,107 @@ function switchToChordTab(){
 function rhythmUnitsUsed(){
   return rhythmBuilding.marks.reduce((s,m)=>s+SYMS[m.sym].units, 0);
 }
-function canTieFromPrevBar(barId){
-  const idx = song.items.findIndex(it=>it.id===barId);
-  if(idx<=0) return false;
-  const prev = song.items[idx-1];
-  if(prev.kind!=='chords') return false;
-  const prevRh = prev.rhythm;
-  if(!prevRh || !prevRh.length) return false;
-  const last = prevRh[prevRh.length-1];
-  return last.at + SYMS[last.sym].units === (barUnitsFor(song.timeSig) || 16) && !SYMS[last.sym].rest;
+// The single Tie control, keyed to the selected mark:
+//  - a note with an adjacent following note  -> marks[selected].tie
+//  - the last mark, a note ending at the barline -> tiedToNextBar
+//  - the first mark, a note at at:0, prev bar exists -> tiedFromPrevBar
+function rhythmTieState(){
+  const b = rhythmBuilding, i = b.selected;
+  if(i == null) return null;
+  const m = b.marks[i];
+  if(SYMS[m.sym].rest) return null;
+  const total = barUnitsFor(song.timeSig) || 16;
+  const next = b.marks[i+1];
+  if(next && m.at + SYMS[m.sym].units === next.at && !SYMS[next.sym].rest) return 'next';
+  if(i === b.marks.length-1 && m.at + SYMS[m.sym].units === total) return 'toNextBar';
+  if(i === 0 && m.at === 0){
+    const idx = song.items.findIndex(it => it.id === b.barId);
+    if(idx > 0 && song.items[idx-1].kind === 'chords') return 'fromPrevBar';
+  }
+  return null;
 }
-function rhythmTieAvailable(){
-  if(rhythmBuilding.marks.length===0) return canTieFromPrevBar(rhythmBuilding.barId);
-  const last = rhythmBuilding.marks[rhythmBuilding.marks.length-1];
-  return !SYMS[last.sym].rest;
+function rhythmTieAvailable(){ return rhythmTieState() != null; }
+function rhythmTieActive(){
+  const s = rhythmTieState(), b = rhythmBuilding;
+  if(s === 'next') return !!b.marks[b.selected].tie;
+  if(s === 'toNextBar') return !!b.tiedToNextBar;
+  if(s === 'fromPrevBar') return !!b.tiedFromPrevBar;
+  return false;
 }
 function rhythmToggleTie(){
-  if(!rhythmBuilding.tieArmed && !rhythmTieAvailable()) return;
-  rhythmBuilding.tieArmed = !rhythmBuilding.tieArmed;
+  const s = rhythmTieState(), b = rhythmBuilding;
+  if(s === 'next') b.marks[b.selected].tie = !b.marks[b.selected].tie;
+  else if(s === 'toNextBar') b.tiedToNextBar = !b.tiedToNextBar;
+  else if(s === 'fromPrevBar') b.tiedFromPrevBar = !b.tiedFromPrevBar;
+  else return;
   renderRhythmSheet();
 }
-// Whether the last-placed note/rest in the bar can have its dot toggled —
-// always true when removing an existing dot (that only frees units), but
-// gated on remaining bar space when adding one.
+// Whether the note/rest the Dot button acts on (the selected mark, else the
+// last one) can have its dot toggled — always true when removing an existing
+// dot (that only frees units), but gated on the mark's own slot when adding one.
+function rhythmActiveMarkIndex(){
+  const b = rhythmBuilding;
+  if(b.selected != null) return b.selected;
+  return b.marks.length ? b.marks.length-1 : -1;
+}
 function rhythmDotAvailable(){
-  const marks = rhythmBuilding.marks;
-  if(marks.length===0) return false;
-  const last = marks[marks.length-1];
-  const toggled = dotToggleKey(last.sym);
+  const i = rhythmActiveMarkIndex();
+  if(i < 0) return false;
+  const m = rhythmBuilding.marks[i];
+  const toggled = dotToggleKey(m.sym);
   if(!toggled) return false;
-  if(SYMS[last.sym].dotted) return true;
-  const total = barUnitsFor(song.timeSig) || 16;
-  const without = rhythmUnitsUsed() - SYMS[last.sym].units;
-  return without + SYMS[toggled].units <= total;
+  if(SYMS[m.sym].dotted) return true;
+  return SYMS[toggled].units <= rhythmSlotGap(i);
 }
 function rhythmToggleDot(){
   if(!rhythmDotAvailable()) return;
-  const marks = rhythmBuilding.marks;
-  marks[marks.length-1].sym = dotToggleKey(marks[marks.length-1].sym);
+  const i = rhythmActiveMarkIndex();
+  rhythmBuilding.marks[i].sym = dotToggleKey(rhythmBuilding.marks[i].sym);
   renderRhythmSheet();
 }
 function rhythmPaletteHtml(units){
-  const used = rhythmUnitsUsed();
-  const armed = rhythmBuilding.tieArmed;
-  const last = rhythmBuilding.marks[rhythmBuilding.marks.length-1];
-  const lastKey = last ? last.sym : undefined;
-  const dotOn = lastKey!==undefined && SYMS[lastKey].dotted;
+  const b = rhythmBuilding;
+  const gap = b.selected != null ? rhythmSlotGap(b.selected) : rhythmGapAt(b.cursor);
+  const selSym = b.selected != null ? b.marks[b.selected].sym : null;
+  const dotOn = selSym ? SYMS[selSym].dotted
+              : (b.marks.length ? SYMS[b.marks[b.marks.length-1].sym].dotted : false);
   const noteBtns = RHYTHM_NOTE_KEYS.map(k=>{
     const n = SYMS[k];
-    return `<button type="button" class="pt-btn" title="${n.name}" ${used+n.units>units?'disabled':''} onclick="rhythmPick('${k}')">${iconSvg(k,28)}</button>`;
+    const on = selSym && SYMS[k].base===SYMS[selSym].base && !SYMS[k].dotted ? ' tie-armed' : '';
+    return `<button type="button" class="pt-btn${on}" title="${n.name}" ${n.units>gap?'disabled':''} onclick="rhythmPick('${k}')">${iconSvg(k,28)}</button>`;
   }).join('');
   const dotBtn = `<button type="button" class="pt-btn${dotOn?' tie-armed':''}" title="Dot" ${rhythmDotAvailable()?'':'disabled'} onclick="rhythmToggleDot()">${dotIconSvg(14)}</button>`;
   const restBtns = RHYTHM_REST_KEYS.map(k=>{
     const r = SYMS[k];
-    return `<button type="button" class="pt-btn" title="${r.name}" ${(used+r.units>units || armed)?'disabled':''} onclick="rhythmPick('${k}')">${iconSvg(k,28)}</button>`;
+    return `<button type="button" class="pt-btn" title="${r.name}" ${r.units>gap?'disabled':''} onclick="rhythmPick('${k}')">${iconSvg(k,28)}</button>`;
   }).join('');
   return `<div class="palette-row">${noteBtns}${dotBtn}</div><div class="palette-row">${restBtns}</div>`;
 }
 function rhythmSeqBoxHtml(units){
-  const marks = rhythmBuilding.marks;
-  const groups = groupForBeaming(marks);
+  const b = rhythmBuilding;
+  const groups = groupForBeaming(b.marks);
   const bounds = beatGroupBounds(song.timeSig);
+  const lastGroupStart = groups.length ? groups[groups.length-1].start : -1;
   let html = '';
-  let filled = 0;
-  groups.forEach((g, idx)=>{
-    const tiedIn = g.seqStart>0 ? !!marks[g.seqStart-1].tie : !!rhythmBuilding.tiedFromPrevBar;
-    const lastIdx = g.type==='beam' ? g.seqStart + g.keys.length - 1 : g.seqStart;
-    // Show a tie mark on the last-placed note as soon as Tie is armed, before
-    // a second note exists to connect to — it hands off to the normal
-    // tied-in mark the moment the next note is picked (marks[i-1].tie gets
-    // set there, and this note stops being "last").
-    const pending = idx===groups.length-1 && rhythmBuilding.tieArmed;
-    const tiedOut = (idx===groups.length-1 && !marks[lastIdx].tie) ? pending : !!marks[lastIdx].tie;
-    const cls = 'seq-cell filled' + (tiedIn ? ' tied-in' : '') + (tiedOut ? ' tied-out' : '');
-    html += `<div class="${cls}" style="grid-column:${marks[g.seqStart].at + 1} / span ${g.units}">`
-          + (g.type==='beam' ? beamGroupSvg(g.keys,28) : iconSvg(g.key,28)) + `</div>`;
-    filled += g.units;
-  });
-  for(let u=filled; u<units; u++){
-    html += `<div class="seq-cell empty${bounds.includes(u+1) ? ' beat-end' : ''}"></div>`;
+  let u = 0;
+  while(u < units){
+    const g = groups.find(gr => gr.start === u);
+    if(g){
+      const lastIdx = g.type==='beam' ? g.seqStart + g.keys.length - 1 : g.seqStart;
+      const tiedIn = g.seqStart>0 ? !!b.marks[g.seqStart-1].tie : !!b.tiedFromPrevBar;
+      const isLastGroup = g.start === lastGroupStart;
+      const tiedOut = (isLastGroup && !b.marks[lastIdx].tie) ? !!b.tiedToNextBar : !!b.marks[lastIdx].tie;
+      const sel = (b.selected!=null && b.selected>=g.seqStart && b.selected<=lastIdx) ? ' selected' : '';
+      const cls = 'seq-cell filled' + sel + (tiedIn?' tied-in':'') + (tiedOut?' tied-out':'');
+      html += `<div class="${cls}" style="grid-column:${g.start+1} / span ${g.units}" onclick="rhythmSelectMark(${g.seqStart})">`
+            + (g.type==='beam' ? beamGroupSvg(g.keys,28) : iconSvg(g.key,28)) + `</div>`;
+      u += g.units;
+    } else {
+      const cur = u === b.cursor ? ' cursor' : '';
+      const beatEnd = bounds.includes(u+1) ? ' beat-end' : '';
+      html += `<div class="seq-cell empty${cur}${beatEnd}" onclick="rhythmSetCursor(${u})"></div>`;
+      u += 1;
+    }
   }
   return html;
 }
@@ -1106,6 +1153,8 @@ function renderRhythmSheet(){
   const used = rhythmUnitsUsed();
   const label = barLabelHtml(b);
   const tieAvailable = rhythmTieAvailable();
+  const hasMarks = rhythmBuilding.marks.length > 0;
+  const canDelete = rhythmBuilding.selected != null;
   showSheet(`
     <div class="sheet-header">
       <div class="sheet-header-title">
@@ -1121,41 +1170,61 @@ function renderRhythmSheet(){
     <div class="seq-caption">${remainingLabel(units-used)}</div>
     ${rhythmPaletteHtml(units)}
     <div class="sheet-actions">
-      <button class="neutral compact${rhythmBuilding.tieArmed?' tie-armed':''}" title="Tie" ${tieAvailable?'':'disabled'} onclick="rhythmToggleTie()">${tieIconSvg(20)}</button>
-      <button class="neutral compact" title="Undo" ${rhythmBuilding.marks.length===0?'disabled':''} onclick="rhythmUndo()">${svgIcon('undo',18)}</button>
-      <button class="neutral compact" title="Clear" ${rhythmBuilding.marks.length===0?'disabled':''} onclick="rhythmClear()">${svgIcon('eraser',18)}</button>
+      <button class="neutral compact${rhythmTieActive()?' tie-armed':''}" title="Tie" ${tieAvailable?'':'disabled'} onclick="rhythmToggleTie()">${tieIconSvg(20)}</button>
+      <button class="neutral compact" title="Delete" ${canDelete?'':'disabled'} onclick="rhythmDelete()">${svgIcon('eraser',18)}</button>
+      <button class="neutral compact" title="Undo" ${hasMarks?'':'disabled'} onclick="rhythmUndo()">${svgIcon('undo',18)}</button>
+      <button class="neutral compact" title="Clear" ${hasMarks?'':'disabled'} onclick="rhythmClear()">✕</button>
       ${b.rhythm ? '<button class="danger compact" title="Remove" onclick="rhythmRemove()">🗑️</button>' : ''}
-      <button class="primary compact" title="Done" ${used!==units?'disabled':''} onclick="rhythmSave()">Done</button>
+      <button class="primary compact" title="Done" ${hasMarks?'':'disabled'} onclick="rhythmSave()">Done</button>
     </div>
   `);
   render();
 }
 function rhythmPick(key){
-  const marks = rhythmBuilding.marks;
-  const total = barUnitsFor(song.timeSig) || 16;
-  const at = rhythmUnitsUsed();
-  if(at + SYMS[key].units > total) return;
-  const armed = rhythmBuilding.tieArmed && !SYMS[key].rest;
-  if(marks.length === 0) rhythmBuilding.tiedFromPrevBar = armed;
-  else if(armed) marks[marks.length - 1].tie = true;
-  marks.push({ sym:key, at });
-  rhythmBuilding.tieArmed = false;
-  rhythmBuilding.cursor = at + SYMS[key].units;
+  const b = rhythmBuilding;
+  const units = SYMS[key].units;
+  if(b.selected != null){
+    if(units > rhythmSlotGap(b.selected)) return;
+    b.marks[b.selected].sym = key;
+    delete b.marks[b.selected].tie;   // duration changed — drop a now-maybe-invalid tie
+    renderRhythmSheet();
+    return;
+  }
+  if(units > rhythmGapAt(b.cursor)) return;
+  const mark = { sym:key, at:b.cursor };
+  let ins = b.marks.findIndex(m => m.at > b.cursor);
+  if(ins < 0) ins = b.marks.length;
+  b.marks.splice(ins, 0, mark);
+  b.selected = ins;
+  b.cursor = firstBlankUnitFrom(b.cursor + units);
   renderRhythmSheet();
+}
+// First blank unit at or after `from` (clamped to barUnits).
+function firstBlankUnitFrom(from){
+  const total = barUnitsFor(song.timeSig) || 16;
+  for(let u = Math.min(from, total); u < total; u++){
+    const covered = rhythmBuilding.marks.some(m => u >= m.at && u < m.at + SYMS[m.sym].units);
+    if(!covered) return u;
+  }
+  return total;
 }
 function rhythmUndo(){
   const marks = rhythmBuilding.marks;
-  marks.pop();
-  if(marks.length) delete marks[marks.length - 1].tie;
-  if(marks.length === 0) rhythmBuilding.tiedFromPrevBar = false;
-  rhythmBuilding.tieArmed = false;
-  rhythmBuilding.cursor = rhythmUnitsUsed();
+  if(!marks.length) return;
+  let li = 0;
+  for(let i=1;i<marks.length;i++) if(marks[i].at > marks[li].at) li = i;
+  const removedAt = marks[li].at;
+  marks.splice(li, 1);
+  if(li>0 && marks[li-1]) delete marks[li-1].tie;
+  rhythmBuilding.selected = null;
+  rhythmBuilding.cursor = removedAt;
+  if(marks.length===0) rhythmBuilding.tiedFromPrevBar = false;
   renderRhythmSheet();
 }
 function rhythmClear(){
   rhythmBuilding.marks = [];
   rhythmBuilding.tiedFromPrevBar = false;
-  rhythmBuilding.tieArmed = false;
+  rhythmBuilding.tiedToNextBar = false;
   rhythmBuilding.cursor = 0;
   rhythmBuilding.selected = null;
   renderRhythmSheet();
@@ -1164,9 +1233,15 @@ function rhythmSave(){
   pushSongUndo();
   const b = findBarById(rhythmBuilding.barId);
   if(b){
-    b.rhythm = rhythmBuilding.marks.map(m => ({...m}));
-    b.tiedFromPrevBar = rhythmBuilding.tiedFromPrevBar;
-    b.tiedToNextBar = rhythmBuilding.tieArmed;
+    if(rhythmBuilding.marks.length === 0){
+      b.rhythm = null;
+      b.tiedFromPrevBar = false;
+      b.tiedToNextBar = false;
+    } else {
+      b.rhythm = rhythmBuilding.marks.map(m => ({...m}));
+      b.tiedFromPrevBar = rhythmBuilding.tiedFromPrevBar;
+      b.tiedToNextBar = rhythmBuilding.tiedToNextBar;
+    }
     if('rhythmTies' in b) delete b.rhythmTies;
   }
   closeRhythmSheet();
