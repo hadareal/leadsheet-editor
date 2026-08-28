@@ -193,7 +193,7 @@ function defaultDemoSong(){
   // A classic 12-bar blues, played twice: the first chorus plain (wrapped
   // in a repeat), the second a "shout chorus" with rhythm hits on the
   // first three bars and again before the turnaround.
-  const HIT = ['n_quarter','r_quarter','r_half']; // hit on beat 1, then rest through the bar
+  const HIT = () => [{ sym:'n_quarter', at:0 }]; // shout-chorus hit on beat 1, rest of bar silent
   const items = [
     bar([c1('F','7')]),                 // 1
     bar([c1('Bb','7')]),                // 2
@@ -220,10 +220,10 @@ function defaultDemoSong(){
     bar(c2('F','7','D','7')),           // 23
     bar(c2('G','m7','C','7')),          // 24
   ];
-  items[12].rhythm = HIT.slice();
-  items[13].rhythm = HIT.slice();
-  items[14].rhythm = HIT.slice();
-  items[21].rhythm = HIT.slice();
+  items[12].rhythm = HIT();
+  items[13].rhythm = HIT();
+  items[14].rhythm = HIT();
+  items[21].rhythm = HIT();
   // give single-chord bars an explicit beat 0 (set directly)
   items.forEach(it=>{
     if(it.kind==='chords' && it.chords.length===1 && it.chords[0].beat===undefined){
@@ -395,6 +395,36 @@ function dotToggleKey(key){
   return Object.keys(SYMS).find(k => SYMS[k].base===sym.base && SYMS[k].rest===sym.rest && SYMS[k].dotted!==sym.dotted) || null;
 }
 
+// One-time upgrade of a song loaded from storage / import / sync. Converts
+// the pre-2026-08 packed rhythm form (b.rhythm = ['n_quarter', ...],
+// b.rhythmTies = [ ,true, ]) to positioned marks
+// (b.rhythm = [{sym, at, tie?}], no rhythmTies). Idempotent: a rhythm that
+// is already marks, empty, or null is left untouched.
+function normalizeSong(song){
+  if(!song || !Array.isArray(song.items)) return song;
+  song.items.forEach(it => {
+    if(!it || it.kind !== 'chords') return;
+    if(Array.isArray(it.rhythm) && it.rhythm.length && typeof it.rhythm[0] === 'string'){
+      const oldTies = Array.isArray(it.rhythmTies) ? it.rhythmTies : [];
+      const marks = [];
+      let pos = 0;
+      it.rhythm.forEach(key => {
+        marks.push({ sym: key, at: pos });
+        pos += SYMS[key] ? SYMS[key].units : 0;
+      });
+      for(let i = 1; i < marks.length; i++){
+        if(oldTies[i] && SYMS[marks[i-1].sym] && !SYMS[marks[i-1].sym].rest
+           && SYMS[marks[i].sym] && !SYMS[marks[i].sym].rest){
+          marks[i-1].tie = true;
+        }
+      }
+      it.rhythm = marks;
+    }
+    if('rhythmTies' in it) delete it.rhythmTies;
+  });
+  return song;
+}
+
 const REST_GLYPH = { whole:'restWhole', half:'restHalf', quarter:'restQuarter', eighth:'rest8th', sixteenth:'rest16th' };
 const REST_ADV   = { whole:283, half:283, quarter:270, eighth:250, sixteenth:320 };
 const REST_DOT_Y = { whole:-63, half:70, quarter:0, eighth:-38, sixteenth:-160 };
@@ -525,34 +555,34 @@ function tieShapeSvg(x1, y1, x2, y2, depth, thick){
 // separately flagged notes. Beat-group boundaries come from
 // beatGroupBounds(song.timeSig): quarter groups for /4, dotted-quarter
 // groups for 6/8·9/8·12/8, 2+2+3 for 7/8.
-function groupForBeaming(seq){
+function groupForBeaming(marks){
   const bounds = beatGroupBounds(song && song.timeSig);
   const lastBound = bounds[bounds.length - 1];
   const groups = [];
-  let i = 0, pos = 0;
-  while(i < seq.length){
-    const seqStart = i;
-    const key = seq[i], def = SYMS[key];
-    const beamable = !def.rest && def.units < 4;
+  let i = 0;
+  while(i < marks.length){
+    const m = marks[i], def = SYMS[m.sym];
+    const beamable = def && !def.rest && def.units < 4;
     if(beamable){
-      const groupEnd = bounds.find(b => b > pos) || lastBound;
-      let run = [key], units = def.units, p = pos + def.units, j = i + 1;
-      while(j < seq.length){
-        const k2 = seq[j], d2 = SYMS[k2];
-        if(d2.rest || d2.units >= 4) break;
-        if(p + d2.units > groupEnd) break;   // don't cross a beat-group boundary
-        run.push(k2); units += d2.units; p += d2.units; j++;
+      const groupEnd = bounds.find(b => b > m.at) || lastBound;
+      let run = [m.sym], units = def.units, endPos = m.at + def.units, j = i + 1;
+      while(j < marks.length){
+        const m2 = marks[j], d2 = SYMS[m2.sym];
+        if(!d2 || d2.rest || d2.units >= 4) break;
+        if(m2.at !== endPos) break;                 // gap between marks — don't beam across it
+        if(endPos + d2.units > groupEnd) break;     // don't cross a beat-group boundary
+        run.push(m2.sym); units += d2.units; endPos += d2.units; j++;
       }
       if(run.length >= 2){
-        groups.push({ type:'beam', keys:run, units, start:pos, seqStart });
-        pos += units; i = j;
+        groups.push({ type:'beam', keys:run, units, start:m.at, seqStart:i });
+        i = j;
       } else {
-        groups.push({ type:'single', key, units:def.units, start:pos, seqStart });
-        pos += def.units; i++;
+        groups.push({ type:'single', key:m.sym, units:def.units, start:m.at, seqStart:i });
+        i++;
       }
     } else {
-      groups.push({ type:'single', key, units:def.units, start:pos, seqStart });
-      pos += def.units; i++;
+      groups.push({ type:'single', key:m.sym, units:(def ? def.units : 0), start:m.at, seqStart:i });
+      i++;
     }
   }
   return groups;
@@ -624,8 +654,8 @@ function beamGroupSvg(keys, size){
 // of being packed left and centered. This is 4x finer than the bar's own
 // 4-column chord grid (one column per beat), so beat k of the chords lines
 // up exactly with rhythm columns 4k..4k+3, keeping the two rows in sync.
-function sequenceHtml(seq, size){
-  return groupForBeaming(seq).map(g=>{
+function sequenceHtml(marks, size){
+  return groupForBeaming(marks).map(g=>{
     const html = g.type==='beam' ? beamGroupSvg(g.keys,size) : iconSvg(g.key,size);
     const cls = g.type==='beam' ? 'rhythm-item beam' : 'rhythm-item';
     let inner = html;
@@ -664,16 +694,12 @@ function remainingLabel(units){
 // currently open in the builder sheet (rhythmBuilding, defined in app.js),
 // otherwise its saved rhythm.
 function rhythmForBar(item){
-  if(rhythmBuilding && rhythmBuilding.barId===item.id) return rhythmBuilding.seq;
+  if(rhythmBuilding && rhythmBuilding.barId===item.id) return rhythmBuilding.marks;
   return item.rhythm || null;
 }
 
-function rhythmTiesForBar(item){
-  if(rhythmBuilding && rhythmBuilding.barId===item.id) return rhythmBuilding.ties;
-  return item.rhythmTies || [];
-}
 function tiedFromPrevBarFor(item){
-  if(rhythmBuilding && rhythmBuilding.barId===item.id) return !!rhythmBuilding.tieFromPrevBar;
+  if(rhythmBuilding && rhythmBuilding.barId===item.id) return !!rhythmBuilding.tiedFromPrevBar;
   return !!item.tiedFromPrevBar;
 }
 // Whether this bar's last note ties forward, authored from this bar's own
@@ -684,7 +710,7 @@ function tiedToNextBarFor(item){ return !!item.tiedToNextBar; }
 
 // Finds where the notehead at flat sequence index `seqIndex` actually landed
 // on screen, in viewport pixels. `slotEl` is the already-rendered
-// `.rhythm-slot` for this bar; `groups` is groupForBeaming(seq) for the same
+// `.rhythm-slot` for this bar; `groups` is groupForBeaming(marks) for the same
 // bar. Returns null if the note can't be located (e.g. layout not settled).
 function tieAnchorForIndex(groups, seqIndex, slotEl, size){
   const group = groups.find(g => seqIndex >= g.seqStart && seqIndex < g.seqStart + (g.type==='beam' ? g.keys.length : 1));
@@ -753,15 +779,16 @@ function drawAllTies(slotMap){
   song.items.forEach(item=>{
     if(item.kind!=='chords') return;
     const rh = rhythmForBar(item);
-    if(!rh || !rh.length) return;
-    const ties = rhythmTiesForBar(item);
+    if(!rh || rh.length<2) return;
     const info = slotMap.get(item.id);
     if(!info) return;
     const groups = groupForBeaming(rh);
-    for(let i=1; i<rh.length; i++){
-      if(!ties[i] || SYMS[rh[i]].rest || SYMS[rh[i-1]].rest) continue;
-      const a1 = tieAnchorForIndex(groups, i-1, info.slotEl, SIZE);
-      const a2 = tieAnchorForIndex(groups, i, info.slotEl, SIZE);
+    for(let i=0; i<rh.length-1; i++){
+      if(!rh[i].tie) continue;
+      if(SYMS[rh[i].sym].rest || SYMS[rh[i+1].sym].rest) continue;
+      if(rh[i].at + SYMS[rh[i].sym].units !== rh[i+1].at) continue;   // adjacency
+      const a1 = tieAnchorForIndex(groups, i, info.slotEl, SIZE);
+      const a2 = tieAnchorForIndex(groups, i+1, info.slotEl, SIZE);
       if(a1 && a2) addShape(info.rowEl, a1.x, a1.y, a2.x, a2.y, depth, thick);
     }
   });
@@ -780,14 +807,19 @@ function drawAllTies(slotMap){
     if(!wantsFromReceiver && !wantsFromSender) continue;
 
     const prevRh = rhythmForBar(prev);
-    if(!prevRh || !prevRh.length || SYMS[prevRh[prevRh.length-1]].rest) continue;
+    if(!prevRh || !prevRh.length) continue;
+    const prevLast = prevRh[prevRh.length-1];
+    if(SYMS[prevLast.sym].rest) continue;
+    // tiedToNextBar only means something if the last mark actually reaches the barline
+    const prevUnits = barUnitsFor(song.timeSig);
+    if(prevLast.at + SYMS[prevLast.sym].units !== prevUnits) continue;
     const prevInfo = slotMap.get(prev.id);
     if(!prevInfo) continue;
     const aPrev = tieAnchorForIndex(groupForBeaming(prevRh), prevRh.length-1, prevInfo.slotEl, SIZE);
     if(!aPrev) continue;
 
     const curRh = curIsChordBar ? rhythmForBar(cur) : null;
-    const curHasNote = curRh && curRh.length && !SYMS[curRh[0]].rest;
+    const curHasNote = curRh && curRh.length && curRh[0].at === 0 && !SYMS[curRh[0].sym].rest;
     const curInfo = curHasNote ? slotMap.get(cur.id) : null;
     const aCur = curInfo ? tieAnchorForIndex(groupForBeaming(curRh), 0, curInfo.slotEl, SIZE) : null;
 
