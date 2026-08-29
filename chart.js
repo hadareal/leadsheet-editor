@@ -1560,7 +1560,7 @@ function slotPointerDown(e, item, beatIdx, barEl){
     barId:item.id,
     fromBeat:beatIdx,
     targetBeat:beatIdx,
-    n: barSlots(song.timeSig),
+    n: barSlots(timeSigAt(song.items.indexOf(item))),
     startX:e.clientX,
     startY:e.clientY,
     dragging:false,

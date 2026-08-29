@@ -735,8 +735,9 @@ function toggleRowBreak(barId){
 // labels the cells (beatCellLabels), and /8 meters get bolder group dividers
 // (beatGroupStarts). Both are keyed to the meter's cell count, barSlots().
 function barPreviewGridHtml(b){
-  const n = barSlots(song.timeSig);
-  const groups = beatGroupStarts(song.timeSig);
+  const meter = timeSigAt(song.items.findIndex(it => it.id === pickerTarget.barId));
+  const n = barSlots(meter);
+  const groups = beatGroupStarts(meter);
   const activeBeat = pickerTarget.beat;
   // Same rule as the chart's own bars: a busy bar, or any high-numerator
   // meter whose cells are inherently narrow, shrinks its chords to fit.
@@ -757,7 +758,7 @@ function barPreviewGridHtml(b){
     }
     slots += `<div class="${cls}" onclick="cbSelectCell(${i})">${content}</div>`;
   }
-  const nums = beatCellLabels(song.timeSig)
+  const nums = beatCellLabels(meter)
     .map(l=>`<span${l.sub ? ' class="sub"' : ''}>${escapeHtml(l.text)}</span>`).join('');
   const gridStyle = `grid-template-columns:repeat(${n},1fr);width:${n>=5 ? '96%' : '70%'}`;
   return `<div class="kb-preview-cells">`
@@ -801,7 +802,7 @@ function renderChordKeyboard(){
   // Bar-> always stays enabled, even with nothing typed -- skipping an
   // empty bar to keep moving is fine (cbCommit is a safe no-op with
   // nothing typed), unlike Done which is about finishing THIS bar.
-  const rhythmDisabled = barLocked || barUnitsFor(song.timeSig)===null;
+  const rhythmDisabled = barLocked || barUnitsFor(timeSigAt(song.items.indexOf(b)))===null;
   const hasRhythmMark = b.rhythm && b.rhythm.length>0;
 
   showSheet(`
@@ -999,7 +1000,7 @@ function cbNextBar(){
   if(!nextBar) nextBar = appendNewBar();
   render();
   if(!nextBar || nextBar.kind!=='chords'){ closeSheet(); return; }
-  const beat = firstEmptyBeat(nextBar, barSlots(song.timeSig));
+  const beat = firstEmptyBeat(nextBar, barSlots(timeSigAt(idx+1)));
   if(beat===null){ closeSheet(); return; }
   pickerTarget = {barId: nextBar.id, mode:'add', beat};
   resetBuilderState();
@@ -1007,7 +1008,7 @@ function cbNextBar(){
 }
 
 /* ============ Rhythm builder ============ */
-let rhythmBuilding = null; // { barId, marks:[{sym,at,tie}], cursor, selected, selEdit, tiedFromPrevBar, tiedToNextBar }
+let rhythmBuilding = null; // { barId, timeSig:{num,den}, marks:[{sym,at,tie}], cursor, selected, selEdit, tiedFromPrevBar, tiedToNextBar }
 
 function barLabelHtml(item){
   if(item.kind!=='chords' || item.chords.length===0) return '';
@@ -1020,12 +1021,15 @@ function barLabelHtml(item){
 function openRhythmBuilder(barId){
   const b = findBarById(barId);
   if(!b) return;
+  const idx = song.items.findIndex(it => it.id === barId);
+  const ts = timeSigAt(idx);
   const marks = (b.rhythm || []).map(m => ({...m}));
   rhythmBuilding = {
     barId,
+    timeSig: ts,
     marks,
-    // runs before rhythmBuilding is assigned, so pass the array explicitly
-    cursor: firstBlankUnitFrom(0, marks),
+    // runs before rhythmBuilding is assigned, so pass marks + meter explicitly
+    cursor: firstBlankUnitFrom(0, marks, ts),
     selected: null,
     selEdit: false,   // true only when `selected` came from tapping a mark to edit it
     tiedFromPrevBar: !!b.tiedFromPrevBar,
@@ -1035,8 +1039,8 @@ function openRhythmBuilder(barId){
 }
 
 // First unit index >= `from` (clamped to barUnits) not covered by any mark.
-function firstBlankUnitFrom(from, marks = rhythmBuilding.marks){
-  const total = barUnitsFor(song.timeSig) || 16;
+function firstBlankUnitFrom(from, marks = rhythmBuilding.marks, meter = rhythmBuilding.timeSig){
+  const total = barUnitsFor(meter) || 16;
   for(let u = Math.min(from, total); u < total; u++){
     const covered = marks.some(m => u >= m.at && u < m.at + SYMS[m.sym].units);
     if(!covered) return u;
@@ -1046,7 +1050,7 @@ function firstBlankUnitFrom(from, marks = rhythmBuilding.marks){
 // Units free from `unit` up to the next mark's start (or the bar end); 0 if
 // `unit` lands inside a mark that already covers it.
 function rhythmGapAt(unit){
-  const total = barUnitsFor(song.timeSig) || 16;
+  const total = barUnitsFor(rhythmBuilding.timeSig) || 16;
   let next = total;
   for(const m of rhythmBuilding.marks){
     if(unit >= m.at && unit < m.at + SYMS[m.sym].units) return 0;
@@ -1056,7 +1060,7 @@ function rhythmGapAt(unit){
 }
 // Units a mark at index i is allowed to grow into (its own start -> next mark / bar end).
 function rhythmSlotGap(i){
-  const total = barUnitsFor(song.timeSig) || 16;
+  const total = barUnitsFor(rhythmBuilding.timeSig) || 16;
   const m = rhythmBuilding.marks[i];
   const nextM = rhythmBuilding.marks[i+1];
   return (nextM ? nextM.at : total) - m.at;
@@ -1103,7 +1107,7 @@ function switchToChordTab(){
   const barId = rhythmBuilding.barId;
   const b = findBarById(barId);
   rhythmBuilding = null;
-  const fb = firstEmptyBeat(b, barSlots(song.timeSig));
+  const fb = firstEmptyBeat(b, barSlots(timeSigAt(song.items.findIndex(it => it.id === barId))));
   pickerTarget = {barId, mode:'add', beat: fb===null ? 0 : fb};
   resetBuilderState();
   renderChordKeyboard();
@@ -1125,7 +1129,7 @@ function rhythmLastReachesEnd(){
   const marks = rhythmBuilding.marks;
   const m = marks[marks.length-1];
   if(!m || SYMS[m.sym].rest) return false;
-  return m.at + SYMS[m.sym].units === (barUnitsFor(song.timeSig) || 16);
+  return m.at + SYMS[m.sym].units === (barUnitsFor(rhythmBuilding.timeSig) || 16);
 }
 // The Tie control is forward-only: a selected non-rest note ties to whatever
 // comes AFTER it — never to something before it. An incoming tie is authored
@@ -1211,8 +1215,8 @@ function rhythmPaletteHtml(){
 }
 function rhythmSeqBoxHtml(units){
   const b = rhythmBuilding;
-  const groups = groupForBeaming(b.marks);
-  const bounds = beatGroupBounds(song.timeSig);
+  const groups = groupForBeaming(b.marks, b.timeSig);
+  const bounds = beatGroupBounds(b.timeSig);
   const lastGroupStart = groups.length ? groups[groups.length-1].start : -1;
   let html = '';
   let u = 0;
@@ -1251,7 +1255,7 @@ function rhythmSeqBoxHtml(units){
 function renderRhythmSheet(){
   const b = findBarById(rhythmBuilding.barId);
   if(!b){ closeRhythmSheet(); return; }
-  const units = barUnitsFor(song.timeSig) || 16;
+  const units = barUnitsFor(rhythmBuilding.timeSig) || 16;
   const used = rhythmUnitsUsed();
   const label = barLabelHtml(b);
   const tieAvailable = rhythmTieAvailable();
@@ -1268,7 +1272,7 @@ function renderRhythmSheet(){
       <button onclick="closeRhythmSheet()">✕</button>
     </div>
     <div class="seq-box" style="grid-template-columns:repeat(${units},1fr);">${rhythmSeqBoxHtml(units)}</div>
-    <div class="seq-caption">${remainingLabel(units-used)}</div>
+    <div class="seq-caption">${remainingLabel(units-used, rhythmBuilding.timeSig)}</div>
     ${rhythmPaletteHtml()}
     <div class="sheet-actions">
       <button class="neutral compact${rhythmTieActive()?' tie-armed':''}" title="Tie" ${tieAvailable?'':'disabled'} onclick="rhythmToggleTie()">${tieIconSvg(20)}</button>
