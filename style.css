@@ -826,10 +826,13 @@ body{
 .barline-grid .border-line{ margin:0; }
 .wholebar-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
 /* All 8 meters on one row; "Use previous" (when shown) spans the width below. */
-.timesig-grid{ grid-template-columns:repeat(8,1fr); gap:5px; }
+/* 8 meters + a "Prev" (revert) button, all on one row — Prev's column is a bit
+   wider so its label fits. */
+.timesig-grid{ grid-template-columns:repeat(8,1fr) 1.35fr; gap:5px; }
 .timesig-grid button{font-family:var(--ui-font);font-size:13px;font-weight:700;padding:12px 2px;}
 .timesig-grid button.tie-armed{ background:var(--ink); color:var(--paper); }
-.timesig-grid button.clear-label-btn{ color:#8a3b2c; border-color:#8a3b2c; grid-column:1/-1; }
+.timesig-grid button.clear-label-btn{ color:#8a3b2c; border-color:#8a3b2c; }
+.timesig-grid button:disabled{ opacity:.4; cursor:default; }
 .sheet-actions{margin-top:14px;display:flex;gap:8px;}
 .sheet-actions button{
   flex:1;

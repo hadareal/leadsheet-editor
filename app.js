@@ -484,8 +484,7 @@ function openTimeSigEdit(borderIdx){
         const on = (cur.num===n && cur.den===d) ? ' class="tie-armed"' : '';
         return `<button${on} onclick="setBorderTimeSig(${borderIdx},${n},${d})">${n}/${d}</button>`;
       }).join('')}
-      ${borderIdx > 0 && song.borders[borderIdx] && song.borders[borderIdx].timeSig
-        ? `<button class="clear-label-btn" onclick="clearBorderTimeSig(${borderIdx})">Use previous</button>` : ''}
+      <button class="clear-label-btn" ${borderIdx > 0 && song.borders[borderIdx] && song.borders[borderIdx].timeSig ? '' : 'disabled'} onclick="clearBorderTimeSig(${borderIdx})">Prev</button>
     </div>
   `);
 }
@@ -1399,8 +1398,7 @@ function openBorderEdit(idx){
         const on = (cur.num===n && cur.den===d) ? ' tie-armed' : '';
         return `<button class="${on}" onclick="setBorderTimeSig(${idx},${n},${d})">${n}/${d}</button>`;
       }).join('')}
-      ${idx > 0 && song.borders[idx] && song.borders[idx].timeSig
-        ? `<button class="clear-label-btn" onclick="clearBorderTimeSig(${idx})">Use previous</button>` : ''}
+      <button class="clear-label-btn" ${idx > 0 && song.borders[idx] && song.borders[idx].timeSig ? '' : 'disabled'} onclick="clearBorderTimeSig(${idx})">Prev</button>
     </div>` : ''}
     <div class="sheet-subhead">Section label</div>
     <div class="symbol-grid compact label-row-grid">
