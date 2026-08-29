@@ -97,9 +97,14 @@ function barUnitsFor(timeSig){
 // never carries a timeSig (the starting meter lives on s.timeSig), so the loop
 // bottoms out there.
 function timeSigAtIn(s, barIdx){
-  const hi = Math.min(Math.max(0, barIdx | 0), s.borders.length - 1);
+  // Tolerate a missing/non-array `borders` (a raw sync.js payload from Supabase
+  // is fed in before normalizeSong touches it, and normalizeSong only validates
+  // `items`): empty bs -> hi = -1 -> loop skipped -> falls through to s.timeSig,
+  // exactly as the old barUnitsFor(song.timeSig) path did.
+  const bs = Array.isArray(s.borders) ? s.borders : [];
+  const hi = Math.min(Math.max(0, barIdx | 0), bs.length - 1);
   for(let i = hi; i >= 0; i--){
-    if(s.borders[i] && s.borders[i].timeSig) return s.borders[i].timeSig;
+    if(bs[i] && bs[i].timeSig) return bs[i].timeSig;
   }
   return s.timeSig;
 }
@@ -441,10 +446,10 @@ function normalizeSong(song){
         marks.push({ sym: key, at: pos });
         pos += SYMS[key] ? SYMS[key].units : 0;
       });
-      for(let i = 1; i < marks.length; i++){
-        if(oldTies[i] && SYMS[marks[i-1].sym] && !SYMS[marks[i-1].sym].rest
-           && SYMS[marks[i].sym] && !SYMS[marks[i].sym].rest){
-          marks[i-1].tie = true;
+      for(let j = 1; j < marks.length; j++){
+        if(oldTies[j] && SYMS[marks[j-1].sym] && !SYMS[marks[j-1].sym].rest
+           && SYMS[marks[j].sym] && !SYMS[marks[j].sym].rest){
+          marks[j-1].tie = true;
         }
       }
       it.rhythm = marks;
@@ -1054,6 +1059,19 @@ function midRowTimeSig(globalBarIdx, rowStart){
     && !!(song.borders[globalBarIdx] && song.borders[globalBarIdx].timeSig);
 }
 
+// Whether the row beginning at song.items[rowStart] draws a time signature at
+// its left edge: row 0 (the starting meter); a row whose leading border carries
+// an explicit meter change; or a row whose starting meter differs from the meter
+// the previous row started in (a mid-row change above carrying across the wrap —
+// standard engraving re-announces it once at the next system).
+function showRowStartTimeSig(rowStart, prevRowStart, rIdx){
+  if(rIdx === 0) return true;
+  if(song.borders[rowStart] && song.borders[rowStart].timeSig) return true;
+  if(prevRowStart === null) return false;
+  const a = timeSigAt(prevRowStart), b = timeSigAt(rowStart);
+  return a.num !== b.num || a.den !== b.den;
+}
+
 function chordInnerHtml(chord){
   let html = rootHtml(chord.root);
   (chord.tokens||[]).forEach(t=>{
@@ -1280,6 +1298,12 @@ function renderVoltaRowEl(row, rowStart){
     if(midRowTimeSig(rowStart + i, rowStart)){
       const s = document.createElement('div');
       s.className = 'ts-spacer';
+      // The spacer sits immediately before volta-gap[i]; carry the bracket line
+      // through it when the ending run's line is continuous across that gap,
+      // otherwise the 12px spacer punches a visible hole in the bracket.
+      if(gapInfo[i] && gapInfo[i].leftHalf && gapInfo[i].rightHalf){
+        s.innerHTML = '<div class="volta-line"></div>';
+      }
       div.appendChild(s);
     }
     const gap = document.createElement('div');
@@ -1438,15 +1462,13 @@ function render(){
 
     const barRow = document.createElement('div');
     barRow.className='bar-row';
-    // Show the meter at the row start when it's row 0 (the starting meter) or
-    // when this row's starting meter differs from the meter the PREVIOUS row
-    // started in — a change taking effect at this row, OR one that happened
-    // mid-row in the row above and carries across the wrap (standard engraving
-    // re-announces it at every following system until the next change).
+    // Show the meter at the row start when it's row 0 (the starting meter), when
+    // this row's leading border carries an explicit meter change, or when this
+    // row's starting meter differs from the meter the PREVIOUS row started in — a
+    // mid-row change in the row above carries across the wrap and is re-announced
+    // once here, at the first system after the change (see showRowStartTimeSig).
     const rowMeter = timeSigAt(rowStart);
-    const prevStartMeter = prevRowStart === null ? null : timeSigAt(prevRowStart);
-    const showRowTs = rIdx === 0
-      || (prevStartMeter && (prevStartMeter.num !== rowMeter.num || prevStartMeter.den !== rowMeter.den));
+    const showRowTs = showRowStartTimeSig(rowStart, prevRowStart, rIdx);
     barRow.appendChild(renderTimeSigEl(
       showRowTs ? rowMeter : null,
       showRowTs ? timeSigBorderAt(rowStart) : 0
@@ -1526,11 +1548,30 @@ function deleteBar(barId){
   if(kept.type==='normal' && removed.type!=='normal') kept.type = removed.type;
   if(!kept.label && removed.label) kept.label = removed.label;
   if(removed.breakAfter && idx>0) kept.breakAfter = true;
-  if(removed.timeSig && !kept.timeSig) kept.timeSig = removed.timeSig;
+  // timeSig governs FORWARD (unlike type/label): `removed` (song.borders[idx+1])
+  // governs every surviving bar from here on, while `kept`'s own change only ever
+  // governed the bar being deleted. So `removed` wins unconditionally — carrying
+  // it keeps every surviving bar's resolved meter identical across the delete
+  // (removed-only -> carry; both -> removed wins; kept-only -> removed.timeSig
+  // falsy, no-op; neither -> no-op), which is why deleteBar still needs no refit.
+  // Deleting bar 0: `kept` IS song.borders[0], which must NEVER carry a timeSig
+  // (it would shadow song.timeSig on every read) — `removed`'s change now governs
+  // the new first bar, which is exactly what song.timeSig is for.
+  if(removed.timeSig){
+    if(idx === 0) song.timeSig = removed.timeSig;
+    else kept.timeSig = removed.timeSig;
+  }
   song.items.splice(idx,1);
   song.borders.splice(idx+1,1);
   delete song.borders[song.items.length].breakAfter;
   delete song.borders[song.items.length].timeSig;
+  // The carry above can leave `kept` (now settled at song.borders[idx]) marking a
+  // meter that's already inherited here — a redundant marker that draws a
+  // spurious mid-chart glyph. Drop it, matching setBorderTimeSig's own rule.
+  if(idx > 0 && kept.timeSig){
+    const inh = timeSigAtIn(song, idx - 1);
+    if(inh.num === kept.timeSig.num && inh.den === kept.timeSig.den) delete kept.timeSig;
+  }
   closeSheet();
   render();
 }

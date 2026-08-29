@@ -160,7 +160,11 @@ body{
   min-height:21px;
 }
 .label-row .ts-spacer{ flex:0 0 12px; }
-.label-row .bar-spacer{ flex:0 0 var(--bar-w); }
+/* Mirrors .bar's own flex so the label strip can shrink in step with the bars
+   when a mid-row time-sig glyph eats into the row's width — otherwise this is
+   the only flex-shrink:0 per-bar strip element and section labels / Segno /
+   Coda drift right of their bar lines. No effect when --bar-w already fits. */
+.label-row .bar-spacer{ flex:0 1 var(--bar-w); min-width:56px; }
 /* .label-slot must consume exactly the same flex width as its matching
    .border-line (see renderBorderEl) regardless of what's inside it —
    otherwise a wide section label or icon in an earlier column pushes every
@@ -248,6 +252,10 @@ body{
    through a gap lines up with the real bar line instead of a bar's own
    edge. */
 .volta-row .ts-spacer{ flex:0 0 12px; }
+/* When a mid-row glyph spacer falls inside an ending run, it carries a
+   .volta-line (position:absolute) — give it a positioned box the same height
+   as the slots so the bracket line stays continuous through it. */
+.volta-row .ts-spacer{ position:relative; height:24px; }
 .volta-row .volta-gap{ flex:0 0 auto; min-width:13px; position:relative; height:24px; }
 .volta-row .volta-slot{
   flex:0 1 var(--bar-w);
@@ -807,6 +815,9 @@ body{
 .wholebar-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
 .timesig-grid button{font-family:var(--ui-font);font-size:14px;font-weight:700;}
 .timesig-grid button.tie-armed{ background:var(--ink); color:var(--paper); }
+/* The .clear-label-btn rust rule is .symbol-grid-scoped; .timesig-grid is
+   repeat(4,1fr) so a lone 9th "Use previous" button needs to span the row. */
+.timesig-grid button.clear-label-btn{ color:#8a3b2c; border-color:#8a3b2c; grid-column:1/-1; }
 .sheet-actions{margin-top:14px;display:flex;gap:8px;}
 .sheet-actions button{
   flex:1;

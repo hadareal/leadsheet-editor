@@ -484,7 +484,8 @@ function openTimeSigEdit(borderIdx){
         const on = (cur.num===n && cur.den===d) ? ' class="tie-armed"' : '';
         return `<button${on} onclick="setBorderTimeSig(${borderIdx},${n},${d})">${n}/${d}</button>`;
       }).join('')}
-      ${borderIdx > 0 ? `<button class="clear-label-btn" onclick="clearBorderTimeSig(${borderIdx})">Use previous</button>` : ''}
+      ${borderIdx > 0 && song.borders[borderIdx] && song.borders[borderIdx].timeSig
+        ? `<button class="clear-label-btn" onclick="clearBorderTimeSig(${borderIdx})">Use previous</button>` : ''}
     </div>
   `);
 }
@@ -502,7 +503,15 @@ function setBorderTimeSig(idx, n, d){
     song.timeSig = {num:n, den:d};
   } else {
     if(!song.borders[idx]) return;
-    song.borders[idx].timeSig = {num:n, den:d};
+    // The pickers highlight timeSigAt(idx) — the EFFECTIVE (possibly inherited)
+    // meter — so tapping the already-armed button means "it's already n/d here",
+    // i.e. no change marker, not a redundant explicit one that draws a glyph.
+    const inherited = timeSigAt(idx - 1);
+    if(inherited.num === n && inherited.den === d){
+      delete song.borders[idx].timeSig;
+    } else {
+      song.borders[idx].timeSig = {num:n, den:d};
+    }
   }
   const { chords, rhythm } = refitMetersFrom(idx);
   updateHeader();
@@ -516,8 +525,9 @@ function setBorderTimeSig(idx, n, d){
 // reverted meter. Border 0 has no "previous".
 function clearBorderTimeSig(idx){
   if(idx === 0) return;
+  if(!song.borders[idx] || !song.borders[idx].timeSig) return;   // nothing to revert
   pushSongUndo();
-  if(song.borders[idx]) delete song.borders[idx].timeSig;
+  delete song.borders[idx].timeSig;
   const eff = timeSigAt(Math.max(0, idx - 1));
   const { chords, rhythm } = refitMetersFrom(idx);
   closeSheet();
@@ -1389,7 +1399,8 @@ function openBorderEdit(idx){
         const on = (cur.num===n && cur.den===d) ? ' tie-armed' : '';
         return `<button class="${on}" onclick="setBorderTimeSig(${idx},${n},${d})">${n}/${d}</button>`;
       }).join('')}
-      ${idx > 0 ? `<button class="clear-label-btn" onclick="clearBorderTimeSig(${idx})">Use previous</button>` : ''}
+      ${idx > 0 && song.borders[idx] && song.borders[idx].timeSig
+        ? `<button class="clear-label-btn" onclick="clearBorderTimeSig(${idx})">Use previous</button>` : ''}
     </div>` : ''}
     <div class="sheet-subhead">Section label</div>
     <div class="symbol-grid compact six-col">
