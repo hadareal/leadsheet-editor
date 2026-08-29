@@ -1526,9 +1526,11 @@ function deleteBar(barId){
   if(kept.type==='normal' && removed.type!=='normal') kept.type = removed.type;
   if(!kept.label && removed.label) kept.label = removed.label;
   if(removed.breakAfter && idx>0) kept.breakAfter = true;
+  if(removed.timeSig && !kept.timeSig) kept.timeSig = removed.timeSig;
   song.items.splice(idx,1);
   song.borders.splice(idx+1,1);
   delete song.borders[song.items.length].breakAfter;
+  delete song.borders[song.items.length].timeSig;
   closeSheet();
   render();
 }
