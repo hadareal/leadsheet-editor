@@ -791,6 +791,13 @@ body{
 .symbol-grid button.clear-label-btn{ color:#8a3b2c; border-color:#8a3b2c; }
 .symbol-grid.compact{ grid-template-columns:repeat(5,1fr); gap:6px; }
 .symbol-grid.compact.six-col{ grid-template-columns:repeat(6,1fr); }
+/* Section label: the 3 letters take a narrow column each, the word buttons a
+   wider one, so all 8 sit on one row without the words clipping or wrapping. */
+.symbol-grid.compact.label-row-grid{
+  grid-template-columns:0.5fr 0.5fr 0.5fr 0.95fr 0.95fr 1.05fr 1.2fr 1.15fr;
+  gap:5px;
+}
+.symbol-grid.compact.label-row-grid button{ padding:9px 1px; font-size:11px; min-width:0; white-space:nowrap; }
 .symbol-grid.compact button{
   padding:9px 2px;
   text-align:center;
@@ -818,10 +825,10 @@ body{
 }
 .barline-grid .border-line{ margin:0; }
 .wholebar-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
-.timesig-grid button{font-family:var(--ui-font);font-size:14px;font-weight:700;}
+/* All 8 meters on one row; "Use previous" (when shown) spans the width below. */
+.timesig-grid{ grid-template-columns:repeat(8,1fr); gap:5px; }
+.timesig-grid button{font-family:var(--ui-font);font-size:13px;font-weight:700;padding:12px 2px;}
 .timesig-grid button.tie-armed{ background:var(--ink); color:var(--paper); }
-/* The .clear-label-btn rust rule is .symbol-grid-scoped; .timesig-grid is
-   repeat(4,1fr) so a lone 9th "Use previous" button needs to span the row. */
 .timesig-grid button.clear-label-btn{ color:#8a3b2c; border-color:#8a3b2c; grid-column:1/-1; }
 .sheet-actions{margin-top:14px;display:flex;gap:8px;}
 .sheet-actions button{

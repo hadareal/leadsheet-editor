@@ -1403,7 +1403,7 @@ function openBorderEdit(idx){
         ? `<button class="clear-label-btn" onclick="clearBorderTimeSig(${idx})">Use previous</button>` : ''}
     </div>` : ''}
     <div class="sheet-subhead">Section label</div>
-    <div class="symbol-grid compact six-col">
+    <div class="symbol-grid compact label-row-grid">
       ${SECTION_LETTERS.map(l=>`<button onclick="setLabel(${idx},'${l}')">${l}</button>`).join('')}
       ${NAMED_SECTIONS.map(n=>`<button onclick="setLabel(${idx},'${n}')">${n}</button>`).join('')}
       <button onclick="openCustomLabelEdit(${idx})">Custom…</button>

@@ -17,7 +17,7 @@ const CHORD_KB_SYMBOLS = [
 const CHORD_KB_NUMBERS = ['2','3','4','5','6','7','9','11','13'];
 const TIME_SIGS = [[4,4],[3,4],[2,4],[6,8],[9,8],[12,8],[5,4],[7,8]];
 const SECTION_LETTERS = ['A','B','C'];
-const NAMED_SECTIONS = ['Intro','Verse','Pre-Chorus','Chorus','Bridge','Interlude','Solo'];
+const NAMED_SECTIONS = ['Intro','Verse','Chorus'];
 // Bar line stroke picker sheet grid — independent of border.mark (below),
 // so a stroke change never touches whatever navigation mark is set.
 const BARLINE_TYPES = [
