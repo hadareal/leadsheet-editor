@@ -91,6 +91,22 @@ function barUnitsFor(timeSig){
   return null;
 }
 
+// The time signature governing s.items[barIdx] within an arbitrary song object
+// `s`: the nearest preceding border timeSig, else s's starting meter. barIdx is
+// clamped to [0, s.borders.length - 1] so a bad index can't throw. s.borders[0]
+// never carries a timeSig (the starting meter lives on s.timeSig), so the loop
+// bottoms out there.
+function timeSigAtIn(s, barIdx){
+  const hi = Math.min(Math.max(0, barIdx | 0), s.borders.length - 1);
+  for(let i = hi; i >= 0; i--){
+    if(s.borders[i] && s.borders[i].timeSig) return s.borders[i].timeSig;
+  }
+  return s.timeSig;
+}
+// Same, against the live editor song — the terse form nearly every render /
+// builder / authoring / export call site uses.
+function timeSigAt(barIdx){ return timeSigAtIn(song, barIdx); }
+
 // Number of chord cells in a bar for a given time signature: the meter's
 // numerator (quarter-note cells for /4, eighth-note cells for /8). TIME_SIGS
 // is the closed set of meters, so the only fallback needed is a missing timeSig.
