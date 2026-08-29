@@ -1243,7 +1243,7 @@ function renderRhythmRowEl(row, slotMap){
     if(rh && rh.length){
       slot.innerHTML = sequenceHtml(rh, 32);
     }
-    slot.onclick = ()=>handleBarTap(item, 0);
+    slot.onclick = ()=>openRhythmForBar(item);
     div.appendChild(slot);
     if(slotMap) slotMap.set(item.id, { slotEl: slot, rowEl: div });
   });

@@ -813,6 +813,17 @@ function switchToRhythmTab(){
   openRhythmBuilder(pickerTarget.barId);
 }
 
+// Tapping the rhythm strip above a bar goes straight to the rhythm builder for
+// that bar — no detour through the chord keyboard. Same guards as handleBarTap
+// (edit mode only; real chord bars only — a repeat/% bar can't carry rhythm).
+// The rhythm sheet's own "Chord" tab still crosses over if that's wanted.
+function openRhythmForBar(item){
+  hideOnboardTip();
+  if(mode!=='chords') return;
+  if(!item || item.kind!=='chords') return;
+  openRhythmBuilder(item.id);
+}
+
 function cbPickLetter(letter){
   if(cbInBass){
     cbBass = letter;
