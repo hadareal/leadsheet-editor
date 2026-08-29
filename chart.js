@@ -107,6 +107,17 @@ function timeSigAtIn(s, barIdx){
 // builder / authoring / export call site uses.
 function timeSigAt(barIdx){ return timeSigAtIn(song, barIdx); }
 
+// The index of the border carrying the timeSig that governs song.items[barIdx]
+// — nearest border at/before barIdx with a timeSig, else 0 (the starting meter
+// conceptually belongs to "border 0", though it is stored on song.timeSig).
+function timeSigBorderAt(barIdx){
+  const hi = Math.min(Math.max(0, barIdx | 0), song.borders.length - 1);
+  for(let i = hi; i >= 0; i--){
+    if(song.borders[i] && song.borders[i].timeSig) return i;
+  }
+  return 0;
+}
+
 // Number of chord cells in a bar for a given time signature: the meter's
 // numerator (quarter-note cells for /4, eighth-note cells for /8). TIME_SIGS
 // is the closed set of meters, so the only fallback needed is a missing timeSig.
@@ -1032,6 +1043,17 @@ function chunkRows(barsPerRow){
   return rows;
 }
 
+// True when song.items[globalBarIdx] carries a mid-row meter change: its
+// leading border has a timeSig AND it is not the first bar of its printed row
+// (the row-start time-sig slot already announces that case). The bar row draws
+// the glyph immediately left of that bar line; the label / volta / rhythm rows
+// drop a matching 12px .ts-spacer at the same spot so every strip stays
+// column-aligned with the bars.
+function midRowTimeSig(globalBarIdx, rowStart){
+  return globalBarIdx > rowStart
+    && !!(song.borders[globalBarIdx] && song.borders[globalBarIdx].timeSig);
+}
+
 function chordInnerHtml(chord){
   let html = rootHtml(chord.root);
   (chord.tokens||[]).forEach(t=>{
@@ -1167,12 +1189,15 @@ function renderLabelSlot(idx, allow, edge){
   return div;
 }
 
-function renderTimeSigEl(showDigits){
+// meter truthy -> a tappable stacked fraction that opens the meter picker for
+// the owning border. meter null -> the empty flex:0 0 12px spacer that keeps
+// row 0's bar grid aligned when there's nothing to show.
+function renderTimeSigEl(meter, borderIdx){
   const div = document.createElement('div');
-  div.className='time-sig';
-  if(showDigits){
-    div.innerHTML = `<div class="num">${song.timeSig.num}</div><div class="den">${song.timeSig.den}</div>`;
-    div.onclick=(e)=>{ e.stopPropagation(); openTimeSigEdit(); };
+  div.className = 'time-sig';
+  if(meter){
+    div.innerHTML = `<div class="num">${meter.num}</div><div class="den">${meter.den}</div>`;
+    div.onclick = (e)=>{ e.stopPropagation(); openTimeSigEdit(borderIdx || 0); };
   }
   return div;
 }
@@ -1252,6 +1277,11 @@ function renderVoltaRowEl(row, rowStart){
   div.appendChild(tsSpacer);
 
   row.forEach((item, i)=>{
+    if(midRowTimeSig(rowStart + i, rowStart)){
+      const s = document.createElement('div');
+      s.className = 'ts-spacer';
+      div.appendChild(s);
+    }
     const gap = document.createElement('div');
     gap.className = 'volta-gap';
     gap.innerHTML = gapHtml(gapInfo[i]);
@@ -1293,6 +1323,11 @@ function renderRhythmRowEl(row, rowStart, slotMap){
 
   row.forEach((item, i)=>{
     const meter = timeSigAt(rowStart + i);
+    if(midRowTimeSig(rowStart + i, rowStart)){
+      const s = document.createElement('div');
+      s.className = 'ts-spacer';
+      div.appendChild(s);
+    }
 
     const gap = document.createElement('div');
     gap.className = 'rhythm-gap';
@@ -1353,6 +1388,7 @@ function render(){
 
   let lastRowBarRow = null;
   let globalIdx = 0;
+  let prevRowStart = null;   // global index of the previous row's first bar
 
   rows.forEach((row, rIdx)=>{
     const lane = document.createElement('div');
@@ -1381,6 +1417,11 @@ function render(){
       labelRow.appendChild(tsSpacer);
       let li = rowStart;
       row.forEach(()=>{
+        if(midRowTimeSig(li, rowStart)){
+          const s = document.createElement('div');
+          s.className = 'ts-spacer';
+          labelRow.appendChild(s);
+        }
         const kEdge = (li===rowStart && rIdx>0) ? 'leading' : 'full';
         labelRow.appendChild(renderLabelSlot(li, true, kEdge));
         li++;
@@ -1397,10 +1438,25 @@ function render(){
 
     const barRow = document.createElement('div');
     barRow.className='bar-row';
-    barRow.appendChild(renderTimeSigEl(rIdx===0));
+    // Show the meter at the row start when it's row 0 (the starting meter) or
+    // when this row's starting meter differs from the meter the PREVIOUS row
+    // started in — a change taking effect at this row, OR one that happened
+    // mid-row in the row above and carries across the wrap (standard engraving
+    // re-announces it at every following system until the next change).
+    const rowMeter = timeSigAt(rowStart);
+    const prevStartMeter = prevRowStart === null ? null : timeSigAt(prevRowStart);
+    const showRowTs = rIdx === 0
+      || (prevStartMeter && (prevStartMeter.num !== rowMeter.num || prevStartMeter.den !== rowMeter.den));
+    barRow.appendChild(renderTimeSigEl(
+      showRowTs ? rowMeter : null,
+      showRowTs ? timeSigBorderAt(rowStart) : 0
+    ));
 
     row.forEach((item, kIdx)=>{
       const edge = (kIdx===0 && rIdx>0) ? 'leading' : 'full';
+      if(midRowTimeSig(globalIdx, rowStart)){
+        barRow.appendChild(renderTimeSigEl(song.borders[globalIdx].timeSig, globalIdx));
+      }
       barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx, edge));
       barRow.appendChild(renderBarEl(item, timeSigAt(globalIdx)));
       globalIdx++;
@@ -1409,6 +1465,7 @@ function render(){
 
     songBlock.appendChild(barRow);
     lastRowBarRow = barRow;
+    prevRowStart = rowStart;
   });
 
   const lastRow = rows[rows.length-1];
