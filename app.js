@@ -472,50 +472,69 @@ function handleImportFile(e){
 }
 
 /* ============ Time signature ============ */
-function openTimeSigEdit(){
+function openTimeSigEdit(borderIdx){
+  borderIdx = borderIdx || 0;
+  const cur = borderIdx > 0 && song.borders[borderIdx] && song.borders[borderIdx].timeSig
+    ? song.borders[borderIdx].timeSig
+    : timeSigAt(Math.max(0, borderIdx - 1));
   showSheet(`
     <div class="sheet-header"><span>Time signature</span><button onclick="closeSheet()">✕</button></div>
     <div class="timesig-grid">
-      ${TIME_SIGS.map(([n,d])=>`<button onclick="setTimeSig(${n},${d})">${n}/${d}</button>`).join('')}
+      ${TIME_SIGS.map(([n,d])=>{
+        const on = (cur.num===n && cur.den===d) ? ' class="tie-armed"' : '';
+        return `<button${on} onclick="setBorderTimeSig(${borderIdx},${n},${d})">${n}/${d}</button>`;
+      }).join('')}
+      ${borderIdx > 0 ? `<button class="clear-label-btn" onclick="clearBorderTimeSig(${borderIdx})">Use previous</button>` : ''}
     </div>
   `);
 }
-function setTimeSig(n,d){
+// The toolbar time-signature entry now just edits the starting meter — the
+// "border 0" change.
+function setTimeSig(n, d){ setBorderTimeSig(0, n, d); }
+
+// idx 0 -> the song's starting meter (song.timeSig, unchanged from before).
+// idx > 0 -> a change on the bar line before song.items[idx], holding to the
+// end of the chart until the next change. Either way, re-fit the bars that
+// meter now governs and toast about anything that no longer fits.
+function setBorderTimeSig(idx, n, d){
   pushSongUndo();
-  song.timeSig = {num:n, den:d};
-  const newUnits = barUnitsFor({num:n, den:d});
-  let dropped = 0, rhythmDropped = 0;
-  song.items.forEach(it=>{
-    if(it.kind!=='chords') return;
-    if(it.chords){
-      const before = it.chords.length;
-      it.chords = it.chords.filter(c=>c.beat < n);
-      dropped += before - it.chords.length;
-    }
-    if(Array.isArray(it.rhythm)){
-      const before = it.rhythm.length;
-      it.rhythm = it.rhythm.filter(m => SYMS[m.sym] && m.at + SYMS[m.sym].units <= newUnits);
-      rhythmDropped += before - it.rhythm.length;
-      const rhythmChanged = it.rhythm.length !== before;
-      // Update boundary flags if marks were dropped OR if flags are set (they might need clearing)
-      if(rhythmChanged || it.tiedFromPrevBar || it.tiedToNextBar){
-        if(!it.rhythm.length) it.rhythm = null;
-        it.tiedFromPrevBar = !!it.tiedFromPrevBar && !!it.rhythm && it.rhythm[0].at === 0
-                             && !!SYMS[it.rhythm[0].sym] && !SYMS[it.rhythm[0].sym].rest;
-        const last = it.rhythm && it.rhythm[it.rhythm.length-1];
-        it.tiedToNextBar = !!it.tiedToNextBar && !!last && !!SYMS[last.sym]
-                           && !SYMS[last.sym].rest
-                           && last.at + SYMS[last.sym].units === newUnits;
-      }
-    }
-  });
+  if(idx === 0){
+    song.timeSig = {num:n, den:d};
+  } else {
+    if(!song.borders[idx]) return;
+    song.borders[idx].timeSig = {num:n, den:d};
+  }
+  const { chords, rhythm } = refitMetersFrom(idx);
   updateHeader();
   closeSheet();
   render();
+  meterRefitToast(chords, rhythm, n, d);
+}
+
+// "Use previous" — drop this bar line's own change so the meter reverts to
+// whatever is in effect just before it. Re-fit against the (possibly narrower)
+// reverted meter. Border 0 has no "previous".
+function clearBorderTimeSig(idx){
+  if(idx === 0) return;
+  pushSongUndo();
+  if(song.borders[idx]) delete song.borders[idx].timeSig;
+  const eff = timeSigAt(Math.max(0, idx - 1));
+  const { chords, rhythm } = refitMetersFrom(idx);
+  closeSheet();
+  render();
+  meterRefitToast(chords, rhythm, eff.num, eff.den);
+}
+
+// "N chord(s) and M rhythm mark(s) didn't fit n/d and were removed" — the old
+// setTimeSig toast, extracted. Nothing shown when both counts are 0.
+function meterRefitToast(nChords, nRhythm, n, d){
   const bits = [];
-  if(dropped>0) bits.push(`${dropped} chord${dropped===1?'':'s'}`);
-  if(rhythmDropped>0) bits.push(`${rhythmDropped} rhythm mark${rhythmDropped===1?'':'s'}`);
-  if(bits.length) showToast(`${bits.join(' and ')} didn't fit ${n}/${d} and ${bits.length===1 && dropped+rhythmDropped===1 ? 'was' : 'were'} removed`);
+  if(nChords > 0) bits.push(`${nChords} chord${nChords === 1 ? '' : 's'}`);
+  if(nRhythm > 0) bits.push(`${nRhythm} rhythm mark${nRhythm === 1 ? '' : 's'}`);
+  if(bits.length){
+    const one = bits.length === 1 && nChords + nRhythm === 1;
+    showToast(`${bits.join(' and ')} didn't fit ${n}/${d} and ${one ? 'was' : 'were'} removed`);
+  }
 }
 
 /* ============ Font picker ============ */
@@ -1358,6 +1377,16 @@ function openBorderEdit(idx){
     <div class="barline-grid">
       ${BARLINE_TYPES.map(t=>`<button onclick="setBorderType(${idx},'${t.type}')"><div class="border-line">${borderGlyphHtml(t.type)}</div></button>`).join('')}
     </div>
+    ${idx < song.items.length ? `
+    <div class="sheet-subhead">Time signature</div>
+    <div class="timesig-grid">
+      ${TIME_SIGS.map(([n,d])=>{
+        const cur = timeSigAt(idx);
+        const on = (cur.num===n && cur.den===d) ? ' tie-armed' : '';
+        return `<button class="${on}" onclick="setBorderTimeSig(${idx},${n},${d})">${n}/${d}</button>`;
+      }).join('')}
+      ${idx > 0 ? `<button class="clear-label-btn" onclick="clearBorderTimeSig(${idx})">Use previous</button>` : ''}
+    </div>` : ''}
     <div class="sheet-subhead">Section label</div>
     <div class="symbol-grid compact six-col">
       ${SECTION_LETTERS.map(l=>`<button onclick="setLabel(${idx},'${l}')">${l}</button>`).join('')}
