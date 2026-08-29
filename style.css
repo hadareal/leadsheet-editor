@@ -160,10 +160,10 @@ body{
   min-height:21px;
 }
 .label-row .ts-spacer{ flex:0 0 12px; }
-/* Mirrors .bar's own flex so the label strip can shrink in step with the bars
-   when a mid-row time-sig glyph eats into the row's width — otherwise this is
-   the only flex-shrink:0 per-bar strip element and section labels / Segno /
-   Coda drift right of their bar lines. No effect when --bar-w already fits. */
+/* Mirrors .bar's own flex (shrinkable) so the label strip tracks the bars
+   when the row is squeezed narrower than --bar-w — otherwise this is the only
+   flex-shrink:0 per-bar strip element and section labels / Segno / Coda drift
+   right of their bar lines. No effect when --bar-w already fits. */
 .label-row .bar-spacer{ flex:0 1 var(--bar-w); min-width:56px; }
 /* .label-slot must consume exactly the same flex width as its matching
    .border-line (see renderBorderEl) regardless of what's inside it —
@@ -252,10 +252,6 @@ body{
    through a gap lines up with the real bar line instead of a bar's own
    edge. */
 .volta-row .ts-spacer{ flex:0 0 12px; }
-/* When a mid-row glyph spacer falls inside an ending run, it carries a
-   .volta-line (position:absolute) — give it a positioned box the same height
-   as the slots so the bracket line stays continuous through it. */
-.volta-row .ts-spacer{ position:relative; height:24px; }
 .volta-row .volta-gap{ flex:0 0 auto; min-width:13px; position:relative; height:24px; }
 .volta-row .volta-slot{
   flex:0 1 var(--bar-w);
@@ -353,6 +349,15 @@ body{
   transform:scaleX(0.78);
   transform-origin:right center;
 }
+/* A mid-row meter change hugs its bar line instead of widening the row: a
+   zero-width anchor sitting exactly where the bar line falls, its digits
+   overflowing left into the preceding bar's tail (align-items:flex-end +
+   overflow:visible, inherited from .time-sig above). The label / volta /
+   rhythm strips skip their spacer for this slot since it costs no width.
+   position:relative + left nudges the digits a few px into the bar line's
+   own (centred, mostly-empty) box so they read as almost touching it, like
+   the meter at the very start of the chart — this shifts nothing in flow. */
+.bar-row .time-sig.mid-row{ flex:0 0 0; position:relative; left:4px; }
 
 .bar{
   flex:0 1 var(--bar-w);

@@ -1050,26 +1050,24 @@ function chunkRows(barsPerRow){
 
 // True when song.items[globalBarIdx] carries a mid-row meter change: its
 // leading border has a timeSig AND it is not the first bar of its printed row
-// (the row-start time-sig slot already announces that case). The bar row draws
-// the glyph immediately left of that bar line; the label / volta / rhythm rows
-// drop a matching 12px .ts-spacer at the same spot so every strip stays
-// column-aligned with the bars.
+// (a row-start change is announced by the row-start slot instead). The bar row
+// draws a zero-width glyph flush against that bar line; because it takes no
+// width, the label / volta / rhythm strips need no matching spacer.
 function midRowTimeSig(globalBarIdx, rowStart){
   return globalBarIdx > rowStart
     && !!(song.borders[globalBarIdx] && song.borders[globalBarIdx].timeSig);
 }
 
 // Whether the row beginning at song.items[rowStart] draws a time signature at
-// its left edge: row 0 (the starting meter); a row whose leading border carries
-// an explicit meter change; or a row whose starting meter differs from the meter
-// the previous row started in (a mid-row change above carrying across the wrap —
-// standard engraving re-announces it once at the next system).
-function showRowStartTimeSig(rowStart, prevRowStart, rIdx){
+// its left edge: row 0 (the starting meter), or a row whose leading border
+// carries an explicit meter change authored right at that line. A mid-row
+// change that only *carries* across the wrap is NOT re-announced at the next
+// system — it already governs every following bar, so repeating the glyph is
+// redundant clutter (a deliberate departure from classical engraving, at the
+// app owner's request).
+function showRowStartTimeSig(rowStart, rIdx){
   if(rIdx === 0) return true;
-  if(song.borders[rowStart] && song.borders[rowStart].timeSig) return true;
-  if(prevRowStart === null) return false;
-  const a = timeSigAt(prevRowStart), b = timeSigAt(rowStart);
-  return a.num !== b.num || a.den !== b.den;
+  return !!(song.borders[rowStart] && song.borders[rowStart].timeSig);
 }
 
 function chordInnerHtml(chord){
@@ -1210,9 +1208,13 @@ function renderLabelSlot(idx, allow, edge){
 // meter truthy -> a tappable stacked fraction that opens the meter picker for
 // the owning border. meter null -> the empty flex:0 0 12px spacer that keeps
 // row 0's bar grid aligned when there's nothing to show.
-function renderTimeSigEl(meter, borderIdx){
+// midRow -> a mid-row meter change: the element takes zero width and its digits
+// overflow left to sit flush against the following bar line, so authoring a
+// change never nudges that bar line (the strips below skip their spacer to
+// match). A row-start glyph keeps its own 12px slot at the system's left edge.
+function renderTimeSigEl(meter, borderIdx, midRow){
   const div = document.createElement('div');
-  div.className = 'time-sig';
+  div.className = midRow ? 'time-sig mid-row' : 'time-sig';
   if(meter){
     div.innerHTML = `<div class="num">${meter.num}</div><div class="den">${meter.den}</div>`;
     div.onclick = (e)=>{ e.stopPropagation(); openTimeSigEdit(borderIdx || 0); };
@@ -1295,17 +1297,6 @@ function renderVoltaRowEl(row, rowStart){
   div.appendChild(tsSpacer);
 
   row.forEach((item, i)=>{
-    if(midRowTimeSig(rowStart + i, rowStart)){
-      const s = document.createElement('div');
-      s.className = 'ts-spacer';
-      // The spacer sits immediately before volta-gap[i]; carry the bracket line
-      // through it when the ending run's line is continuous across that gap,
-      // otherwise the 12px spacer punches a visible hole in the bracket.
-      if(gapInfo[i] && gapInfo[i].leftHalf && gapInfo[i].rightHalf){
-        s.innerHTML = '<div class="volta-line"></div>';
-      }
-      div.appendChild(s);
-    }
     const gap = document.createElement('div');
     gap.className = 'volta-gap';
     gap.innerHTML = gapHtml(gapInfo[i]);
@@ -1347,12 +1338,6 @@ function renderRhythmRowEl(row, rowStart, slotMap){
 
   row.forEach((item, i)=>{
     const meter = timeSigAt(rowStart + i);
-    if(midRowTimeSig(rowStart + i, rowStart)){
-      const s = document.createElement('div');
-      s.className = 'ts-spacer';
-      div.appendChild(s);
-    }
-
     const gap = document.createElement('div');
     gap.className = 'rhythm-gap';
     div.appendChild(gap);
@@ -1412,7 +1397,6 @@ function render(){
 
   let lastRowBarRow = null;
   let globalIdx = 0;
-  let prevRowStart = null;   // global index of the previous row's first bar
 
   rows.forEach((row, rIdx)=>{
     const lane = document.createElement('div');
@@ -1441,11 +1425,6 @@ function render(){
       labelRow.appendChild(tsSpacer);
       let li = rowStart;
       row.forEach(()=>{
-        if(midRowTimeSig(li, rowStart)){
-          const s = document.createElement('div');
-          s.className = 'ts-spacer';
-          labelRow.appendChild(s);
-        }
         const kEdge = (li===rowStart && rIdx>0) ? 'leading' : 'full';
         labelRow.appendChild(renderLabelSlot(li, true, kEdge));
         li++;
@@ -1462,13 +1441,11 @@ function render(){
 
     const barRow = document.createElement('div');
     barRow.className='bar-row';
-    // Show the meter at the row start when it's row 0 (the starting meter), when
-    // this row's leading border carries an explicit meter change, or when this
-    // row's starting meter differs from the meter the PREVIOUS row started in — a
-    // mid-row change in the row above carries across the wrap and is re-announced
-    // once here, at the first system after the change (see showRowStartTimeSig).
+    // Show the meter at the row start only when it's row 0 (the starting meter)
+    // or this row's leading border carries an explicit meter change (see
+    // showRowStartTimeSig) — a mid-row change above is not re-announced here.
     const rowMeter = timeSigAt(rowStart);
-    const showRowTs = showRowStartTimeSig(rowStart, prevRowStart, rIdx);
+    const showRowTs = showRowStartTimeSig(rowStart, rIdx);
     barRow.appendChild(renderTimeSigEl(
       showRowTs ? rowMeter : null,
       showRowTs ? timeSigBorderAt(rowStart) : 0
@@ -1477,7 +1454,7 @@ function render(){
     row.forEach((item, kIdx)=>{
       const edge = (kIdx===0 && rIdx>0) ? 'leading' : 'full';
       if(midRowTimeSig(globalIdx, rowStart)){
-        barRow.appendChild(renderTimeSigEl(song.borders[globalIdx].timeSig, globalIdx));
+        barRow.appendChild(renderTimeSigEl(song.borders[globalIdx].timeSig, globalIdx, true));
       }
       barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx, edge));
       barRow.appendChild(renderBarEl(item, timeSigAt(globalIdx)));
@@ -1487,7 +1464,6 @@ function render(){
 
     songBlock.appendChild(barRow);
     lastRowBarRow = barRow;
-    prevRowStart = rowStart;
   });
 
   const lastRow = rows[rows.length-1];
