@@ -68,6 +68,7 @@ async function pullRemoteChanges(userId){
       if(row.id === currentSongId){
         suppressAutosave = true;
         song = row.data;
+        normalizeSong(song);
         updateHeader();
         syncTitleDisplay();
         render();

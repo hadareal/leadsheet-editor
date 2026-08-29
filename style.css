@@ -294,17 +294,18 @@ body{
    rhythm grid lines up exactly with the bar grid beneath it. */
 .rhythm-row .ts-spacer{ flex:0 0 12px; }
 .rhythm-row .rhythm-gap{ flex:0 0 auto; min-width:13px; }
-/* 16 columns = one per sixteenth-note unit in a 4/4 bar — 4x finer than
-   the bar's own 4-column (one-per-beat) chord grid, so beat k of the
-   chords always lines up with rhythm columns 4k..4k+3. Each note/rest is
-   placed on this grid by its actual beat position (see sequenceHtml in
-   chart.js) instead of being packed together and centered. */
+/* One column per sixteenth-note unit in the bar; the actual count is set
+   inline per meter by renderRhythmRowEl (barUnitsFor) — the value below is
+   only a fallback. Finer than the bar's own one-column-per-beat chord grid,
+   so each chord cell lines up with a whole beat's worth of rhythm columns.
+   Each note/rest is placed on this grid by its actual beat position (see
+   sequenceHtml in chart.js) instead of being packed together and centered. */
 .rhythm-row .rhythm-slot{
   flex:0 1 var(--bar-w);
   min-width:56px;
   padding:0 4px; /* matches .bar's horizontal padding, so both grids divide the same content width */
   display:grid;
-  grid-template-columns:repeat(16,1fr);
+  grid-template-columns:repeat(16,1fr); /* fallback; renderRhythmRowEl sets the real count inline per meter */
   align-items:end;
   cursor:pointer;
 }
@@ -942,6 +943,12 @@ body{
 .seq-cell:last-child{ border-right:none; }
 .seq-cell.beat-end{ border-right-color:#c7c7c7; }
 .seq-cell.filled{ background:#eeeeee; }
+/* Insertion point (tap an empty cell) and the selected placed mark — mirrors
+   .kb-preview-grid .slot.active's soft ink hint so the rhythm builder and the
+   chord builder feel the same: a faint ring for the tentative cursor, a firm
+   ink ring for an actual selection. No coloured fill (the UI is monochrome). */
+.seq-cell.cursor{ box-shadow:inset 0 0 0 2px var(--ink-soft); }
+.seq-cell.filled.selected{ box-shadow:inset 0 0 0 2px var(--ink); background:#e0e0e0; }
 .seq-cell.empty::after{
   content:'';
   width:3px; height:3px;

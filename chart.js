@@ -80,11 +80,14 @@ function appendNewBar(){
   return newBar;
 }
 
-// Sixteenth-note units per bar for a given time signature, or null if
-// that meter isn't supported by the rhythm feature yet (compound/odd
-// meters beam in groups of 3, not 2, so they need their own logic later).
+// Sixteenth-note units in one bar of the given meter. /4 meters count
+// quarters (4 units each), /8 meters count eighths (2 units each).
+// TIME_SIGS is the closed set of meters, so a missing timeSig is the only
+// case that yields null.
 function barUnitsFor(timeSig){
-  if(timeSig && timeSig.den===4 && [2,3,4].includes(timeSig.num)) return timeSig.num*4;
+  if(!timeSig) return null;
+  if(timeSig.den === 4) return timeSig.num * 4;
+  if(timeSig.den === 8) return timeSig.num * 2;
   return null;
 }
 
@@ -108,6 +111,37 @@ function beatGroupStarts(timeSig){
     return out;
   }
   return null;
+}
+
+// Unit span of each beat group in a bar, in sixteenth-units, summing to
+// barUnitsFor(timeSig). Beams and beat-group dividers break at these
+// boundaries. Derived from beatGroupStarts (cell indices) so it always
+// matches the chord grid's grouping:
+//   4/4 -> [4,4,4,4]   6/8 -> [6,6]   9/8 -> [6,6,6]
+//   12/8 -> [6,6,6,6]  7/8 -> [4,4,6]  5/4 -> [4,4,4,4,4]
+function beatGroupUnits(timeSig){
+  if(!timeSig) return null;
+  const cellUnits = timeSig.den === 8 ? 2 : 4;
+  const starts = beatGroupStarts(timeSig);            // cell indices, or null
+  if(!starts) return Array(timeSig.num).fill(cellUnits);
+  const spans = [];
+  for(let i = 0; i < starts.length; i++){
+    const nextCell = i + 1 < starts.length ? starts[i + 1] : timeSig.num;
+    spans.push((nextCell - starts[i]) * cellUnits);
+  }
+  return spans;
+}
+
+// The same spans as running totals — the unit offsets where a beat group
+// ENDS. 4/4 -> [4,8,12,16]; 6/8 -> [6,12]; 7/8 -> [4,8,14]. Shared by the
+// beamer and the builder's beat-group dividers so they never drift apart.
+// Falls back to a plain 4-unit grid if timeSig is missing (should not
+// happen — TIME_SIGS is closed).
+function beatGroupBounds(timeSig){
+  const spans = beatGroupUnits(timeSig) || [4,4,4,4,4,4,4,4];
+  const bounds = [];
+  spans.reduce((acc, u) => { bounds.push(acc + u); return acc + u; }, 0);
+  return bounds;
 }
 
 // One label per chord cell for the editor preview's beat-number row. 9/8 and
@@ -159,7 +193,7 @@ function defaultDemoSong(){
   // A classic 12-bar blues, played twice: the first chorus plain (wrapped
   // in a repeat), the second a "shout chorus" with rhythm hits on the
   // first three bars and again before the turnaround.
-  const HIT = ['n_quarter','r_quarter','r_half']; // hit on beat 1, then rest through the bar
+  const HIT = () => [{ sym:'n_quarter', at:0 }]; // shout-chorus hit on beat 1, rest of bar silent
   const items = [
     bar([c1('F','7')]),                 // 1
     bar([c1('Bb','7')]),                // 2
@@ -186,10 +220,10 @@ function defaultDemoSong(){
     bar(c2('F','7','D','7')),           // 23
     bar(c2('G','m7','C','7')),          // 24
   ];
-  items[12].rhythm = HIT.slice();
-  items[13].rhythm = HIT.slice();
-  items[14].rhythm = HIT.slice();
-  items[21].rhythm = HIT.slice();
+  items[12].rhythm = HIT();
+  items[13].rhythm = HIT();
+  items[14].rhythm = HIT();
+  items[21].rhythm = HIT();
   // give single-chord bars an explicit beat 0 (set directly)
   items.forEach(it=>{
     if(it.kind==='chords' && it.chords.length===1 && it.chords[0].beat===undefined){
@@ -361,6 +395,47 @@ function dotToggleKey(key){
   return Object.keys(SYMS).find(k => SYMS[k].base===sym.base && SYMS[k].rest===sym.rest && SYMS[k].dotted!==sym.dotted) || null;
 }
 
+// One-time upgrade of a song loaded from storage / import / sync. Converts
+// the pre-2026-08 packed rhythm form (b.rhythm = ['n_quarter', ...],
+// b.rhythmTies = [ ,true, ]) to positioned marks
+// (b.rhythm = [{sym, at, tie?}], no rhythmTies). Idempotent: a rhythm that
+// is already marks, empty, or null is left untouched — except that
+// out-of-range marks are always clamped to the current meter (see below).
+// The `song` parameter deliberately shadows the module-global `song`.
+function normalizeSong(song){
+  if(!song || !Array.isArray(song.items)) return song;
+  song.items.forEach(it => {
+    if(!it || it.kind !== 'chords') return;
+    if(Array.isArray(it.rhythm) && it.rhythm.length && typeof it.rhythm[0] === 'string'){
+      const oldTies = Array.isArray(it.rhythmTies) ? it.rhythmTies : [];
+      const marks = [];
+      let pos = 0;
+      it.rhythm.forEach(key => {
+        marks.push({ sym: key, at: pos });
+        pos += SYMS[key] ? SYMS[key].units : 0;
+      });
+      for(let i = 1; i < marks.length; i++){
+        if(oldTies[i] && SYMS[marks[i-1].sym] && !SYMS[marks[i-1].sym].rest
+           && SYMS[marks[i].sym] && !SYMS[marks[i].sym].rest){
+          marks[i-1].tie = true;
+        }
+      }
+      it.rhythm = marks;
+    }
+    // Drop legacy marks that don't fit the current meter (old setTimeSig never
+    // clamped rhythm, so a 4/4 bar switched to 2/4 kept its full 16-unit
+    // rhythm). Applies to the just-migrated case AND an already-new-format
+    // rhythm synced from a device that hadn't clamped.
+    const total = barUnitsFor(song.timeSig);
+    if(total && Array.isArray(it.rhythm)){
+      it.rhythm = it.rhythm.filter(m => SYMS[m.sym] && m.at + SYMS[m.sym].units <= total);
+      if(!it.rhythm.length) it.rhythm = null;
+    }
+    if('rhythmTies' in it) delete it.rhythmTies;
+  });
+  return song;
+}
+
 const REST_GLYPH = { whole:'restWhole', half:'restHalf', quarter:'restQuarter', eighth:'rest8th', sixteenth:'rest16th' };
 const REST_ADV   = { whole:283, half:283, quarter:270, eighth:250, sixteenth:320 };
 const REST_DOT_Y = { whole:-63, half:70, quarter:0, eighth:-38, sixteenth:-160 };
@@ -483,36 +558,38 @@ function tieShapeSvg(x1, y1, x2, y2, depth, thick){
 }
 
 // Consecutive quavers/semiquavers (plain or dotted) within the same beat
-// are grouped so they render as one beamed figure instead of separately
-// flagged notes — e.g. two quavers become a beamed pair, and a dotted
-// quaver + semiquaver (as in "tim-ka") beam together too.
-function groupForBeaming(seq){
+// GROUP are gathered so they render as one beamed figure instead of
+// separately flagged notes. Beat-group boundaries come from
+// beatGroupBounds(song.timeSig): quarter groups for /4, dotted-quarter
+// groups for 6/8·9/8·12/8, 2+2+3 for 7/8.
+function groupForBeaming(marks){
+  const bounds = beatGroupBounds(song && song.timeSig);
+  const lastBound = bounds[bounds.length - 1];
   const groups = [];
-  let i = 0, pos = 0;
-  while(i < seq.length){
-    const seqStart = i;
-    const key = seq[i], def = SYMS[key];
-    const beamable = !def.rest && def.units<4;
+  let i = 0;
+  while(i < marks.length){
+    const m = marks[i], def = SYMS[m.sym];
+    const beamable = def && !def.rest && def.units < 4;
     if(beamable){
-      const beatStart = Math.floor(pos/4);
-      let run = [key], units = def.units, p = pos+def.units, j = i+1;
-      while(j < seq.length){
-        const k2 = seq[j], d2 = SYMS[k2];
-        const beamable2 = !d2.rest && d2.units<4;
-        if(!beamable2) break;
-        if(p + d2.units > (beatStart+1)*4) break; // don't cross a beat boundary
-        run.push(k2); units += d2.units; p += d2.units; j++;
+      const groupEnd = bounds.find(b => b > m.at) || lastBound;
+      let run = [m.sym], units = def.units, endPos = m.at + def.units, j = i + 1;
+      while(j < marks.length){
+        const m2 = marks[j], d2 = SYMS[m2.sym];
+        if(!d2 || d2.rest || d2.units >= 4) break;
+        if(m2.at !== endPos) break;                 // gap between marks — don't beam across it
+        if(endPos + d2.units > groupEnd) break;     // don't cross a beat-group boundary
+        run.push(m2.sym); units += d2.units; endPos += d2.units; j++;
       }
-      if(run.length>=2){
-        groups.push({ type:'beam', keys:run, units, start:pos, seqStart });
-        pos += units; i = j;
+      if(run.length >= 2){
+        groups.push({ type:'beam', keys:run, units, start:m.at, seqStart:i });
+        i = j;
       } else {
-        groups.push({ type:'single', key, units:def.units, start:pos, seqStart });
-        pos += def.units; i++;
+        groups.push({ type:'single', key:m.sym, units:def.units, start:m.at, seqStart:i });
+        i++;
       }
     } else {
-      groups.push({ type:'single', key, units:def.units, start:pos, seqStart });
-      pos += def.units; i++;
+      groups.push({ type:'single', key:m.sym, units:(def ? def.units : 0), start:m.at, seqStart:i });
+      i++;
     }
   }
   return groups;
@@ -579,13 +656,14 @@ function beamGroupSvg(keys, size){
   return '<svg class="rsym rsym-beam" width="'+w+'" height="'+size+'" preserveAspectRatio="none" viewBox="0 0 '+totalLocalW+' '+VB_H+'">'+out+'</svg>';
 }
 
-// Places each note/rest (or beam group) on a 16-column grid — one column
-// per sixteenth-note unit — so it lands at its actual beat position instead
-// of being packed left and centered. This is 4x finer than the bar's own
-// 4-column chord grid (one column per beat), so beat k of the chords lines
-// up exactly with rhythm columns 4k..4k+3, keeping the two rows in sync.
-function sequenceHtml(seq, size){
-  return groupForBeaming(seq).map(g=>{
+// Places each note/rest (or beam group) on a grid of barUnitsFor(song.timeSig)
+// columns — one per sixteenth-note unit — so it lands at its actual beat
+// position instead of being packed left and centered. That's finer than the
+// bar's own barSlots(song.timeSig)-column chord grid (one column per beat):
+// each chord cell spans a whole beat's worth of rhythm columns, so the two
+// rows stay in sync in every meter.
+function sequenceHtml(marks, size){
+  return groupForBeaming(marks).map(g=>{
     const html = g.type==='beam' ? beamGroupSvg(g.keys,size) : iconSvg(g.key,size);
     const cls = g.type==='beam' ? 'rhythm-item beam' : 'rhythm-item';
     let inner = html;
@@ -595,8 +673,10 @@ function sequenceHtml(seq, size){
       // not the middle of the full multi-beat span, which would visually
       // drift it away from the beat it actually belongs to. Beam groups
       // are exempt: they always fit within one beat (see groupForBeaming)
-      // and already stretch to fill it edge-to-edge.
-      const centerPct = Math.min(50, 200/g.units);
+      // and already stretch to fill it edge-to-edge. The beat is 4 units in
+      // /4 meters, 2 in /8, so center on 50% of one beat's worth of columns.
+      const beatUnits = (song.timeSig && song.timeSig.den === 8) ? 2 : 4;
+      const centerPct = Math.min(50, beatUnits * 50 / g.units);
       const w = Math.round(size*VB_W/VB_H);
       inner = '<span style="display:inline-block;margin-left:calc('+centerPct+'% - '+(w/2)+'px)">'+html+'</span>';
     }
@@ -604,41 +684,53 @@ function sequenceHtml(seq, size){
   }).join('');
 }
 
+// The rhythm builder's "N beats left" caption. Counts in the meter's
+// denominator note: quarters for /4 (¼/½/¾ sub-beats), eighths for /8
+// (½ sub-beat). With tap-to-place the bar need not be filled, so this is
+// just a running tally of blank space, not a completion gate.
 function remainingLabel(units){
-  if(units<=0) return 'Bar complete';
-  const whole = Math.floor(units/4);
-  const frac = units%4;
-  const fracStr = frac===1 ? '¼' : frac===2 ? '½' : frac===3 ? '¾' : '';
-  let s = (whole>0 ? String(whole) : '') + fracStr;
-  if(!s) s = '0';
-  return s + (units===4 ? ' beat left' : ' beats left');
+  if(units <= 0) return 'Bar complete';
+  const per = (song && song.timeSig && song.timeSig.den === 8) ? 2 : 4;
+  const whole = Math.floor(units / per);
+  const frac = units % per;
+  const fracStr = per === 4
+    ? (frac === 1 ? '¼' : frac === 2 ? '½' : frac === 3 ? '¾' : '')
+    : (frac === 1 ? '½' : '');
+  const s = ((whole > 0 ? String(whole) : '') + fracStr) || '0';
+  return s + (whole === 1 && !fracStr ? ' beat left' : ' beats left');
 }
 
 // Rhythm shown for a bar: the live in-progress sentence if it's the one
 // currently open in the builder sheet (rhythmBuilding, defined in app.js),
 // otherwise its saved rhythm.
 function rhythmForBar(item){
-  if(rhythmBuilding && rhythmBuilding.barId===item.id) return rhythmBuilding.seq;
+  if(rhythmBuilding && rhythmBuilding.barId===item.id) return rhythmBuilding.marks;
   return item.rhythm || null;
 }
 
-function rhythmTiesForBar(item){
-  if(rhythmBuilding && rhythmBuilding.barId===item.id) return rhythmBuilding.ties;
-  return item.rhythmTies || [];
-}
 function tiedFromPrevBarFor(item){
-  if(rhythmBuilding && rhythmBuilding.barId===item.id) return !!rhythmBuilding.tieFromPrevBar;
+  if(rhythmBuilding && rhythmBuilding.barId===item.id) return !!rhythmBuilding.tiedFromPrevBar;
   return !!item.tiedFromPrevBar;
 }
-// Whether this bar's last note ties forward, authored from this bar's own
-// side (as opposed to tiedFromPrevBarFor, authored from the receiving bar).
-// Never read while this bar's own builder is open — the main chart doesn't
-// re-render until the sheet closes — so no rhythmBuilding-aware branch here.
-function tiedToNextBarFor(item){ return !!item.tiedToNextBar; }
+// Whether this bar's last note ties forward across the barline. While the
+// builder is open on THIS bar, that's the not-yet-saved state: an explicit
+// tiedToNextBar, or a forward tie (marks[last].tie) sitting on a last mark
+// that fills the bar — rhythmSave folds the latter into tiedToNextBar, and
+// this mirrors that so the chart preview matches.
+function tiedToNextBarFor(item){
+  if(rhythmBuilding && rhythmBuilding.barId === item.id){
+    const marks = rhythmBuilding.marks || [];
+    const last = marks[marks.length-1];
+    const fills = last && !SYMS[last.sym].rest
+      && last.at + SYMS[last.sym].units === (barUnitsFor(song.timeSig) || 16);
+    return !!fills && (!!rhythmBuilding.tiedToNextBar || !!last.tie);
+  }
+  return !!item.tiedToNextBar;
+}
 
 // Finds where the notehead at flat sequence index `seqIndex` actually landed
 // on screen, in viewport pixels. `slotEl` is the already-rendered
-// `.rhythm-slot` for this bar; `groups` is groupForBeaming(seq) for the same
+// `.rhythm-slot` for this bar; `groups` is groupForBeaming(marks) for the same
 // bar. Returns null if the note can't be located (e.g. layout not settled).
 function tieAnchorForIndex(groups, seqIndex, slotEl, size){
   const group = groups.find(g => seqIndex >= g.seqStart && seqIndex < g.seqStart + (g.type==='beam' ? g.keys.length : 1));
@@ -704,19 +796,30 @@ function drawAllTies(slotMap){
   const depth = SIZE*TIE_DEPTH_PER_SIZE, thick = SIZE*TIE_THICK_PER_SIZE;
 
   // Within-bar ties.
+  const barTotal = barUnitsFor(song.timeSig) || 16;
   song.items.forEach(item=>{
     if(item.kind!=='chords') return;
     const rh = rhythmForBar(item);
     if(!rh || !rh.length) return;
-    const ties = rhythmTiesForBar(item);
     const info = slotMap.get(item.id);
     if(!info) return;
     const groups = groupForBeaming(rh);
-    for(let i=1; i<rh.length; i++){
-      if(!ties[i] || SYMS[rh[i]].rest || SYMS[rh[i-1]].rest) continue;
-      const a1 = tieAnchorForIndex(groups, i-1, info.slotEl, SIZE);
-      const a2 = tieAnchorForIndex(groups, i, info.slotEl, SIZE);
+    for(let i=0; i<rh.length-1; i++){
+      if(!rh[i].tie) continue;
+      if(SYMS[rh[i].sym].rest || SYMS[rh[i+1].sym].rest) continue;
+      if(rh[i].at + SYMS[rh[i].sym].units !== rh[i+1].at) continue;   // adjacency
+      const a1 = tieAnchorForIndex(groups, i, info.slotEl, SIZE);
+      const a2 = tieAnchorForIndex(groups, i+1, info.slotEl, SIZE);
       if(a1 && a2) addShape(info.rowEl, a1.x, a1.y, a2.x, a2.y, depth, thick);
+    }
+    // A forward tie on the last mark with no in-bar note after it and not yet
+    // filling the bar (the fills-the-bar case is a cross-barline tie, handled
+    // below) — an open-ended stub, same as an unresolved cross-bar tie, so the
+    // intent stays visible until the next mark lands.
+    const last = rh[rh.length-1];
+    if(last.tie && !SYMS[last.sym].rest && last.at + SYMS[last.sym].units < barTotal){
+      const a = tieAnchorForIndex(groups, rh.length-1, info.slotEl, SIZE);
+      if(a){ const STUB = 20; addShape(info.rowEl, a.x, a.y, a.x+STUB, a.y, depth*0.8, thick*0.8); }
     }
   });
 
@@ -734,14 +837,19 @@ function drawAllTies(slotMap){
     if(!wantsFromReceiver && !wantsFromSender) continue;
 
     const prevRh = rhythmForBar(prev);
-    if(!prevRh || !prevRh.length || SYMS[prevRh[prevRh.length-1]].rest) continue;
+    if(!prevRh || !prevRh.length) continue;
+    const prevLast = prevRh[prevRh.length-1];
+    if(SYMS[prevLast.sym].rest) continue;
+    // tiedToNextBar only means something if the last mark actually reaches the barline
+    const prevUnits = barUnitsFor(song.timeSig) || 16;
+    if(prevLast.at + SYMS[prevLast.sym].units !== prevUnits) continue;
     const prevInfo = slotMap.get(prev.id);
     if(!prevInfo) continue;
     const aPrev = tieAnchorForIndex(groupForBeaming(prevRh), prevRh.length-1, prevInfo.slotEl, SIZE);
     if(!aPrev) continue;
 
     const curRh = curIsChordBar ? rhythmForBar(cur) : null;
-    const curHasNote = curRh && curRh.length && !SYMS[curRh[0]].rest;
+    const curHasNote = curRh && curRh.length && curRh[0].at === 0 && !SYMS[curRh[0].sym].rest;
     const curInfo = curHasNote ? slotMap.get(cur.id) : null;
     const aCur = curInfo ? tieAnchorForIndex(groupForBeaming(curRh), 0, curInfo.slotEl, SIZE) : null;
 
@@ -1120,6 +1228,9 @@ function renderRhythmRowEl(row, slotMap){
   tsSpacer.className = 'ts-spacer';
   div.appendChild(tsSpacer);
 
+  // One meter per song — compute the rhythm-grid column count once, not per bar.
+  const slotCols = 'repeat(' + (barUnitsFor(song.timeSig) || 16) + ', 1fr)';
+
   row.forEach(item=>{
     const gap = document.createElement('div');
     gap.className = 'rhythm-gap';
@@ -1127,11 +1238,12 @@ function renderRhythmRowEl(row, slotMap){
 
     const slot = document.createElement('div');
     slot.className = 'rhythm-slot';
+    slot.style.gridTemplateColumns = slotCols;
     const rh = rhythmForBar(item);
     if(rh && rh.length){
       slot.innerHTML = sequenceHtml(rh, 32);
     }
-    slot.onclick = ()=>handleBarTap(item, 0);
+    slot.onclick = ()=>openRhythmForBar(item);
     div.appendChild(slot);
     if(slotMap) slotMap.set(item.id, { slotEl: slot, rowEl: div });
   });

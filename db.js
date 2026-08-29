@@ -107,6 +107,7 @@ function loadSongIntoEditor(id){
     if(!record) return;
     suppressAutosave = true;
     song = JSON.parse(record.data);
+    normalizeSong(song);
     currentSongId = record.id;
     undoStack.length = 0; // undo history belongs to whichever song was open when it was recorded --
     redoStack.length = 0; // carrying it across a song switch could apply another song's snapshot here
