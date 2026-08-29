@@ -988,7 +988,7 @@ function cbNextBar(){
 }
 
 /* ============ Rhythm builder ============ */
-let rhythmBuilding = null; // { barId, marks:[{sym,at,tie}], cursor, selected, tiedFromPrevBar, tiedToNextBar }
+let rhythmBuilding = null; // { barId, marks:[{sym,at,tie}], cursor, selected, selEdit, tiedFromPrevBar, tiedToNextBar }
 
 function barLabelHtml(item){
   if(item.kind!=='chords' || item.chords.length===0) return '';
