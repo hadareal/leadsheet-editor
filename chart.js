@@ -420,7 +420,7 @@ function dotToggleKey(key){
 // The `song` parameter deliberately shadows the module-global `song`.
 function normalizeSong(song){
   if(!song || !Array.isArray(song.items)) return song;
-  song.items.forEach(it => {
+  song.items.forEach((it, i) => {
     if(!it || it.kind !== 'chords') return;
     if(Array.isArray(it.rhythm) && it.rhythm.length && typeof it.rhythm[0] === 'string'){
       const oldTies = Array.isArray(it.rhythmTies) ? it.rhythmTies : [];
@@ -442,7 +442,7 @@ function normalizeSong(song){
     // clamped rhythm, so a 4/4 bar switched to 2/4 kept its full 16-unit
     // rhythm). Applies to the just-migrated case AND an already-new-format
     // rhythm synced from a device that hadn't clamped.
-    const total = barUnitsFor(song.timeSig);
+    const total = barUnitsFor(timeSigAtIn(song, i));
     if(total && Array.isArray(it.rhythm)){
       it.rhythm = it.rhythm.filter(m => SYMS[m.sym] && m.at + SYMS[m.sym].units <= total);
       if(!it.rhythm.length) it.rhythm = null;
@@ -621,8 +621,8 @@ function tieShapeSvg(x1, y1, x2, y2, depth, thick){
 // separately flagged notes. Beat-group boundaries come from
 // beatGroupBounds(song.timeSig): quarter groups for /4, dotted-quarter
 // groups for 6/8·9/8·12/8, 2+2+3 for 7/8.
-function groupForBeaming(marks){
-  const bounds = beatGroupBounds(song && song.timeSig);
+function groupForBeaming(marks, meter){
+  const bounds = beatGroupBounds(meter || (song && song.timeSig));
   const lastBound = bounds[bounds.length - 1];
   const groups = [];
   let i = 0;
@@ -721,8 +721,8 @@ function beamGroupSvg(keys, size){
 // bar's own barSlots(song.timeSig)-column chord grid (one column per beat):
 // each chord cell spans a whole beat's worth of rhythm columns, so the two
 // rows stay in sync in every meter.
-function sequenceHtml(marks, size){
-  return groupForBeaming(marks).map(g=>{
+function sequenceHtml(marks, size, meter){
+  return groupForBeaming(marks, meter).map(g=>{
     const html = g.type==='beam' ? beamGroupSvg(g.keys,size) : iconSvg(g.key,size);
     const cls = g.type==='beam' ? 'rhythm-item beam' : 'rhythm-item';
     let inner = html;
@@ -734,7 +734,8 @@ function sequenceHtml(marks, size){
       // are exempt: they always fit within one beat (see groupForBeaming)
       // and already stretch to fill it edge-to-edge. The beat is 4 units in
       // /4 meters, 2 in /8, so center on 50% of one beat's worth of columns.
-      const beatUnits = (song.timeSig && song.timeSig.den === 8) ? 2 : 4;
+      const m = meter || song.timeSig;
+      const beatUnits = (m && m.den === 8) ? 2 : 4;
       const centerPct = Math.min(50, beatUnits * 50 / g.units);
       const w = Math.round(size*VB_W/VB_H);
       inner = '<span style="display:inline-block;margin-left:calc('+centerPct+'% - '+(w/2)+'px)">'+html+'</span>';
@@ -747,9 +748,10 @@ function sequenceHtml(marks, size){
 // denominator note: quarters for /4 (¼/½/¾ sub-beats), eighths for /8
 // (½ sub-beat). With tap-to-place the bar need not be filled, so this is
 // just a running tally of blank space, not a completion gate.
-function remainingLabel(units){
+function remainingLabel(units, meter){
   if(units <= 0) return 'Bar complete';
-  const per = (song && song.timeSig && song.timeSig.den === 8) ? 2 : 4;
+  const m = meter || (song && song.timeSig);
+  const per = (m && m.den === 8) ? 2 : 4;
   const whole = Math.floor(units / per);
   const frac = units % per;
   const fracStr = per === 4
@@ -780,8 +782,9 @@ function tiedToNextBarFor(item){
   if(rhythmBuilding && rhythmBuilding.barId === item.id){
     const marks = rhythmBuilding.marks || [];
     const last = marks[marks.length-1];
+    const meter = timeSigAt(song.items.indexOf(item));
     const fills = last && !SYMS[last.sym].rest
-      && last.at + SYMS[last.sym].units === (barUnitsFor(song.timeSig) || 16);
+      && last.at + SYMS[last.sym].units === (barUnitsFor(meter) || 16);
     return !!fills && (!!rhythmBuilding.tiedToNextBar || !!last.tie);
   }
   return !!item.tiedToNextBar;
@@ -855,14 +858,15 @@ function drawAllTies(slotMap){
   const depth = SIZE*TIE_DEPTH_PER_SIZE, thick = SIZE*TIE_THICK_PER_SIZE;
 
   // Within-bar ties.
-  const barTotal = barUnitsFor(song.timeSig) || 16;
-  song.items.forEach(item=>{
+  song.items.forEach((item, itemIdx)=>{
     if(item.kind!=='chords') return;
     const rh = rhythmForBar(item);
     if(!rh || !rh.length) return;
     const info = slotMap.get(item.id);
     if(!info) return;
-    const groups = groupForBeaming(rh);
+    const meter = timeSigAt(itemIdx);
+    const barTotal = barUnitsFor(meter) || 16;
+    const groups = groupForBeaming(rh, meter);
     for(let i=0; i<rh.length-1; i++){
       if(!rh[i].tie) continue;
       if(SYMS[rh[i].sym].rest || SYMS[rh[i+1].sym].rest) continue;
@@ -900,17 +904,17 @@ function drawAllTies(slotMap){
     const prevLast = prevRh[prevRh.length-1];
     if(SYMS[prevLast.sym].rest) continue;
     // tiedToNextBar only means something if the last mark actually reaches the barline
-    const prevUnits = barUnitsFor(song.timeSig) || 16;
+    const prevUnits = barUnitsFor(timeSigAt(k)) || 16;
     if(prevLast.at + SYMS[prevLast.sym].units !== prevUnits) continue;
     const prevInfo = slotMap.get(prev.id);
     if(!prevInfo) continue;
-    const aPrev = tieAnchorForIndex(groupForBeaming(prevRh), prevRh.length-1, prevInfo.slotEl, SIZE);
+    const aPrev = tieAnchorForIndex(groupForBeaming(prevRh, timeSigAt(k)), prevRh.length-1, prevInfo.slotEl, SIZE);
     if(!aPrev) continue;
 
     const curRh = curIsChordBar ? rhythmForBar(cur) : null;
     const curHasNote = curRh && curRh.length && curRh[0].at === 0 && !SYMS[curRh[0].sym].rest;
     const curInfo = curHasNote ? slotMap.get(cur.id) : null;
-    const aCur = curInfo ? tieAnchorForIndex(groupForBeaming(curRh), 0, curInfo.slotEl, SIZE) : null;
+    const aCur = curInfo ? tieAnchorForIndex(groupForBeaming(curRh, timeSigAt(k+1)), 0, curInfo.slotEl, SIZE) : null;
 
     if(aCur){
       if(prevInfo.rowEl === curInfo.rowEl){
@@ -1038,7 +1042,7 @@ function chordInnerHtml(chord){
   return html;
 }
 
-function renderBarEl(item){
+function renderBarEl(item, meter){
   const div = document.createElement('div');
   div.className='bar';
   div.dataset.id=item.id;
@@ -1055,7 +1059,7 @@ function renderBarEl(item){
     return div;
   }
 
-  const n = barSlots(song.timeSig);
+  const n = barSlots(meter);
   div.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
   const denseCls = (item.chords.length>=4 || n>=5) ? ' dense' : '';
   for(let beatIdx=0; beatIdx<n; beatIdx++){
@@ -1277,7 +1281,7 @@ function renderVoltaRowEl(row, rowStart){
 // each bar's rhythm sentence lined up over its own bar. Collapses to
 // nothing when no bar in the row has one, so it never adds space to
 // rows that don't use it.
-function renderRhythmRowEl(row, slotMap){
+function renderRhythmRowEl(row, rowStart, slotMap){
   const div = document.createElement('div');
   div.className = 'rhythm-row';
   const hasAny = row.some(item=>{ const rh = rhythmForBar(item); return rh && rh.length; });
@@ -1287,20 +1291,22 @@ function renderRhythmRowEl(row, slotMap){
   tsSpacer.className = 'ts-spacer';
   div.appendChild(tsSpacer);
 
-  // One meter per song — compute the rhythm-grid column count once, not per bar.
-  const slotCols = 'repeat(' + (barUnitsFor(song.timeSig) || 16) + ', 1fr)';
+  row.forEach((item, i)=>{
+    const meter = timeSigAt(rowStart + i);
 
-  row.forEach(item=>{
     const gap = document.createElement('div');
     gap.className = 'rhythm-gap';
     div.appendChild(gap);
 
     const slot = document.createElement('div');
     slot.className = 'rhythm-slot';
-    slot.style.gridTemplateColumns = slotCols;
+    // One column per sixteenth-note unit in THIS bar's meter (finer than the
+    // bar's own one-column-per-beat chord grid, so each chord cell lines up
+    // with a whole beat's worth of rhythm columns).
+    slot.style.gridTemplateColumns = 'repeat(' + (barUnitsFor(meter) || 16) + ', 1fr)';
     const rh = rhythmForBar(item);
     if(rh && rh.length){
-      slot.innerHTML = sequenceHtml(rh, 32);
+      slot.innerHTML = sequenceHtml(rh, 32, meter);
     }
     slot.onclick = ()=>openRhythmForBar(item);
     div.appendChild(slot);
@@ -1387,7 +1393,7 @@ function render(){
     }
 
     songBlock.appendChild(renderVoltaRowEl(row, rowStart));
-    songBlock.appendChild(renderRhythmRowEl(row, slotMap));
+    songBlock.appendChild(renderRhythmRowEl(row, rowStart, slotMap));
 
     const barRow = document.createElement('div');
     barRow.className='bar-row';
@@ -1396,7 +1402,7 @@ function render(){
     row.forEach((item, kIdx)=>{
       const edge = (kIdx===0 && rIdx>0) ? 'leading' : 'full';
       barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx, edge));
-      barRow.appendChild(renderBarEl(item));
+      barRow.appendChild(renderBarEl(item, timeSigAt(globalIdx)));
       globalIdx++;
     });
     barRow.appendChild(renderBorderEl(song.borders[globalIdx] || {type:'normal',label:null}, globalIdx, isLastRow ? 'full' : 'trailing'));
