@@ -452,6 +452,49 @@ function normalizeSong(song){
   return song;
 }
 
+// Drop chords past the meter's last cell and rhythm marks past the meter's bar
+// length; re-validate this bar's cross-bar tie flags. Returns {chords, rhythm}
+// = counts removed. This is the per-bar body of the old global setTimeSig loop,
+// extracted so a mid-chart meter change can re-fit exactly its own span.
+function refitBarToMeter(bar, meter){
+  if(bar.kind !== 'chords') return { chords:0, rhythm:0 };
+  const n = barSlots(meter), units = barUnitsFor(meter);
+  let dc = 0, dr = 0;
+  if(bar.chords){
+    const before = bar.chords.length;
+    bar.chords = bar.chords.filter(c => c.beat < n);
+    dc = before - bar.chords.length;
+  }
+  if(Array.isArray(bar.rhythm)){
+    const before = bar.rhythm.length;
+    bar.rhythm = bar.rhythm.filter(m => SYMS[m.sym] && m.at + SYMS[m.sym].units <= units);
+    dr = before - bar.rhythm.length;
+    if(dr || bar.tiedFromPrevBar || bar.tiedToNextBar){
+      if(!bar.rhythm.length) bar.rhythm = null;
+      bar.tiedFromPrevBar = !!bar.tiedFromPrevBar && !!bar.rhythm && bar.rhythm[0].at === 0
+        && !!SYMS[bar.rhythm[0].sym] && !SYMS[bar.rhythm[0].sym].rest;
+      const last = bar.rhythm && bar.rhythm[bar.rhythm.length-1];
+      bar.tiedToNextBar = !!bar.tiedToNextBar && !!last && !!SYMS[last.sym]
+        && !SYMS[last.sym].rest && last.at + SYMS[last.sym].units === units;
+    }
+  }
+  return { chords: dc, rhythm: dr };
+}
+
+// Re-fit song.items[idx] up to (not including) the next border that carries its
+// own timeSig, each bar against its resolved meter. Returns the summed
+// {chords, rhythm} drop totals. Called after a border's timeSig is set/cleared.
+function refitMetersFrom(idx){
+  let chords = 0, rhythm = 0;
+  for(let i = Math.max(0, idx); i < song.items.length; i++){
+    if(i > idx && song.borders[i] && song.borders[i].timeSig) break;
+    const r = refitBarToMeter(song.items[i], timeSigAt(i));
+    chords += r.chords;
+    rhythm += r.rhythm;
+  }
+  return { chords, rhythm };
+}
+
 const REST_GLYPH = { whole:'restWhole', half:'restHalf', quarter:'restQuarter', eighth:'rest8th', sixteenth:'rest16th' };
 const REST_ADV   = { whole:283, half:283, quarter:270, eighth:250, sixteenth:320 };
 const REST_DOT_Y = { whole:-63, half:70, quarter:0, eighth:-38, sixteenth:-160 };
