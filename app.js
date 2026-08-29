@@ -1044,20 +1044,24 @@ function rhythmSelectMark(i){
   rhythmBuilding.selEdit = true;   // tapped an existing mark to edit it -> a note tap now replaces
   renderRhythmSheet();
 }
-function rhythmDelete(){
-  const i = rhythmBuilding.selected;
-  if(i==null) return;
-  const removedAt = rhythmBuilding.marks[i].at;
-  if(i>0) delete rhythmBuilding.marks[i-1].tie;
-  rhythmBuilding.marks.splice(i, 1);
-  rhythmBuilding.selected = null;
-  rhythmBuilding.selEdit = false;
-  rhythmBuilding.cursor = removedAt;
-  // Only clear the cross-bar flag whose boundary mark actually moved: deleting
-  // mark 0 disturbs the tie-in, deleting the last mark disturbs the tie-out.
+// Backspace: remove the mark the user is on — the selected one, or the last
+// mark when nothing is selected — then land on the previous mark, so holding
+// it walks backward through the sentence (like backspace in a text field).
+function rhythmBackspace(){
+  const b = rhythmBuilding;
+  const i = b.selected != null ? b.selected : b.marks.length - 1;
+  if(i < 0) return;
+  const removedAt = b.marks[i].at;
+  if(i > 0) delete b.marks[i-1].tie;   // its forward tie pointed at the mark being removed
+  b.marks.splice(i, 1);
+  // Only clear the cross-bar flag whose boundary mark actually moved: removing
+  // mark 0 disturbs the tie-in, removing the last mark disturbs the tie-out.
   // (rhythmSave / rhythmSeqBoxHtml re-validate both against the predicates.)
-  if(i === 0) rhythmBuilding.tiedFromPrevBar = false;
-  if(i === rhythmBuilding.marks.length) rhythmBuilding.tiedToNextBar = false; // i was the last index before splice
+  if(i === 0) b.tiedFromPrevBar = false;
+  if(i === b.marks.length) b.tiedToNextBar = false;   // i was the last index before splice
+  b.selected = i > 0 ? i - 1 : null;
+  b.selEdit = false;
+  b.cursor = removedAt;
   renderRhythmSheet();
 }
 function closeRhythmSheet(){
@@ -1222,7 +1226,6 @@ function renderRhythmSheet(){
   const label = barLabelHtml(b);
   const tieAvailable = rhythmTieAvailable();
   const hasMarks = rhythmBuilding.marks.length > 0;
-  const canDelete = rhythmBuilding.selected != null;
   showSheet(`
     <div class="sheet-header">
       <div class="sheet-header-title">
@@ -1239,10 +1242,9 @@ function renderRhythmSheet(){
     ${rhythmPaletteHtml()}
     <div class="sheet-actions">
       <button class="neutral compact${rhythmTieActive()?' tie-armed':''}" title="Tie" ${tieAvailable?'':'disabled'} onclick="rhythmToggleTie()">${tieIconSvg(20)}</button>
-      <button class="neutral compact" title="Delete" ${canDelete?'':'disabled'} onclick="rhythmDelete()">${svgIcon('eraser',18)}</button>
-      <button class="neutral compact" title="Undo" ${hasMarks?'':'disabled'} onclick="rhythmUndo()">${svgIcon('undo',18)}</button>
-      <button class="neutral compact" title="Clear" ${hasMarks?'':'disabled'} onclick="rhythmClear()">✕</button>
-      ${b.rhythm ? '<button class="danger compact" title="Remove" onclick="rhythmRemove()">🗑️</button>' : ''}
+      <button class="neutral compact" title="Backspace" ${hasMarks?'':'disabled'} onclick="rhythmBackspace()"><span class="btn-icon">⌫</span></button>
+      <button class="neutral compact" title="Clear bar" ${hasMarks?'':'disabled'} onclick="rhythmClear()">✕</button>
+      ${b.rhythm ? '<button class="danger compact" title="Remove rhythm" onclick="rhythmRemove()">🗑️</button>' : ''}
       <button class="primary compact" title="Done" ${hasMarks?'':'disabled'} onclick="rhythmSave()">Done</button>
     </div>
   `);
@@ -1283,21 +1285,6 @@ function rhythmPick(key){
   b.selected = ins;      // keep the just-placed mark current for Tie/Dot…
   b.selEdit = false;     // …but a further note tap appends, it doesn't replace
   b.cursor = firstBlankUnitFrom(b.cursor + units);
-  renderRhythmSheet();
-}
-function rhythmUndo(){
-  const marks = rhythmBuilding.marks;
-  if(!marks.length) return;
-  const removedAt = marks[marks.length-1].at;   // marks are kept sorted ascending by rhythmPick
-  marks.pop();
-  if(marks.length) delete marks[marks.length-1].tie;
-  rhythmBuilding.selected = null;
-  rhythmBuilding.selEdit = false;
-  rhythmBuilding.cursor = removedAt;
-  // pop() only ever removes the last mark, so only the tie-out is at risk —
-  // unless the bar is now empty, which invalidates the tie-in too.
-  rhythmBuilding.tiedToNextBar = false;
-  if(!marks.length) rhythmBuilding.tiedFromPrevBar = false;
   renderRhythmSheet();
 }
 function rhythmClear(){
